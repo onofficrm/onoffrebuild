@@ -1,0 +1,45 @@
+# macOS
+._*
+.DS_Store
+__MACOSX/
+
+# DB·민감 설정 (서버에서만 관리)
+data/dbconfig.php
+data/dbconfig.local.php
+data/icrm.config.php
+data/onoff_private_keys.php
+
+# 런타임·업로드
+data/cache/
+data/session/
+data/file/
+data/log/
+data/tmp/
+cache/
+session/
+tmp/
+
+# 빌더 임시 입력
+_BUILDER_INPUT/
+
+# 빌더 소스 로컬 산출물
+build/**/node_modules/
+build/**/dist/
+build/**/*.zip
+build/*.zip
+
+# Node·환경
+node_modules/
+.env
+.env.*
+.env.local
+
+# IDE / 로그
+.idea/
+.vscode/
+*.swp
+*.swo
+*.log
+
+# 대용량 패키지 아카이브
+plugin/auto_comment/packages/
