@@ -19,7 +19,9 @@ $eyebrow = ($bo_table === 'faq') ? 'FAQ' : ($is_youtube ? 'YOUTUBE' : 'NOTICE');
 
 <article class="ob-board" id="bo_v">
     <div class="ob-board__hero">
-        <a class="ob-board__brand" href="<?php echo G5_URL; ?>/">ON/OFF Marketing</a>
+        <a class="ob-board__brand" href="<?php echo G5_URL; ?>/">
+            <img src="<?php echo G5_URL; ?>/img/logo/logo-white.png" alt="온오프마케팅" width="140" height="46">
+        </a>
         <span class="ob-board__eyebrow"><?php echo $eyebrow; ?></span>
         <h1 class="ob-board__title"><?php echo get_text($board['bo_subject']); ?></h1>
         <p class="ob-board__desc">글 상세 보기</p>

@@ -63,14 +63,17 @@
 .ob-board__brand {
   display: inline-block;
   margin-bottom: 0.85rem;
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: #fff !important;
-  opacity: 0.92;
+  line-height: 0;
+  opacity: 0.95;
 }
 
-.ob-board__brand:hover { opacity: 1; color: #bfdbfe !important; }
+.ob-board__brand img {
+  display: block;
+  height: 36px;
+  width: auto;
+}
+
+.ob-board__brand:hover { opacity: 1; }
 
 .ob-board__tabs {
   display: flex;

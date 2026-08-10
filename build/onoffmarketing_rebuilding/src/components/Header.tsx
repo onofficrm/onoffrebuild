@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Menu, X, ChevronDown, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppNavLink } from '../lib/navLink';
+import logoImg from '../assets/logo.png';
 
 export interface SubMenuItem {
   name: string;
@@ -98,13 +99,14 @@ export default function Header() {
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/95 backdrop-blur-md shadow-md py-3.5' : 'bg-white/90 backdrop-blur-sm py-4.5 border-b border-slate-100'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
         {/* Logo */}
-        <Link to="/" className="flex items-center space-x-1.5 group">
-          <span className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-900 group-hover:text-blue-900 transition-colors">
-            <span className="text-blue-900">ON</span>/OFF
-          </span>
-          <span className="text-[10px] font-extrabold bg-blue-100 text-blue-900 px-2 py-0.5 rounded-full uppercase tracking-wider">
-            Marketing
-          </span>
+        <Link to="/" className="flex items-center shrink-0 group" aria-label="온오프마케팅 홈">
+          <img
+            src={logoImg}
+            alt="온오프마케팅 ONOFF MARKETING"
+            className="h-9 sm:h-10 w-auto object-contain transition-opacity group-hover:opacity-80"
+            width={182}
+            height={54}
+          />
         </Link>
         
         {/* Desktop Nav */}

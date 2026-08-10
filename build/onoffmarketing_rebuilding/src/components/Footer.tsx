@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import logoWhite from '../assets/logo-white.png';
 
 export default function Footer() {
   return (
@@ -6,8 +7,14 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-16">
           <div className="col-span-2">
-            <Link to="/" className="inline-block text-2xl font-bold text-white tracking-tighter mb-4">
-              <span className="text-blue-500">ON</span>/OFF
+            <Link to="/" className="inline-block mb-4 group" aria-label="온오프마케팅 홈">
+              <img
+                src={logoWhite}
+                alt="온오프마케팅 ONOFF MARKETING"
+                className="h-10 w-auto object-contain transition-opacity group-hover:opacity-80"
+                width={210}
+                height={70}
+              />
             </Link>
             <p className="mb-6 leading-relaxed bg-clip-text">
               SEO와 AEO 구조 설계가 포함된 홈페이지 제작부터 <br />

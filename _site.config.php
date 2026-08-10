@@ -19,7 +19,8 @@ $site_config = array(
     'address'             => '주소를 입력하세요',
     'primary_color'       => '#2563eb',
     'secondary_color'     => '#64748b',
-    'logo_path'           => '/img/logo/logo.svg',
+    'logo_path'           => '/img/logo/logo.png',
+    'logo_white_path'     => '/img/logo/logo-white.png',
     'og_image'            => '/img/common/og-image.jpg',
     /* 파비콘 — /data/seo/favicon (3boon 동일 경로 패턴) */
     'favicon_path'        => '/data/seo/favicon',
