@@ -21,6 +21,8 @@ $site_config = array(
     'secondary_color'     => '#64748b',
     'logo_path'           => '/img/logo/logo.svg',
     'og_image'            => '/img/common/og-image.jpg',
+    /* 파비콘 — /data/seo/favicon (3boon 동일 경로 패턴) */
+    'favicon_path'        => '/data/seo/favicon',
     /* SEO (components/seo-meta.php) */
     'seo_title'           => '',
     'seo_description'     => '',

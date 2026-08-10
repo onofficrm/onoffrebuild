@@ -198,6 +198,26 @@ if (!function_exists('g5b_seo_build_meta_html')) {
 
         $lines = array();
 
+        $favicon = '';
+        if (function_exists('g5site_cfg')) {
+            $favicon = trim((string) g5site_cfg('favicon_path', ''));
+        }
+        if ($favicon === '') {
+            $favicon = '/data/seo/favicon';
+        }
+        if ($favicon !== '') {
+            if (preg_match('#^https?://#i', $favicon)) {
+                $favicon_href = $favicon;
+            } else {
+                $favicon_file = (defined('G5_PATH') ? G5_PATH : '') . $favicon;
+                $ver = is_file($favicon_file) ? (string) filemtime($favicon_file) : G5_CSS_VER;
+                $base = defined('G5_URL') ? G5_URL : '';
+                $favicon_href = $base . $favicon . (strpos($favicon, '?') === false ? ('?ver=' . $ver) : '');
+            }
+            $lines[] = '<link rel="shortcut icon" href="' . g5b_seo_escape($favicon_href) . '" type="image/x-icon">';
+            $lines[] = '<link rel="icon" href="' . g5b_seo_escape($favicon_href) . '" type="image/x-icon">';
+        }
+
         if ($data['description'] !== '') {
             $lines[] = '<meta name="description" content="' . g5b_seo_escape($data['description']) . '">';
         }

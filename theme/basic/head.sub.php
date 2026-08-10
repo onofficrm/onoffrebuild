@@ -50,6 +50,18 @@ if($config['cf_add_meta'])
 ?>
 <title><?php echo $g5_head_title; ?></title>
 <?php
+$ob_favicon = function_exists('g5site_cfg') ? trim((string) g5site_cfg('favicon_path', '/data/seo/favicon')) : '/data/seo/favicon';
+if ($ob_favicon !== '') {
+    if (!preg_match('#^https?://#i', $ob_favicon)) {
+        $ob_favicon_file = G5_PATH . $ob_favicon;
+        $ob_favicon_ver = is_file($ob_favicon_file) ? (string) filemtime($ob_favicon_file) : G5_CSS_VER;
+        $ob_favicon_href = G5_URL . $ob_favicon . (strpos($ob_favicon, '?') === false ? ('?ver=' . $ob_favicon_ver) : '');
+    } else {
+        $ob_favicon_href = $ob_favicon;
+    }
+    echo '<link rel="shortcut icon" href="' . htmlspecialchars($ob_favicon_href, ENT_QUOTES, 'UTF-8') . '" type="image/x-icon">' . PHP_EOL;
+    echo '<link rel="icon" href="' . htmlspecialchars($ob_favicon_href, ENT_QUOTES, 'UTF-8') . '" type="image/x-icon">' . PHP_EOL;
+}
 $shop_css = '';
 if (defined('_SHOP_')) $shop_css = '_shop';
 echo '<link rel="stylesheet" href="'.run_replace('head_css_url', G5_THEME_CSS_URL.'/'.(G5_IS_MOBILE?'mobile':'default').$shop_css.'.css?ver='.G5_CSS_VER, G5_THEME_URL).'">'.PHP_EOL;
