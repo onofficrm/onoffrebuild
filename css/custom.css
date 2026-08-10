@@ -1876,7 +1876,31 @@ html.page-sub #container_title {
   display: none;
 }
 
-/* 구형 float 레이아웃 잔여 보정 */
+/* 구형 float 레이아웃 잔여 보정 — 게시판 스킨 사용 시 즉시 풀폭 */
+#wrapper:has(.ob-board) #aside,
+#wrapper:has(.ob-board) .site-aside {
+  display: none !important;
+}
+#wrapper:has(.ob-board) #container_wr {
+  display: block;
+  float: none;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+  width: auto;
+}
+#wrapper:has(.ob-board) #container {
+  float: none !important;
+  width: 100% !important;
+  max-width: none;
+  margin: 0;
+  min-height: 0;
+  height: auto !important;
+}
+#wrapper:has(.ob-board) #container_title {
+  display: none;
+}
+
 html.page-sub #aside {
   display: none !important;
 }

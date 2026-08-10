@@ -413,12 +413,29 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 1rem;
+  margin: 0 0 1rem;
   list-style: none;
   padding: 0;
 }
+.ob-cate ul,
+.ob-cate #bo_cate_ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  width: 100%;
+}
+.ob-cate li {
+  margin: 0;
+  padding: 0;
+  float: none !important;
+  width: auto !important;
+}
 .ob-cate a {
   display: inline-flex;
+  align-items: center;
   padding: 0.45rem 0.85rem;
   border-radius: 999px;
   border: 1px solid var(--ob-line);
@@ -428,7 +445,16 @@
   color: var(--ob-muted);
 }
 .ob-cate .active a,
-.ob-cate a:hover { background: var(--ob-accent); border-color: var(--ob-accent); color: #fff; }
+.ob-cate #bo_cate_on,
+.ob-cate a:hover { background: var(--ob-accent); border-color: var(--ob-accent); color: #fff !important; }
+
+/* FAQ 본문 이미지 */
+.ob-faq__a img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin: 0.75rem 0;
+}
 
 @media (max-width: 768px) {
   .ob-board { padding: 1.25rem 0.85rem 3rem; }

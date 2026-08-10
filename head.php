@@ -27,6 +27,11 @@ if (is_file(G5_PATH.'/components/seo-meta.php')) {
 
 include_once(G5_PATH.'/head.sub.php');
 
+// 서브페이지 레이아웃 클래스를 즉시 적용 (JS 지연으로 사이드바/좁은폭이 보이는 문제 방지)
+if (!defined('_INDEX_') && !defined('G5_IS_ADMIN')) {
+    echo '<script>document.documentElement.classList.add("page-sub");</script>'.PHP_EOL;
+}
+
 // 방문 추적 (head) — ID 없으면 출력 없음
 if (is_file(G5_PATH.'/components/tracking-head.php')) {
     ob_start();

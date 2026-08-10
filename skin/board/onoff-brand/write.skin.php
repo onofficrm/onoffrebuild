@@ -3,7 +3,7 @@ if (!defined('_GNUBOARD_')) {
     exit;
 }
 
-add_stylesheet('<link rel="stylesheet" href="' . $board_skin_url . '/style.css?v=1">', 0);
+add_stylesheet('<link rel="stylesheet" href="' . $board_skin_url . '/style.css?v=2">', 0);
 
 $is_youtube = ($bo_table === 'youtube');
 $is_edit = ($w === 'u');

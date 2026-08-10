@@ -16,18 +16,18 @@ if (!isset($site_config) && is_file(G5_PATH.'/_site.config.php')) {
 }
 
 // 푸터·하단 버튼 — _site.config.php 우선, 없으면 기본값
-$g5_footer_tel_display = function_exists('g5site_cfg') ? g5site_cfg('phone', '02-123-4567') : '02-123-4567';
-$g5_footer_tel_link    = function_exists('g5site_tel_link') ? g5site_tel_link($g5_footer_tel_display) : 'tel:021234567';
-$g5_footer_kakao_url   = function_exists('g5site_cfg') ? g5site_cfg('kakao_url', 'https://pf.kakao.com/_xxxxx') : 'https://pf.kakao.com/_xxxxx';
-$g5_footer_company     = function_exists('g5site_cfg') ? g5site_cfg('company_name', '회사명') : '회사명';
-$g5_footer_ceo         = function_exists('g5site_cfg') ? g5site_cfg('ceo_name', '대표자명') : '대표자명';
-$g5_footer_intro       = function_exists('g5site_cfg') ? g5site_cfg('footer_desc', '고객과 함께 성장하는 든든한 파트너입니다.') : '고객과 함께 성장하는 든든한 파트너입니다.';
-$g5_footer_biz_no      = function_exists('g5site_cfg') ? g5site_cfg('business_no', '123-45-67890') : '123-45-67890';
-$g5_footer_sales_no    = function_exists('g5site_cfg') ? g5site_cfg('sales_no', '제 OO구 - 123호') : '제 OO구 - 123호';
-$g5_footer_privacy     = function_exists('g5site_cfg') ? g5site_cfg('privacy_manager', '정보책임자명') : '정보책임자명';
-$g5_footer_email       = function_exists('g5site_cfg') ? g5site_cfg('email', 'info@example.com') : 'info@example.com';
-$g5_footer_address     = function_exists('g5site_cfg') ? g5site_cfg('address', 'OO도 OO시 OO구 OO동 123-45') : 'OO도 OO시 OO구 OO동 123-45';
-$g5_footer_fax         = function_exists('g5site_cfg') ? g5site_cfg('fax', '02-123-4568') : '02-123-4568';
+$g5_footer_tel_display = function_exists('g5site_cfg') ? g5site_cfg('phone', '0503-6982-1200') : '0503-6982-1200';
+$g5_footer_tel_link    = function_exists('g5site_tel_link') ? g5site_tel_link($g5_footer_tel_display) : 'tel:050369821200';
+$g5_footer_kakao_url   = function_exists('g5site_cfg') ? g5site_cfg('kakao_url', '') : '';
+$g5_footer_company     = function_exists('g5site_cfg') ? g5site_cfg('company_name', '온오프마케팅') : '온오프마케팅';
+$g5_footer_ceo         = function_exists('g5site_cfg') ? g5site_cfg('ceo_name', '김에리사') : '김에리사';
+$g5_footer_intro       = function_exists('g5site_cfg') ? g5site_cfg('footer_desc', '') : '';
+$g5_footer_biz_no      = function_exists('g5site_cfg') ? g5site_cfg('business_no', '554-08-02817') : '554-08-02817';
+$g5_footer_sales_no    = function_exists('g5site_cfg') ? trim(g5site_cfg('sales_no', '')) : '';
+$g5_footer_privacy     = function_exists('g5site_cfg') ? trim(g5site_cfg('privacy_manager', '')) : '';
+$g5_footer_email       = function_exists('g5site_cfg') ? g5site_cfg('email', 'jong8040@gmail.com') : 'jong8040@gmail.com';
+$g5_footer_address     = function_exists('g5site_cfg') ? g5site_cfg('address', '서울특별시 서초구 강남대로 479, 185호') : '서울특별시 서초구 강남대로 479, 185호';
+$g5_footer_fax         = function_exists('g5site_cfg') ? trim(g5site_cfg('fax', '')) : '';
 
 if (!isset($g5_inquiry_url)) {
     $g5_inquiry_url = G5_URL.'/#/consult';
