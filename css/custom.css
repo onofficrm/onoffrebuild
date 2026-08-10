@@ -1841,7 +1841,9 @@
    그누보드 위젯 — 메인에서 숨김 (기능 호출은 tail.php 유지)
    ========================================================================== */
 html.page-index .site-aside,
-html.page-index .site-g5-widgets--tail {
+html.page-index .site-g5-widgets--tail,
+html.page-sub .site-aside,
+html.page-sub .site-g5-widgets--tail {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1853,24 +1855,30 @@ html.page-index .site-g5-widgets--tail {
   border: 0;
 }
 
-html.page-sub .site-aside {
-  display: block;
-}
-
 html.page-sub #container_wr {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xl);
+  display: block;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
 }
 
 html.page-sub #container {
-  flex: 1;
-  min-width: 0;
+  float: none;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  min-height: 0;
+  height: auto !important;
 }
 
-html.page-sub .site-aside {
-  flex: 0 0 260px;
-  max-width: 100%;
+/* 게시판 스킨이 자체 히어로를 쓰므로 중복 타이틀 숨김 */
+html.page-sub #container_title {
+  display: none;
+}
+
+/* 구형 float 레이아웃 잔여 보정 */
+html.page-sub #aside {
+  display: none !important;
 }
 
 /* 메인/서브 표시 제어 */
@@ -1918,6 +1926,18 @@ html.page-index .is-sub-only {
 
 .site-footer__brand {
   grid-column: 1 / -1;
+}
+
+.site-footer__logo-link {
+  display: inline-block;
+  margin-bottom: var(--space-sm);
+  line-height: 0;
+}
+
+.site-footer__logo {
+  display: block;
+  height: 40px;
+  width: auto;
 }
 
 .site-footer__company {

@@ -90,9 +90,9 @@ if ($g5_site_title === '') {
     $g5_site_title = get_text($config['cf_title']);
 }
 
-// 상담문의 URL (메인: contact 섹션 / 그 외: Q&A)
-$g5_inquiry_url = defined('_INDEX_') ? G5_URL.'/#section-contact' : G5_BBS_URL.'/qalist.php';
-$g5_consult_label = function_exists('g5site_cfg') ? g5site_cfg('consultation_text', '상담문의') : '상담문의';
+// 상담문의 URL (SPA 상담 페이지)
+$g5_inquiry_url = G5_URL.'/#/consult';
+$g5_consult_label = function_exists('g5site_cfg') ? g5site_cfg('consultation_text', '무료 상담') : '무료 상담';
 
 // site_config 브랜드 색 → :root (hex만 허용)
 $g5_css_brand = '';
@@ -107,12 +107,64 @@ if (function_exists('g5site_cfg')) {
     }
 }
 
-// 메뉴 (PC / 모바일)
-$menu_datas_pc = get_menu_db(0, true);
-$menu_datas_mo = get_menu_db(1, true);
-if (!is_array($menu_datas_mo) || !count($menu_datas_mo)) {
-    $menu_datas_mo = $menu_datas_pc;
-}
+// SPA와 동일한 메뉴 구조 (해시 라우트 + 게시판 pretty URL)
+$menu_datas_pc = array(
+    array(
+        'me_name' => '회사소개',
+        'me_link' => G5_URL.'/#/company',
+        'me_target' => 'self',
+        'sub' => array(),
+    ),
+    array(
+        'me_name' => '홈페이지제작',
+        'me_link' => G5_URL.'/#/request',
+        'me_target' => 'self',
+        'sub' => array(
+            array('me_name' => '제작 의뢰', 'me_link' => G5_URL.'/#/request', 'me_target' => 'self'),
+            array('me_name' => '직접 만들기', 'me_link' => G5_URL.'/#/diy', 'me_target' => 'self'),
+            array('me_name' => '요금 안내', 'me_link' => G5_URL.'/#/pricing', 'me_target' => 'self'),
+            array('me_name' => '제작 사례', 'me_link' => G5_URL.'/#/portfolio', 'me_target' => 'self'),
+        ),
+    ),
+    array(
+        'me_name' => '서비스',
+        'me_link' => G5_URL.'/#/traffic',
+        'me_target' => 'self',
+        'sub' => array(
+            array('me_name' => '트래픽', 'me_link' => G5_URL.'/#/traffic', 'me_target' => 'self'),
+            array('me_name' => '블로그포스팅', 'me_link' => G5_URL.'/#/blog', 'me_target' => 'self'),
+            array('me_name' => '카페포스팅', 'me_link' => G5_URL.'/#/cafe', 'me_target' => 'self'),
+            array('me_name' => 'SEO/AEO', 'me_link' => G5_URL.'/#/seo-aeo', 'me_target' => 'self'),
+        ),
+    ),
+    array(
+        'me_name' => '플랫폼',
+        'me_link' => G5_URL.'/#/platform',
+        'me_target' => 'self',
+        'sub' => array(
+            array('me_name' => '마케팅자동화(iCRM)', 'me_link' => G5_URL.'/#/platform', 'me_target' => 'self'),
+            array('me_name' => '온오프CPA', 'me_link' => G5_URL.'/#/onoffcpa', 'me_target' => 'self'),
+        ),
+    ),
+    array(
+        'me_name' => '무료온라인강의',
+        'me_link' => G5_URL.'/#/free-courses',
+        'me_target' => 'self',
+        'sub' => array(),
+    ),
+    array(
+        'me_name' => '커뮤니티',
+        'me_link' => G5_URL.'/#/community',
+        'me_target' => 'self',
+        'sub' => array(
+            array('me_name' => '공지사항', 'me_link' => G5_URL.'/notice', 'me_target' => 'self'),
+            array('me_name' => '자주묻는질문', 'me_link' => G5_URL.'/faq', 'me_target' => 'self'),
+            array('me_name' => '유튜브게시판', 'me_link' => G5_URL.'/youtube', 'me_target' => 'self'),
+            array('me_name' => '커뮤니티 홈', 'me_link' => G5_URL.'/#/community', 'me_target' => 'self'),
+        ),
+    ),
+);
+$menu_datas_mo = $menu_datas_pc;
 ?>
 
 <!-- 상단 시작 { -->
@@ -267,12 +319,10 @@ if (!is_array($menu_datas_mo) || !count($menu_datas_mo)) {
                 <?php } ?>
             </ul>
             <ul class="site-header__mobile-utils">
-                <li><a href="<?php echo G5_BBS_URL; ?>/faq.php">FAQ</a></li>
-                <li><a href="<?php echo G5_BBS_URL; ?>/qalist.php">Q&amp;A</a></li>
-                <li><a href="<?php echo G5_BBS_URL; ?>/new.php">새글</a></li>
-                <?php if (defined('G5_USE_SHOP') && G5_USE_SHOP) { ?>
-                <li><a href="<?php echo G5_SHOP_URL; ?>">쇼핑몰</a></li>
-                <?php } ?>
+                <li><a href="<?php echo G5_URL; ?>/notice">공지사항</a></li>
+                <li><a href="<?php echo G5_URL; ?>/faq">자주묻는질문</a></li>
+                <li><a href="<?php echo G5_URL; ?>/youtube">유튜브게시판</a></li>
+                <li><a href="<?php echo G5_URL; ?>/#/community">커뮤니티 홈</a></li>
             </ul>
             <div class="site-header__mobile-account">
                 <?php if ($is_member) { ?>

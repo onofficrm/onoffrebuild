@@ -30,16 +30,15 @@ $g5_footer_address     = function_exists('g5site_cfg') ? g5site_cfg('address', '
 $g5_footer_fax         = function_exists('g5site_cfg') ? g5site_cfg('fax', '02-123-4568') : '02-123-4568';
 
 if (!isset($g5_inquiry_url)) {
-    $g5_inquiry_url = defined('_INDEX_') ? G5_URL.'/#section-contact' : G5_BBS_URL.'/qalist.php';
+    $g5_inquiry_url = G5_URL.'/#/consult';
 }
 $g5_is_index_page = defined('_INDEX_');
 ?>
 
     </div>
-    <div id="aside" class="site-aside">
+    <div id="aside" class="site-aside" hidden aria-hidden="true">
         <div class="site-g5-widgets site-g5-widgets--aside">
-            <?php echo outlogin(function_exists('onoff_platform_outlogin_skin_for_page') ? onoff_platform_outlogin_skin_for_page('basic') : 'basic'); ?>
-            <?php echo poll(); ?>
+            <?php /* 서브페이지 사이드바는 SPA 톤앤매너에 맞게 비노출 */ ?>
         </div>
     </div>
 </div>
@@ -57,15 +56,27 @@ $g5_is_index_page = defined('_INDEX_');
 
 <!-- 하단 시작 { -->
 <div id="ft" class="site-footer-wrap">
-    <div class="site-g5-widgets site-g5-widgets--tail">
-        <?php echo latest('notice', 'notice', 4, 13); ?>
-        <?php echo visit(); ?>
-    </div>
+    <div class="site-g5-widgets site-g5-widgets--tail" hidden aria-hidden="true"></div>
 
     <footer id="siteFooter" class="site-footer">
         <div class="site-footer__inner">
             <div class="site-footer__brand">
+                <?php
+                $g5_footer_logo = '';
+                if (function_exists('g5site_cfg')) {
+                    $g5_footer_logo_rel = g5site_cfg('logo_white_path', '/img/logo/logo-white.png');
+                    if ($g5_footer_logo_rel !== '' && is_file(G5_PATH . $g5_footer_logo_rel)) {
+                        $g5_footer_logo = G5_URL . $g5_footer_logo_rel;
+                    }
+                }
+                ?>
+                <?php if ($g5_footer_logo) { ?>
+                <a href="<?php echo G5_URL; ?>/" class="site-footer__logo-link">
+                    <img src="<?php echo $g5_footer_logo; ?>" alt="<?php echo get_text($g5_footer_company); ?>" class="site-footer__logo" width="160" height="53">
+                </a>
+                <?php } else { ?>
                 <h2 class="site-footer__company"><?php echo get_text($g5_footer_company); ?></h2>
+                <?php } ?>
                 <p class="site-footer__intro"><?php echo get_text($g5_footer_intro); ?></p>
             </div>
 
@@ -112,11 +123,11 @@ $g5_is_index_page = defined('_INDEX_');
 
             <nav class="site-footer__nav" aria-label="푸터 메뉴">
                 <ul class="site-footer__menu">
-                    <li><a href="<?php echo get_pretty_url('content', 'company'); ?>">회사소개</a></li>
-                    <li><a href="<?php echo G5_URL; ?>/page/privacy.php">개인정보처리방침</a></li>
-                    <li><a href="<?php echo get_pretty_url('content', 'provision'); ?>">서비스이용약관</a></li>
-                    <li><a href="<?php echo G5_BBS_URL; ?>/faq.php">FAQ</a></li>
-                    <li><a href="<?php echo get_device_change_url(); ?>">모바일버전</a></li>
+                    <li><a href="<?php echo G5_URL; ?>/#/company">회사소개</a></li>
+                    <li><a href="<?php echo G5_URL; ?>/notice">공지사항</a></li>
+                    <li><a href="<?php echo G5_URL; ?>/faq">자주묻는질문</a></li>
+                    <li><a href="<?php echo G5_URL; ?>/youtube">유튜브게시판</a></li>
+                    <li><a href="<?php echo G5_URL; ?>/#/consult">무료 상담</a></li>
                 </ul>
             </nav>
 
