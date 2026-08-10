@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Menu, X, ChevronDown, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { AppNavLink } from '../lib/navLink';
 
 export interface SubMenuItem {
   name: string;
@@ -72,10 +73,10 @@ const menuData: MenuItem[] = [
     title: '커뮤니티', 
     path: '/community', 
     items: [
-      { name: '공지사항', path: '/community', desc: '온오프마케팅 주요 소식 및 시스템 업데이트' },
-      { name: '자주묻는질문', path: '/community', desc: '서비스 이용 시 자주 묻는 질문 및 답변' },
-      { name: '유튜브게시판', path: '/community', desc: '실전 마케팅 영상 가이드 및 노하우 칼럼' },
-      { name: '성공사례 / 칼럼', path: '/community', desc: '업종별 성과 사례 및 마케팅 인사이트' }
+      { name: '공지사항', path: '/notice', desc: '온오프마케팅 주요 소식 및 시스템 업데이트' },
+      { name: '자주묻는질문', path: '/faq', desc: '서비스 이용 시 자주 묻는 질문 및 답변' },
+      { name: '유튜브게시판', path: '/youtube', desc: '실전 마케팅 영상 가이드 및 노하우 칼럼' },
+      { name: '커뮤니티 홈', path: '/community', desc: '공지·FAQ·영상 한눈에 보기' }
     ] 
   },
 ];
@@ -126,7 +127,7 @@ export default function Header() {
                   <div className="bg-white border border-slate-100 shadow-2xl rounded-2xl p-2.5 backdrop-blur-xl">
                     <div className="space-y-1">
                       {menu.items.map((item) => (
-                        <Link 
+                        <AppNavLink 
                           key={item.name} 
                           to={item.path} 
                           className="group/item block p-2.5 rounded-xl hover:bg-slate-50 transition-colors"
@@ -146,7 +147,7 @@ export default function Header() {
                               {item.desc}
                             </p>
                           )}
-                        </Link>
+                        </AppNavLink>
                       ))}
                     </div>
                   </div>
@@ -203,7 +204,7 @@ export default function Header() {
                 {menu.items.length > 0 && activeMobileMenu === menu.title && (
                   <div className="ml-3 pl-3 border-l-2 border-blue-100 py-2 space-y-2">
                     {menu.items.map((item) => (
-                      <Link 
+                      <AppNavLink 
                         key={item.name} 
                         to={item.path} 
                         onClick={() => setIsMobileMenuOpen(false)} 
@@ -214,7 +215,7 @@ export default function Header() {
                           {item.badge && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1 py-0.2 rounded">{item.badge}</span>}
                         </div>
                         {item.desc && <p className="text-[11px] text-slate-500 font-medium mt-0.5">{item.desc}</p>}
-                      </Link>
+                      </AppNavLink>
                     ))}
                   </div>
                 )}

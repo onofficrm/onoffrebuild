@@ -1,0 +1,35 @@
+# onoffmarketing rewrite
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  RewriteRule ^robots\.txt$ /robots.php [L]
+  RewriteRule ^sitemap\.xml$ /sitemap.php [L]
+
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Community boards (pretty URLs)
+  RewriteRule ^notice/?$ /bbs/board.php?bo_table=notice&rewrite=1 [QSA,L]
+  RewriteRule ^notice/write$ /bbs/write.php?bo_table=notice&rewrite=1 [QSA,L]
+  RewriteRule ^notice/([0-9]+)$ /bbs/board.php?bo_table=notice&wr_id=$1&rewrite=1 [QSA,L]
+
+  RewriteRule ^faq/?$ /bbs/board.php?bo_table=faq&rewrite=1 [QSA,L]
+  RewriteRule ^faq/write$ /bbs/write.php?bo_table=faq&rewrite=1 [QSA,L]
+  RewriteRule ^faq/([0-9]+)$ /bbs/board.php?bo_table=faq&wr_id=$1&rewrite=1 [QSA,L]
+
+  RewriteRule ^youtube/?$ /bbs/board.php?bo_table=youtube&rewrite=1 [QSA,L]
+  RewriteRule ^youtube/write$ /bbs/write.php?bo_table=youtube&rewrite=1 [QSA,L]
+  RewriteRule ^youtube/([0-9]+)$ /bbs/board.php?bo_table=youtube&wr_id=$1&rewrite=1 [QSA,L]
+
+  #### GNUBOARD5 rewrite BEGIN #####
+  RewriteRule ^content/([0-9a-zA-Z_]+)$ bbs/content.php?co_id=$1&rewrite=1 [QSA,L]
+  RewriteRule ^content/([^/]+)/$ bbs/content.php?co_seo_title=$1&rewrite=1 [QSA,L]
+  RewriteRule ^rss/([0-9a-zA-Z_]+)$ bbs/rss.php?bo_table=$1 [QSA,L]
+  RewriteRule ^([0-9a-zA-Z_]+)$ bbs/board.php?bo_table=$1&rewrite=1 [QSA,L]
+  RewriteRule ^([0-9a-zA-Z_]+)/([^/]+)/$ bbs/board.php?bo_table=$1&wr_seo_title=$2&rewrite=1 [QSA,L]
+  RewriteRule ^([0-9a-zA-Z_]+)/write$ bbs/write.php?bo_table=$1&rewrite=1 [QSA,L]
+  RewriteRule ^([0-9a-zA-Z_]+)/([0-9]+)$ bbs/board.php?bo_table=$1&wr_id=$2&rewrite=1 [QSA,L]
+  #### GNUBOARD5 rewrite END #####
+</IfModule>

@@ -44,11 +44,13 @@ export default function Footer() {
           </div>
 
           <div className="col-span-2 md:col-span-1">
-            <h4 className="text-white font-bold mb-4">외부 채널</h4>
+            <h4 className="text-white font-bold mb-4">커뮤니티</h4>
             <ul className="space-y-3">
-              <li><a href="#" className="hover:text-white transition-colors font-medium text-blue-400">무료온라인강의 바로가기</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">유튜브 채널 바로가기</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">자주묻는질문</a></li>
+              <li><a href="/notice" className="hover:text-white transition-colors">공지사항</a></li>
+              <li><a href="/faq" className="hover:text-white transition-colors">자주묻는질문</a></li>
+              <li><a href="/youtube" className="hover:text-white transition-colors">유튜브게시판</a></li>
+              <li><Link to="/community" className="hover:text-white transition-colors font-medium text-blue-400">커뮤니티 홈</Link></li>
+              <li><Link to="/free-courses" className="hover:text-white transition-colors">무료온라인강의</Link></li>
             </ul>
           </div>
         </div>
