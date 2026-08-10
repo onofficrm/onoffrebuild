@@ -83,11 +83,9 @@ $desc = isset($desc_map[$bo_table]) ? $desc_map[$bo_table] : get_text($board['bo
                     </button>
                     <div class="ob-faq__a">
                         <?php echo conv_content($item['wr_content'], 1); ?>
-                        <?php if ($update_href || $is_admin) { ?>
                         <p style="margin-top:0.85rem">
                             <a class="ob-btn" href="<?php echo $item['href']; ?>">자세히 보기</a>
                         </p>
-                        <?php } ?>
                     </div>
                 </div>
                 <?php } ?>
