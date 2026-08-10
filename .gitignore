@@ -9,15 +9,15 @@ data/dbconfig.local.php
 data/icrm.config.php
 data/onoff_private_keys.php
 
-# 런타임·업로드
-data/cache/
-data/session/
-data/file/
-data/log/
-data/tmp/
-cache/
-session/
-tmp/
+# 런타임·업로드 (루트만 — lib/Cache 등 대소문자 경로와 충돌 방지)
+/data/cache/
+/data/session/
+/data/file/
+/data/log/
+/data/tmp/
+/cache/
+/session/
+/tmp/
 
 # 빌더 임시 입력
 _BUILDER_INPUT/

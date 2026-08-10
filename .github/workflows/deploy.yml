@@ -41,7 +41,15 @@ jobs:
             **/_backup_transfer_*/
             _BUILDER_INPUT/**
             build/**
-            data/**
+            data/dbconfig.php
+            data/dbconfig.local.php
+            data/icrm.config.php
+            data/onoff_private_keys.php
+            data/cache/**
+            data/session/**
+            data/file/**
+            data/log/**
+            data/tmp/**
             cache/**
             session/**
             tmp/**
