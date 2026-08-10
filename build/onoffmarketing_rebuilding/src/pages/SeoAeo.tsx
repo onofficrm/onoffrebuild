@@ -44,6 +44,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { submitConsultNotify } from '../lib/submitConsult';
 
 export default function SeoAeo() {
   const [selectedAuditTab, setSelectedAuditTab] = useState<'all' | 'technical' | 'content' | 'aeo'>('all');
@@ -80,9 +81,12 @@ export default function SeoAeo() {
     website: '',
     keyword: '',
     concern: '',
-    message: ''
+    message: '',
+    privacyAgree: false,
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     document.title = "SEO·AEO 컨설팅 | 구글·네이버·AI 검색 최적화 | 온오프마케팅";
@@ -93,14 +97,36 @@ export default function SeoAeo() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.phone) {
       alert('성함과 연락처를 입력해주시기 바랍니다.');
       return;
     }
-    // Simulation / Decoupled handler ready for Gnuboard / API endpoint
-    setIsSubmitted(true);
+    if (isSubmitting) return;
+    setSubmitError('');
+    setIsSubmitting(true);
+    try {
+      const result = await submitConsultNotify({
+        name: formData.name,
+        phone: formData.phone,
+        website: formData.website,
+        keyword: formData.keyword,
+        concern: formData.concern,
+        message: formData.message,
+        formType: 'seo-aeo-diagnosis',
+        privacyAgree: formData.privacyAgree,
+      });
+      if (!result.success) {
+        setSubmitError(result.message);
+        return;
+      }
+      setIsSubmitted(true);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : '접수 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const auditItems = [
@@ -1829,13 +1855,34 @@ export default function SeoAeo() {
                   ></textarea>
                 </div>
 
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formData.privacyAgree}
+                    onChange={(e) => setFormData(prev => ({ ...prev, privacyAgree: e.target.checked }))}
+                    className="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-blue-500"
+                    required
+                  />
+                  <span className="text-xs text-slate-300 leading-relaxed">
+                    개인정보 수집·이용에 동의합니다. <span className="text-blue-400">*</span>
+                    <span className="block text-slate-500 mt-1">수집 항목: 이름, 연락처, 사이트/키워드 · 목적: SEO/AEO 진단 상담</span>
+                  </span>
+                </label>
+
+                {submitError && (
+                  <p className="text-sm text-red-300 bg-red-950/50 border border-red-800/60 rounded-xl px-4 py-3 font-medium" role="alert">
+                    {submitError}
+                  </p>
+                )}
+
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-extrabold text-base transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 group"
+                  disabled={isSubmitting}
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-extrabold text-base transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 group disabled:opacity-50"
                 >
                   <Send size={18} />
-                  <span>[ 무료 SEO/AEO 진단 신청 ]</span>
+                  <span>{isSubmitting ? '진단 신청 접수 중...' : '[ 무료 SEO/AEO 진단 신청 ]'}</span>
                 </button>
               </form>
             )}

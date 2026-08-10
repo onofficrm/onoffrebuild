@@ -16,6 +16,7 @@ import {
   HelpCircle,
   ArrowRight
 } from 'lucide-react';
+import { submitConsultNotify } from '../lib/submitConsult';
 
 export interface ConsultationPurpose {
   id: string;
@@ -86,11 +87,13 @@ export default function EnhancedConsultationSection() {
     phone: '',
     companyOrSite: '',
     interestedServices: ['홈페이지 제작 상담'] as string[],
-    message: ''
+    message: '',
+    privacyAgree: false,
   });
 
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string>('');
 
   // Handle purpose card click
   const handlePurposeSelect = (purpose: ConsultationPurpose) => {
@@ -123,13 +126,31 @@ export default function EnhancedConsultationSection() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setSubmitError('');
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const result = await submitConsultNotify({
+        name: formData.name,
+        phone: formData.phone,
+        company: formData.companyOrSite,
+        services: formData.interestedServices.join(', '),
+        message: formData.message,
+        formType: 'consult',
+        privacyAgree: formData.privacyAgree,
+      });
+      if (!result.success) {
+        setSubmitError(result.message);
+        return;
+      }
       setIsSubmitted(true);
-    }, 800);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : '접수 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const activePurposeObj = consultationPurposes.find(p => p.id === selectedPurposeId) || consultationPurposes[0];
@@ -343,6 +364,27 @@ export default function EnhancedConsultationSection() {
                   className="w-full px-4 py-3.5 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:border-yellow-400 text-white placeholder-slate-500 text-sm font-medium resize-none transition-colors"
                 ></textarea>
               </div>
+
+              {/* Privacy */}
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={formData.privacyAgree}
+                  onChange={(e) => setFormData({ ...formData, privacyAgree: e.target.checked })}
+                  className="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-yellow-400 focus:ring-yellow-400"
+                  required
+                />
+                <span className="text-xs text-slate-300 leading-relaxed">
+                  개인정보 수집·이용에 동의합니다. <span className="text-yellow-400">*</span>
+                  <span className="block text-slate-500 mt-1">수집 항목: 이름, 연락처, 문의내용 · 목적: 상담 응대 · 보관: 상담 완료 후 1년 이내</span>
+                </span>
+              </label>
+
+              {submitError && (
+                <p className="text-sm text-red-300 bg-red-950/50 border border-red-800/60 rounded-xl px-4 py-3 font-medium" role="alert">
+                  {submitError}
+                </p>
+              )}
 
               {/* Submit Button */}
               <div>

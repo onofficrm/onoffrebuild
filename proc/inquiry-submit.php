@@ -3,9 +3,7 @@
  * 상담 문의 폼 → inquiry 게시판 저장
  * URL: /proc/inquiry-submit.php (POST, JSON 응답)
  */
-define('ONOFF_INQUIRY_SUBMIT', true);
-
-include_once dirname(__FILE__) . '/../_common.php';
+include_once dirname(__FILE__) . '/../common.php';
 
 if (!defined('_GNUBOARD_')) {
     header('Content-Type: application/json; charset=utf-8');

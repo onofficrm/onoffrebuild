@@ -15,7 +15,7 @@ $site_config = array(
     'business_no'         => '000-00-00000',
     'phone'               => '010-0000-0000',
     'kakao_url'           => '#',
-    'email'               => 'help@example.com',
+    'email'               => 'jong8040@gmail.com',
     'address'             => '주소를 입력하세요',
     'primary_color'       => '#2563eb',
     'secondary_color'     => '#64748b',
@@ -32,8 +32,8 @@ $site_config = array(
     /* 문의 폼 → inquiry 게시판 (proc/inquiry-submit.php) */
     'inquiry_bo_table'        => 'inquiry',
     'inquiry_notify_enabled'  => true,
-    'inquiry_notify_email'    => 'admin@example.com',  /* 운영 시 실제 수신 주소로 변경 */
-    'inquiry_notify_name'     => '관리자',
+    'inquiry_notify_email'    => 'jong8040@gmail.com, wuk2002@naver.com',
+    'inquiry_notify_name'     => '온오프마케팅',
     /* 텔레그램 알림 — 운영 시 토큰·채팅 ID 입력 후 enabled true */
     'inquiry_notify_telegram_enabled'  => false,
     'inquiry_notify_telegram_bot_token' => '',
