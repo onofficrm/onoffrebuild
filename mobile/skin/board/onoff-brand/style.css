@@ -60,6 +60,42 @@
   line-height: 1.6;
 }
 
+.ob-board__brand {
+  display: inline-block;
+  margin-bottom: 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #fff !important;
+  opacity: 0.92;
+}
+
+.ob-board__brand:hover { opacity: 1; color: #bfdbfe !important; }
+
+.ob-board__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 1.15rem;
+}
+
+.ob-board__tabs a {
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+  color: #e2e8f0 !important;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ob-board__tabs a:hover,
+.ob-board__tabs a[aria-current="page"] {
+  background: #fff;
+  color: #1e3a8a !important;
+  border-color: #fff;
+}
+
 .ob-board__toolbar {
   display: flex;
   flex-wrap: wrap;
