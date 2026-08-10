@@ -1884,7 +1884,7 @@ html.page-sub #container_title {
 #wrapper:has(.ob-board) #container_wr {
   display: block;
   float: none;
-  max-width: 1100px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 0 1rem 3rem;
   width: auto;
