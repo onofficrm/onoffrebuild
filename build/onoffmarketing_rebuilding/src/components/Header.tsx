@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Menu, X, ChevronDown, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppNavLink } from '../lib/navLink';
-import logoImg from '../assets/logo.png';
+
+const logoImg = '/img/logo/logo.png';
 
 export interface SubMenuItem {
   name: string;

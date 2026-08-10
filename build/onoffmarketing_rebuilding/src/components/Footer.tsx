@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import logoWhite from '../assets/logo-white.png';
+
+const logoWhite = '/img/logo/logo-white.png';
 
 export default function Footer() {
   return (
