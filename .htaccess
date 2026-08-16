@@ -3,6 +3,11 @@
   RewriteEngine On
   RewriteBase /
 
+  # HTTP → HTTPS (프록시로 이미 HTTPS면 루프 방지)
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
   RewriteRule ^robots\.txt$ /robots.php [L]
   RewriteRule ^sitemap\.xml$ /sitemap.php [L]
 

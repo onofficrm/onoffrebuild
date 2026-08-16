@@ -55,7 +55,7 @@ $site_config = array(
     /* 선택 항목 (비워 두면 기본값 사용) */
     'fax'                 => '',
     'sales_no'            => '',
-    'privacy_manager'     => '',
+    'privacy_manager'     => 'jong8040@gmail.com',
     'kakao_map_key'       => '',
     'kakao_map_lat'       => '37.5665',
     'kakao_map_lng'       => '126.9780',
