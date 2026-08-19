@@ -54,18 +54,31 @@ Root `.htaccess` already rewrites `^seo-system-300(/.*)?$` to `/seo-system-300/i
 
 Copy from `plugin/seo-system-300/config.local.php.example`. Set only what this environment needs. Leave Google/AI/tool URLs empty until credentials/URLs are real.
 
-Never set:
+Standing production config must **not** keep migration unlock flags. Set them only for a documented window:
 
+- `SEOSYS300_ENV=production`
+- `SEOSYS300_DB_ALLOWLIST` / `SEOSYS300_DB_HOST_ALLOWLIST` (exact values from `dbconfig.php`, never committed)
 - `SEOSYS300_ALLOW_MIGRATION=1`
-- `SEOSYS300_E2E=1`
-- `SEOSYS300_ALLOW_DB=1`
+- `SEOSYS300_BACKUP_CONFIRMED=1`
+- `SEOSYS300_PRODUCTION_CONFIRM=SEO-SYSTEM-300-PRODUCTION`
 
-on production.
+Never set `SEOSYS300_E2E=1` on production. Do not set `SEOSYS300_ENV=development` on the production host to bypass guards.
 
 ### 6. Migration
 
-Follow `docs/production-migration-plan.md` (backup → 001 → 002 → 003 → 004 → verify SQL).  
-The CLI `migrations/run.php` is **blocked** on production hostnames (`icrm.co.kr` / `onoff.icrm`).
+1. Launch OFF  
+2. Whole DB backup  
+3. Confirm DB host/name from `data/dbconfig.php`  
+4. Allowlist those exact values  
+5. `SEOSYS300_BACKUP_CONFIRMED=1`  
+6. `php plugin/seo-system-300/migrations/run.php --status`  
+7. Production confirmation env + CLI `--confirm-production=SEO-SYSTEM-300-PRODUCTION`  
+8. `php plugin/seo-system-300/migrations/run.php --apply --confirm-production=SEO-SYSTEM-300-PRODUCTION`  
+9. `--status` (001→005 APPLIED)  
+10. `php plugin/seo-system-300/migrations/verify.php`  
+11. Smoke (below)
+
+See `docs/production-migration-plan.md`. The runner never prints DB passwords. Failed files stop the batch; no automatic DOWN.
 
 ### 7. Smoke test (after migrate)
 
@@ -80,11 +93,12 @@ The CLI `migrations/run.php` is **blocked** on production hostnames (`icrm.co.kr
 ### 8. Rollback
 
 1. FTP previous known-good commit (or restore files from backup).
-2. If migration applied and must be undone: restore DB dump **or** reverse `004`→`001` down SQL (data loss).
+2. If migration applied and must be undone: restore DB dump **or** reverse `005`→`001` down SQL (data loss).
 3. `config.local.php` is not in git; restore from ops backup if overwritten.
 
 ## Local / development
 
 - `data/dbconfig.php` is gitignored and **was not present** in the verification workspace.
 - Isolated development DB + `SEOSYS300_ENV=development` + allowlist is required before `php plugin/seo-system-300/migrations/run.php --apply`.
+- Allowed isolated names: `seosys300_dev` (local Docker) or `seosys300_rehearsal` (fresh rehearsal Docker). Host must be `db`.
 - Do not point the runner at production MySQL (`SEOSYS300_DB_ALLOWLIST` + local host checks).

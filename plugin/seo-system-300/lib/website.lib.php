@@ -33,8 +33,12 @@ function seosys300_order_to_api($row, $menus = array(), $features = array(), $re
         );
     }
 
+    $extra = seosys300_order_extra_public(seosys300_order_extra_decode($row));
+    $readiness = seosys300_materials_readiness($files);
+
     return array(
         'id' => (int) $row['id'],
+        'orderNo' => isset($row['order_no']) ? (string) $row['order_no'] : '',
         'projectId' => (int) $row['project_id'],
         'mbId' => (string) $row['mb_id'],
         'siteType' => (string) $row['site_type'],
@@ -51,8 +55,18 @@ function seosys300_order_to_api($row, $menus = array(), $features = array(), $re
         'primaryColor' => (string) $row['primary_color'],
         'customColor' => (string) $row['custom_color'],
         'targetRegion' => (string) $row['target_region'],
+        'secondaryStyle' => isset($extra['secondaryStyle']) ? (string) $extra['secondaryStyle'] : '',
+        'colorPreset' => isset($extra['colorPreset']) ? (string) $extra['colorPreset'] : '',
+        'accentColor' => isset($extra['accentColor']) ? (string) $extra['accentColor'] : '',
+        'contacts' => isset($extra['contacts']) && is_array($extra['contacts']) ? $extra['contacts'] : array(),
+        'extraRequest' => isset($extra['extraRequest']) ? (string) $extra['extraRequest'] : '',
+        'materialsRequest' => isset($extra['materialsRequest']) && is_array($extra['materialsRequest']) ? $extra['materialsRequest'] : null,
         'status' => (string) $row['status'],
         'progress' => (int) $row['progress'],
+        'processStep' => seosys300_process_step_index($row['status']),
+        'processTotal' => 7,
+        'materialsReadiness' => $readiness['percent'],
+        'materialsStatus' => $readiness['status'],
         'isDraft' => !empty($row['is_draft']),
         'wizardStep' => (string) $row['wizard_step'],
         'submittedAt' => $row['submitted_at'] ? (string) $row['submitted_at'] : null,
@@ -65,6 +79,79 @@ function seosys300_order_to_api($row, $menus = array(), $features = array(), $re
         'fileCount' => count($files),
         'history' => seosys300_order_history((int) $row['id']),
     );
+}
+
+function seosys300_order_extra_decode($row)
+{
+    if (!is_array($row) || empty($row['extra_json'])) {
+        return array();
+    }
+    $data = json_decode((string) $row['extra_json'], true);
+    return is_array($data) ? $data : array();
+}
+
+function seosys300_orders_has_column($column)
+{
+    static $cols = null;
+    global $g5;
+    if ($cols === null) {
+        $cols = array();
+        $table = $g5['seosys300_website_orders_table'];
+        $rows = seosys300_fetch_all("SHOW COLUMNS FROM `{$table}`");
+        foreach ($rows as $r) {
+            if (isset($r['Field'])) {
+                $cols[strtolower((string) $r['Field'])] = true;
+            }
+        }
+    }
+    return !empty($cols[strtolower((string) $column)]);
+}
+
+function seosys300_sanitize_contacts($input)
+{
+    $keys = array(
+        'phone', 'kakao', 'telegram', 'whatsapp', 'email', 'address', 'mapUrl',
+        'facebook', 'instagram', 'youtube', 'tiktok', 'naverBlog', 'otherSns',
+    );
+    $out = array();
+    if (!is_array($input)) {
+        return $out;
+    }
+    foreach ($keys as $key) {
+        if (!array_key_exists($key, $input)) {
+            continue;
+        }
+        $out[$key] = substr(trim((string) $input[$key]), 0, 500);
+    }
+    return $out;
+}
+
+function seosys300_student_extra_keys()
+{
+    return array('contacts', 'extraRequest', 'secondaryStyle', 'colorPreset', 'accentColor');
+}
+
+function seosys300_order_extra_public($extra)
+{
+    $out = array();
+    if (!is_array($extra)) {
+        return $out;
+    }
+    foreach (seosys300_student_extra_keys() as $key) {
+        if (array_key_exists($key, $extra)) {
+            $out[$key] = $extra[$key];
+        }
+    }
+    if (isset($extra['materialsRequest']) && is_array($extra['materialsRequest'])) {
+        $req = $extra['materialsRequest'];
+        $out['materialsRequest'] = array(
+            'title' => isset($req['title']) ? (string) $req['title'] : '',
+            'body' => isset($req['body']) ? (string) $req['body'] : '',
+            'categories' => isset($req['categories']) && is_array($req['categories']) ? $req['categories'] : array(),
+            'requestedAt' => isset($req['requestedAt']) ? (string) $req['requestedAt'] : '',
+        );
+    }
+    return $out;
 }
 
 function seosys300_order_relations($order_id)
@@ -240,7 +327,7 @@ function seosys300_replace_references($order_id, $references)
     }
 }
 
-function seosys300_apply_order_fields($order_id, $input)
+function seosys300_apply_order_fields($order_id, $input, $allow_admin_extra = false)
 {
     global $g5;
     $oid = (int) $order_id;
@@ -260,7 +347,6 @@ function seosys300_apply_order_fields($order_id, $input)
         'primaryColor' => array('primary_color', 30),
         'customColor' => array('custom_color', 30),
         'targetRegion' => array('target_region', 150),
-        'wizardStep' => array('wizard_step', 20),
     );
     $sets = array("updated_at = '{$now}'");
     foreach ($map as $inKey => $col) {
@@ -272,11 +358,54 @@ function seosys300_apply_order_fields($order_id, $input)
             $sets[] = "`{$col[0]}` = '" . seosys300_esc($val) . "'";
         }
     }
+    if (array_key_exists('wizardStep', $input)) {
+        $step = seosys300_normalize_wizard_step($input['wizardStep']);
+        if ($step !== '') {
+            $sets[] = "wizard_step = '" . seosys300_esc($step) . "'";
+        }
+    }
     if (array_key_exists('purposes', $input)) {
         $sets[] = "purposes = '" . seosys300_esc(seosys300_json_list($input['purposes'])) . "'";
     }
-    if (array_key_exists('progress', $input)) {
-        $sets[] = 'progress = ' . (int) $input['progress'];
+    $needsExtra = array_key_exists('contacts', $input)
+        || array_key_exists('extraRequest', $input)
+        || array_key_exists('secondaryStyle', $input)
+        || array_key_exists('colorPreset', $input)
+        || array_key_exists('accentColor', $input)
+        || ($allow_admin_extra && array_key_exists('materialsRequest', $input));
+    if ($needsExtra && seosys300_orders_has_column('extra_json')) {
+        $current = seosys300_fetch("SELECT extra_json FROM `{$table}` WHERE id = {$oid} LIMIT 1");
+        $extra = seosys300_order_extra_decode($current ? $current : array());
+        if (array_key_exists('contacts', $input)) {
+            $extra['contacts'] = seosys300_sanitize_contacts($input['contacts']);
+        }
+        if (array_key_exists('extraRequest', $input)) {
+            $extra['extraRequest'] = substr(trim((string) $input['extraRequest']), 0, 4000);
+        }
+        if (array_key_exists('secondaryStyle', $input)) {
+            $extra['secondaryStyle'] = substr(trim((string) $input['secondaryStyle']), 0, 80);
+        }
+        if (array_key_exists('colorPreset', $input)) {
+            $extra['colorPreset'] = substr(trim((string) $input['colorPreset']), 0, 80);
+        }
+        if (array_key_exists('accentColor', $input)) {
+            $extra['accentColor'] = substr(trim((string) $input['accentColor']), 0, 30);
+        }
+        if ($allow_admin_extra && array_key_exists('materialsRequest', $input) && is_array($input['materialsRequest'])) {
+            $req = $input['materialsRequest'];
+            $extra['materialsRequest'] = array(
+                'title' => isset($req['title']) ? substr((string) $req['title'], 0, 191) : '',
+                'body' => isset($req['body']) ? substr((string) $req['body'], 0, 4000) : '',
+                'categories' => isset($req['categories']) && is_array($req['categories']) ? $req['categories'] : array(),
+                'requestedAt' => isset($req['requestedAt']) ? substr((string) $req['requestedAt'], 0, 32) : seosys300_now(),
+            );
+        }
+        $public = seosys300_order_extra_public($extra);
+        $json = json_encode($public);
+        if ($json === false) {
+            $json = '{}';
+        }
+        $sets[] = "extra_json = '" . seosys300_esc($json) . "'";
     }
     seosys300_query("UPDATE `{$table}` SET " . implode(', ', $sets) . " WHERE id = {$oid}");
 }
@@ -320,6 +449,9 @@ function seosys300_order_ensure_draft($project_id)
         submitted_at = NULL,
         created_at = '{$now}',
         updated_at = '{$now}'";
+    if (seosys300_orders_has_column('extra_json')) {
+        $sql = str_replace("target_region = '',", "target_region = '', extra_json = '{}',", $sql);
+    }
     if (!seosys300_query($sql)) {
         seosys300_json_error(500, 'save_failed', '저장 중 문제가 발생했습니다.');
     }
@@ -339,6 +471,18 @@ function seosys300_order_assert_editable($row)
     if ((string) $row['status'] !== 'draft' || empty($row['is_draft'])) {
         seosys300_json_error(409, 'order_locked', '제출된 주문은 이 화면에서 수정할 수 없습니다.');
     }
+}
+
+function seosys300_order_assert_uploadable($row)
+{
+    $status = seosys300_normalize_order_status(isset($row['status']) ? $row['status'] : '');
+    if ($status === 'draft' && !empty($row['is_draft'])) {
+        return;
+    }
+    if ($status === 'need_more_info') {
+        return;
+    }
+    seosys300_json_error(409, 'order_locked', '지금은 파일을 변경할 수 없습니다.');
 }
 
 function seosys300_order_save($input, $submit = false)
@@ -390,8 +534,18 @@ function seosys300_order_save($input, $submit = false)
         global $g5;
         $now = seosys300_now();
         $table = $g5['seosys300_website_orders_table'];
-        seosys300_query("UPDATE `{$table}` SET status = 'submitted', is_draft = 0, progress = " . seosys300_website_progress_for_status('submitted') . ", submitted_at = '{$now}', updated_at = '{$now}' WHERE id = {$order_id}");
+        $year = (int) date('Y');
+        $orderNo = seosys300_format_order_no($order_id, $year);
+        $orderNoSql = seosys300_orders_has_column('order_no')
+            ? ", order_no = '" . seosys300_esc($orderNo) . "'"
+            : '';
+        seosys300_query("UPDATE `{$table}` SET status = 'submitted', is_draft = 0, progress = " . seosys300_website_progress_for_status('submitted') . ", submitted_at = '{$now}', updated_at = '{$now}' {$orderNoSql} WHERE id = {$order_id}");
         seosys300_append_status_history($order_id, (string) $row['status'], 'submitted', 'student', 'wizard submitted');
+        seosys300_notify_order_event('WEBSITE_ORDER_SUBMITTED', array(
+            'order_id' => $order_id,
+            'project_id' => (int) $row['project_id'],
+            'mb_id' => $mb_id,
+        ));
     }
 
     if (!seosys300_commit()) {

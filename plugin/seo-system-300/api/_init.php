@@ -9,6 +9,7 @@ include_once(dirname(__FILE__) . '/../lib/project.lib.php');
 include_once(dirname(__FILE__) . '/../lib/website.lib.php');
 include_once(dirname(__FILE__) . '/../lib/upload.lib.php');
 include_once(dirname(__FILE__) . '/../lib/activity.lib.php');
+include_once(dirname(__FILE__) . '/../lib/notify.lib.php');
 include_once(dirname(__FILE__) . '/../lib/roadmap.lib.php');
 include_once(dirname(__FILE__) . '/../lib/mission.lib.php');
 include_once(dirname(__FILE__) . '/../lib/admin.lib.php');

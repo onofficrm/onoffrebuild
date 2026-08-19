@@ -53,8 +53,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     },
     {
       id: 'kanban' as AdminTab,
-      label: '홈페이지 제작 Kanban',
-      subLabel: '8단계 공정 파이프라인',
+      label: '홈페이지 주문 관리',
+      subLabel: '/admin/website-orders',
       icon: <LayoutTemplate className="w-4 h-4" />,
       badge: `${ADMIN_KPIS.websitesInProgress}건`,
       badgeColor: 'blue'

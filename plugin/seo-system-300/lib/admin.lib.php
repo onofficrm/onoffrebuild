@@ -29,7 +29,7 @@ function seosys300_admin_change_order_status($order_id, $to_status, $memo = '')
     if (!seosys300_is_allowed_order_status($to_status)) {
         seosys300_json_error(422, 'validation_error', '허용되지 않은 주문 상태입니다.');
     }
-    $to_status = strtolower((string) $to_status);
+    $to_status = seosys300_normalize_order_status($to_status);
     $table = $g5['seosys300_website_orders_table'];
     $row = seosys300_fetch("SELECT * FROM `{$table}` WHERE id = " . (int) $order_id . " LIMIT 1");
     if (!$row) {
@@ -60,8 +60,66 @@ function seosys300_admin_change_order_status($order_id, $to_status, $memo = '')
         'entity_id' => (int) $order_id,
         'metadata' => array('from' => $from, 'to' => $to_status),
     ));
+    seosys300_notify_order_event('WEBSITE_STATUS_CHANGED', array(
+        'order_id' => (int) $order_id,
+        'from' => $from,
+        'to' => $to_status,
+    ));
     seosys300_sync_auto_roadmap((int) $row['project_id']);
     return seosys300_admin_order_detail((int) $order_id);
+}
+
+function seosys300_admin_request_more_info($order_id, $input)
+{
+    global $g5;
+    $oid = (int) $order_id;
+    $table = $g5['seosys300_website_orders_table'];
+    $row = seosys300_fetch("SELECT * FROM `{$table}` WHERE id = {$oid} LIMIT 1");
+    if (!$row) {
+        seosys300_json_error(404, 'order_not_found', '주문을 찾을 수 없습니다.');
+    }
+    $title = isset($input['title']) ? trim((string) $input['title']) : '';
+    $body = isset($input['body']) ? trim((string) $input['body']) : (isset($input['message']) ? trim((string) $input['message']) : '');
+    if ($title === '' || $body === '') {
+        seosys300_json_error(422, 'validation_error', '제목과 요청 내용을 입력해주세요.');
+    }
+    $categories = array();
+    if (isset($input['categories']) && is_array($input['categories'])) {
+        foreach ($input['categories'] as $c) {
+            $categories[] = seosys300_normalize_category($c);
+        }
+    } elseif (isset($input['category']) && (string) $input['category'] !== '') {
+        $categories[] = seosys300_normalize_category($input['category']);
+    }
+    $adminMemo = isset($input['adminMemo']) ? substr(trim((string) $input['adminMemo']), 0, 4000) : '';
+    $request = array(
+        'title' => substr($title, 0, 191),
+        'body' => substr($body, 0, 4000),
+        'categories' => $categories,
+        'requestedAt' => seosys300_now(),
+    );
+    $payload = array(
+        'materialsRequest' => $request,
+    );
+    seosys300_apply_order_fields($oid, $payload, true);
+    if (seosys300_normalize_order_status($row['status']) !== 'need_more_info') {
+        seosys300_admin_change_order_status($oid, 'need_more_info', $title);
+    } else {
+        seosys300_append_status_history($oid, (string) $row['status'], 'need_more_info', 'admin', $title);
+    }
+    if ($adminMemo !== '') {
+        seosys300_admin_add_note((int) $row['project_id'], $oid, $adminMemo);
+    }
+    seosys300_log_activity((int) $row['project_id'], 'WEBSITE_MATERIALS_REQUESTED', '추가 자료가 요청되었습니다.', array(
+        'entity_type' => 'website_order',
+        'entity_id' => $oid,
+        'metadata' => array('title' => $title),
+    ));
+    seosys300_notify_order_event('WEBSITE_MATERIALS_REQUESTED', array(
+        'order_id' => $oid,
+        'project_id' => (int) $row['project_id'],
+    ));
+    return seosys300_admin_order_detail($oid);
 }
 
 function seosys300_admin_add_note($project_id, $order_id, $note)
@@ -168,7 +226,7 @@ function seosys300_admin_inbox_items()
     $items = array();
     $ot = $g5['seosys300_website_orders_table'];
     $pt = $g5['seosys300_projects_table'];
-    $waiting = seosys300_fetch_all("SELECT o.*, p.name AS project_name FROM `{$ot}` o LEFT JOIN `{$pt}` p ON p.id = o.project_id WHERE o.status = 'material_waiting' ORDER BY o.updated_at ASC LIMIT 50");
+    $waiting = seosys300_fetch_all("SELECT o.*, p.name AS project_name FROM `{$ot}` o LEFT JOIN `{$pt}` p ON p.id = o.project_id WHERE o.status IN ('material_waiting','need_more_info') ORDER BY o.updated_at ASC LIMIT 50");
     foreach ($waiting as $row) {
         $items[] = array(
             'id' => 'mat-' . $row['id'],

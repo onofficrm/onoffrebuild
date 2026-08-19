@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   NavigationTab,
   WebsiteSubTab,
@@ -32,7 +32,7 @@ import {
   type ApiWebsiteOrder,
   type WebsiteOrderSaveInput,
 } from './services/websiteOrderService';
-import { deleteWebsiteFile, formatFileSize, uploadWebsiteFile } from './services/websiteFileService';
+import { deleteWebsiteFile, formatFileSize, replaceWebsiteFile, updateWebsiteFile, uploadWebsiteFile } from './services/websiteFileService';
 import { addTaskResult, completeRoadmapTask, getRoadmap, mapRoadmapToUi, reopenRoadmapTask, uploadTaskScreenshot, type ApiRoadmap } from './services/roadmapService';
 import { completeMission, getTodayMissions, mapMissionsToUi, reopenMission } from './services/missionService';
 import { listActivities, mapActivitiesToUi } from './services/activityService';
@@ -41,6 +41,7 @@ import {
   adminInbox,
   adminKanbanOrders,
   adminProjectList,
+  adminRequestMoreInfo,
   KANBAN_TO_STATUS,
   mapAdminProjectsToStudents,
   mapInboxToPriority,
@@ -230,6 +231,9 @@ export default function App() {
   const [liveOrder, setLiveOrder] = useState<ApiWebsiteOrder | null>(null);
   const [liveOrderError, setLiveOrderError] = useState('');
   const [orderSaveError, setOrderSaveError] = useState('');
+  const [orderSaveStatus, setOrderSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const orderSavePendingRef = useRef<Record<string, unknown> | null>(null);
+  const orderSaveBusyRef = useRef(false);
   const [uploadError, setUploadError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -626,17 +630,34 @@ export default function App() {
 
   const handleSaveWebsiteDraft = async (payload: Record<string, unknown>) => {
     if (!activeProject) return;
+    orderSavePendingRef.current = payload;
+    if (orderSaveBusyRef.current) return;
+    orderSaveBusyRef.current = true;
     setOrderSaveError('');
+    setOrderSaveStatus('saving');
     try {
-      const draft = liveOrder || (await ensureWebsiteDraft(activeProject.id));
-      const saved = await saveWebsiteOrder({
-        projectId: Number(activeProject.id),
-        orderId: draft.id,
-        ...(payload as WebsiteOrderSaveInput),
-      });
-      setLiveOrder(saved);
+      let current = liveOrder;
+      while (orderSavePendingRef.current) {
+        const next = orderSavePendingRef.current;
+        orderSavePendingRef.current = null;
+        const draft = current || (await ensureWebsiteDraft(activeProject.id));
+        const saved = await saveWebsiteOrder({
+          projectId: Number(activeProject.id),
+          orderId: draft.id,
+          ...(next as WebsiteOrderSaveInput),
+        });
+        current = saved;
+        setLiveOrder(saved);
+      }
+      setOrderSaveStatus('saved');
     } catch (err) {
+      setOrderSaveStatus('idle');
       setOrderSaveError(err instanceof ApiRequestError ? err.message : '저장 중 문제가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      orderSaveBusyRef.current = false;
+      if (orderSavePendingRef.current) {
+        void handleSaveWebsiteDraft(orderSavePendingRef.current);
+      }
     }
   };
 
@@ -693,6 +714,49 @@ export default function App() {
       }
     } catch (err) {
       setUploadError(err instanceof ApiRequestError ? err.message : '삭제 중 문제가 발생했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  const handleUpdateWebsiteFileMemo = async (id: string, memo: string) => {
+    setUploadError('');
+    try {
+      await updateWebsiteFile(id, { memo });
+      if (activeProject) {
+        const fresh = await getCurrentWebsiteOrder(activeProject.id);
+        setLiveOrder(fresh);
+      }
+    } catch (err) {
+      setUploadError(err instanceof ApiRequestError ? err.message : '메모 저장에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  const handleReplaceWebsiteFile = async (id: string, file: File) => {
+    setUploadError('');
+    try {
+      setUploading(true);
+      await replaceWebsiteFile(id, file, '', setUploadProgress);
+      if (activeProject) {
+        const fresh = await getCurrentWebsiteOrder(activeProject.id);
+        setLiveOrder(fresh);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : '파일 교체에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleAdminRequestMoreInfo = async (
+    orderId: number,
+    payload: { title: string; body: string; categories?: string[]; adminMemo?: string }
+  ) => {
+    try {
+      const saved = await adminRequestMoreInfo(orderId, payload);
+      setKanbanCards((prev) => prev.map((c) => (c.id === String(saved.id) ? mapOrderToKanbanCard(saved) : c)));
+      setSelectedCardForModal(mapOrderToKanbanCard(saved));
+    } catch (err) {
+      setAdminError(err instanceof ApiRequestError ? err.message : '추가자료 요청에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
@@ -821,6 +885,7 @@ export default function App() {
                   cards={kanbanCards}
                   onUpdateCard={handleUpdateKanbanCard}
                   onOpenCardDetail={handleOpenWebsiteOrder}
+                  onRequestMoreInfo={(orderId, payload) => void handleAdminRequestMoreInfo(orderId, payload)}
                 />
               )}
 
@@ -938,6 +1003,7 @@ export default function App() {
                   metricsSummary={metricsSummary}
                   metricsTimeseries={metricsTimeseries}
                   unified={unifiedSummary}
+                  liveWebsiteOrder={liveOrder}
                 />
               )}
 
@@ -978,7 +1044,10 @@ export default function App() {
                   uploadError={uploadError}
                   onUploadFiles={handleUploadWebsiteFiles}
                   onDeleteFile={handleDeleteWebsiteFile}
+                  onUpdateFileMemo={handleUpdateWebsiteFileMemo}
+                  onReplaceFile={handleReplaceWebsiteFile}
                   saveError={orderSaveError}
+                  saveStatus={orderSaveStatus}
                 />
               )}
 
@@ -1098,6 +1167,11 @@ export default function App() {
         onClose={() => setIsCardModalOpen(false)}
         card={selectedCardForModal}
         onUpdateCard={handleUpdateKanbanCard}
+        onRequestMoreInfo={
+          selectedCardForModal
+            ? (payload) => void handleAdminRequestMoreInfo(Number(selectedCardForModal.id), payload)
+            : undefined
+        }
       />
       </React.Suspense>
 

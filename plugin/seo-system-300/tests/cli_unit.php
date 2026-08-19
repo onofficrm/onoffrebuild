@@ -48,8 +48,27 @@ seosys300_assert(seosys300_website_progress_for_status('completed') === 100, 'we
 seosys300_assert(seosys300_kanban_column_for_status('submitted') === 'new_order', 'kanban submitted');
 seosys300_assert(seosys300_kanban_column_for_status('customer_review') === 'qa', 'kanban qa');
 seosys300_assert(seosys300_status_for_kanban_column('qa') === 'customer_review', 'kanban reverse qa');
-seosys300_assert(seosys300_is_allowed_order_status('draft') === true, 'status allowlist draft');
-seosys300_assert(seosys300_is_allowed_order_status('hacked') === false, 'status allowlist reject');
+seosys300_assert(seosys300_is_allowed_order_status('need_more_info') === true, 'status allowlist need_more_info');
+seosys300_assert(seosys300_normalize_order_status('REVIEWING') === 'material_waiting', 'status alias reviewing');
+seosys300_assert(seosys300_format_order_no(1, 2026) === 'WEB-2026-000001', 'order no pk based');
+seosys300_assert(seosys300_format_order_no(42, 2026) === 'WEB-2026-000042', 'order no pad');
+seosys300_assert(seosys300_normalize_wizard_step('step5') === 'step5', 'wizard step allow');
+seosys300_assert(seosys300_normalize_wizard_step('review') === 'step9', 'wizard step alias review');
+seosys300_assert(seosys300_normalize_wizard_step('../etc/passwd') === '', 'wizard step reject');
+$ready = seosys300_materials_readiness(array(
+    array('category' => 'logo'),
+    array('category' => 'company'),
+    array('category' => 'hero'),
+    array('category' => 'service'),
+    array('category' => 'price'),
+    array('category' => 'business'),
+    array('category' => 'contact'),
+));
+seosys300_assert($ready['percent'] === 70 && $ready['status'] === 'NEED_MORE', 'materials 7 of 10');
+seosys300_assert(seosys300_process_step_index('submitted') === 1, 'process step submitted');
+seosys300_assert(seosys300_process_step_index('completed') === 7, 'process step completed');
+$rec = seosys300_recommend_feature_keys('local_service', '지역', array('seo'));
+seosys300_assert(in_array('map', $rec, true) && in_array('blog', $rec, true), 'rule based recommend');
 seosys300_assert(in_array('project_setup', seosys300_roadmap_step_keys(), true), 'step key project_setup');
 seosys300_assert(seosys300_timezone() !== '', 'timezone set');
 seosys300_assert(preg_match('/^\d{4}-\d{2}-\d{2}$/', seosys300_today_date()) === 1, 'today date format');
@@ -196,7 +215,19 @@ $denyName = seosys300_cli_safety_check(array(
     'db_allowlist' => 'seosys300_dev',
     'migration' => true,
 ));
-seosys300_assert($denyName['ok'] === false && $denyName['code'] === 'DB_NAME_NOT_DEV', 'guard requires seosys300_dev');
+seosys300_assert($denyName['ok'] === false && $denyName['code'] === 'DB_NAME_NOT_DEV', 'guard requires isolated seosys300 db name');
+$allowRehearsal = seosys300_cli_safety_check(array(
+    'sapi' => 'cli',
+    'env' => 'development',
+    'allow_migration' => '1',
+    'confirm' => 'dev-only',
+    'host_blob' => 'laptop.local',
+    'mysql_host' => 'db',
+    'mysql_db' => 'seosys300_rehearsal',
+    'db_allowlist' => 'seosys300_rehearsal',
+    'migration' => true,
+));
+seosys300_assert($allowRehearsal['ok'] === true, 'guard allows docker db + seosys300_rehearsal');
 $denyIcrmDb = seosys300_cli_safety_check(array(
     'sapi' => 'cli',
     'env' => 'development',
@@ -221,6 +252,83 @@ $allowDev = seosys300_cli_safety_check(array(
     'migration' => true,
 ));
 seosys300_assert($allowDev['ok'] === true, 'guard allows docker db + seosys300_dev');
+
+$prodBase = array(
+    'sapi' => 'cli',
+    'env' => 'production',
+    'allow_migration' => '1',
+    'host_blob' => 'laptop.local',
+    'mysql_host' => 'db',
+    'mysql_db' => 'seosys300_prodshadow',
+    'db_allowlist' => 'seosys300_prodshadow',
+    'host_allowlist' => 'db',
+    'backup_confirmed' => '1',
+    'production_confirm' => seosys300_production_confirm_token(),
+    'cli_production_confirm' => seosys300_production_confirm_token(),
+    'intent' => 'apply',
+    'require_mysql' => true,
+    'migration' => true,
+);
+$missingEnv = $prodBase;
+$missingEnv['env'] = '';
+$missingEnvBlock = seosys300_cli_safety_check($missingEnv);
+seosys300_assert($missingEnvBlock['ok'] === false && $missingEnvBlock['code'] === 'ENV_REQUIRED', 'prod guard env missing');
+$devWithProdConfirm = $prodBase;
+$devWithProdConfirm['env'] = 'development';
+$devWithProdConfirm['confirm'] = 'dev-only';
+$devBlock = seosys300_cli_safety_check($devWithProdConfirm);
+seosys300_assert($devBlock['ok'] === false, 'prod confirms do not unlock development path');
+$noMig = $prodBase;
+$noMig['allow_migration'] = '';
+$noMigBlock = seosys300_cli_safety_check($noMig);
+seosys300_assert($noMigBlock['ok'] === false && $noMigBlock['code'] === 'MIGRATION_NOT_ALLOWED', 'prod apply requires allow migration');
+$badDb = $prodBase;
+$badDb['db_allowlist'] = 'WRONG_DB';
+$badDbBlock = seosys300_cli_safety_check($badDb);
+seosys300_assert($badDbBlock['ok'] === false && $badDbBlock['code'] === 'DB_NOT_ALLOWLISTED', 'prod db allowlist mismatch');
+$badHost = $prodBase;
+$badHost['host_allowlist'] = 'wrong-host';
+$badHostBlock = seosys300_cli_safety_check($badHost);
+seosys300_assert($badHostBlock['ok'] === false && $badHostBlock['code'] === 'HOST_NOT_ALLOWLISTED', 'prod host allowlist mismatch');
+$noBackup = $prodBase;
+$noBackup['backup_confirmed'] = '';
+$noBackupBlock = seosys300_cli_safety_check($noBackup);
+seosys300_assert($noBackupBlock['ok'] === false && $noBackupBlock['code'] === 'BACKUP_NOT_CONFIRMED', 'prod apply requires backup confirm');
+$noEnvConfirm = $prodBase;
+$noEnvConfirm['production_confirm'] = '';
+$noEnvConfirmBlock = seosys300_cli_safety_check($noEnvConfirm);
+seosys300_assert($noEnvConfirmBlock['ok'] === false && $noEnvConfirmBlock['code'] === 'PRODUCTION_CONFIRM_REQUIRED', 'prod apply requires env confirm');
+$noCli = $prodBase;
+$noCli['cli_production_confirm'] = '';
+$noCliBlock = seosys300_cli_safety_check($noCli);
+seosys300_assert($noCliBlock['ok'] === false && $noCliBlock['code'] === 'CLI_PRODUCTION_CONFIRM_REQUIRED', 'prod apply requires CLI confirm');
+$prodAllow = seosys300_cli_safety_check($prodBase);
+seosys300_assert($prodAllow['ok'] === true, 'prod apply allowed when all confirms match');
+$prodStatus = $prodBase;
+$prodStatus['intent'] = 'status';
+$prodStatus['allow_migration'] = '';
+$prodStatus['backup_confirmed'] = '';
+$prodStatus['production_confirm'] = '';
+$prodStatus['cli_production_confirm'] = '';
+$prodStatusOk = seosys300_cli_safety_check($prodStatus);
+seosys300_assert($prodStatusOk['ok'] === true, 'prod status does not require apply confirms');
+$cliParsed = seosys300_cli_flag_value(array('run.php', '--apply', '--confirm-production=SEO-SYSTEM-300-PRODUCTION'), '--confirm-production');
+seosys300_assert($cliParsed === seosys300_production_confirm_token(), 'cli confirm flag parse');
+$shadowDev = seosys300_cli_safety_check(array(
+    'sapi' => 'cli',
+    'env' => 'development',
+    'allow_migration' => '1',
+    'confirm' => 'dev-only',
+    'host_blob' => 'laptop.local',
+    'mysql_host' => 'db',
+    'mysql_db' => 'seosys300_prodshadow',
+    'db_allowlist' => 'seosys300_prodshadow',
+    'migration' => true,
+));
+seosys300_assert($shadowDev['ok'] === false && $shadowDev['code'] === 'DB_NAME_NOT_DEV', 'development cannot use prodshadow');
+seosys300_assert(seosys300_allowlist_exact_match('seosys300_prodshadow', ' seosys300_prodshadow ') === true, 'allowlist trim exact');
+seosys300_assert(seosys300_allowlist_exact_match('Seosys300_prodshadow', 'seosys300_prodshadow') === false, 'allowlist case sensitive');
+
 seosys300_assert(seosys300_expected_step_keys() === seosys300_roadmap_step_keys(), 'step keys match constants');
 $tables = seosys300_expected_schema_tables('g5_');
 seosys300_assert(count($tables['core']) === 8 && count($tables['roadmap']) === 7 && count($tables['google']) === 7 && count($tables['tools_ai']) === 3, 'schema table counts');

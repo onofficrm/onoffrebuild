@@ -24,6 +24,7 @@ export interface WebsiteKanbanViewProps {
   cards: WebsiteKanbanCard[];
   onUpdateCard: (updated: WebsiteKanbanCard) => void;
   onOpenCardDetail?: (card: WebsiteKanbanCard) => void;
+  onRequestMoreInfo?: (orderId: number, payload: { title: string; body: string; adminMemo?: string }) => void;
 }
 
 const STAGES: { id: WebsiteKanbanStage; title: string; color: string }[] = [
@@ -39,7 +40,8 @@ const STAGES: { id: WebsiteKanbanStage; title: string; color: string }[] = [
 
 export const WebsiteKanbanView: React.FC<WebsiteKanbanViewProps> = ({
   cards,
-  onUpdateCard
+  onUpdateCard,
+  onRequestMoreInfo
 }) => {
   const [selectedCard, setSelectedCard] = useState<WebsiteKanbanCard | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,8 +51,10 @@ export const WebsiteKanbanView: React.FC<WebsiteKanbanViewProps> = ({
   const filteredCards = cards.filter((c) => {
     const matchesSearch =
       c.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.domain.toLowerCase().includes(searchQuery.toLowerCase());
+      c.domain.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
     return matchesSearch && matchesPriority;
   });
@@ -122,7 +126,7 @@ export const WebsiteKanbanView: React.FC<WebsiteKanbanViewProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="수강생, 프로젝트명 검색..."
+              placeholder="학생, 주문번호, 사업명 검색..."
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl focus:ring-2 focus:ring-[#2563EB]"
             />
           </div>
@@ -280,6 +284,11 @@ export const WebsiteKanbanView: React.FC<WebsiteKanbanViewProps> = ({
         onClose={() => setIsModalOpen(false)}
         card={selectedCard}
         onUpdateCard={onUpdateCard}
+        onRequestMoreInfo={
+          selectedCard && onRequestMoreInfo
+            ? (payload) => onRequestMoreInfo(Number(selectedCard.id), payload)
+            : undefined
+        }
       />
     </div>
   );

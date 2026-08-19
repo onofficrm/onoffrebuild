@@ -27,6 +27,16 @@ export async function adminAddNote(projectId: number, orderId: number, note: str
   });
 }
 
+export async function adminRequestMoreInfo(
+  orderId: number,
+  payload: { title: string; body: string; categories?: string[]; adminMemo?: string }
+) {
+  return apiJson<ApiWebsiteOrder>(API_ENDPOINTS.admin, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'request-more-info', orderId, ...payload }),
+  });
+}
+
 export async function adminInbox() {
   const data = await apiJson<{ items: Array<Record<string, unknown>> }>(`${API_ENDPOINTS.admin}?action=inbox`);
   return data.items || [];
@@ -39,7 +49,7 @@ export async function adminProjectList(): Promise<ApiProject[]> {
 
 function websiteStatusLabel(status: string): StudentSummary['websiteStatus'] {
   const s = (status || '').toLowerCase();
-  if (s === 'material_waiting') return '자료대기';
+  if (s === 'need_more_info' || s === 'material_waiting') return '자료대기';
   if (s === 'design') return '디자인중';
   if (s === 'development') return '개발중';
   if (s === 'internal_review' || s === 'customer_review') return '검수대기';
@@ -100,7 +110,7 @@ export function mapOrderToKanbanCard(order: ApiWebsiteOrder): WebsiteKanbanCard 
     stage,
     progress: order.progress || 0,
     materialsStatus: `${(order.files || []).length}개 자료 제출`,
-    materialsReadyPercent: 0,
+    materialsReadyPercent: order.materialsReadiness || 0,
     priority: 'medium',
     assignee: '',
     brief: {
@@ -113,6 +123,15 @@ export function mapOrderToKanbanCard(order: ApiWebsiteOrder): WebsiteKanbanCard 
       keywords: [],
     },
     notes: [],
+    orderNo: order.orderNo || '',
+    mbId: order.mbId,
+    files: (order.files || []).map((f) => ({
+      id: f.id,
+      originalName: f.originalName,
+      downloadUrl: f.downloadUrl,
+      category: f.category,
+      memo: f.memo,
+    })),
   };
 }
 

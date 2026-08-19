@@ -314,6 +314,9 @@ export interface WebsiteKanbanCard {
     keywords: string[];
   };
   notes: { id: string; author: string; date: string; content: string }[];
+  files?: Array<{ id: number; originalName: string; downloadUrl: string; category: string; memo: string }>;
+  orderNo?: string;
+  mbId?: string;
 }
 
 export interface StudentSummary {
