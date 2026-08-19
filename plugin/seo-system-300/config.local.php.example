@@ -1,0 +1,53 @@
+<?php
+/**
+ * Copy to config.local.php on the server. Never commit config.local.php.
+ * Fill values locally. Leave secrets empty in this example file.
+ *
+ * Do not put Client Secret, Token Key, or AI keys in the React bundle.
+ * Do not reuse ONOFF_BUILDER_GEMINI_API_KEY. Use SEOSYS300_* only.
+ */
+if (!defined('_GNUBOARD_')) {
+    exit;
+}
+
+# --- Environment (CLI migration / E2E only; never set allow flags on production) ---
+putenv('SEOSYS300_ENV='); # development | production
+putenv('SEOSYS300_ALLOW_MIGRATION='); # 1 on isolated dev only
+putenv('SEOSYS300_E2E=');
+putenv('SEOSYS300_ALLOW_DB=');
+putenv('SEOSYS300_E2E_CONFIRM='); # must be exactly: dev-only
+putenv('SEOSYS300_DB_ALLOWLIST='); # exact G5_MYSQL_DB name(s), comma-separated
+
+# --- Portal ---
+putenv('SEOSYS300_PORTAL_PATH=/seo-system-300');
+putenv('SEOSYS300_HTTP_TIMEOUT=15');
+
+# --- Public launch control (config only; never send pilot list to the client) ---
+# off = preparing screen for everyone (including admin)
+# admin = GNUBoard admin only
+# pilot = admin + SEOSYS300_PILOT_USERS mb_id list
+# all = any logged-in member
+putenv('SEOSYS300_LAUNCH_MODE=off');
+putenv('SEOSYS300_PILOT_USERS=');
+
+# --- Google OAuth (server-side only) ---
+putenv('SEOSYS300_GOOGLE_CLIENT_ID=');
+putenv('SEOSYS300_GOOGLE_CLIENT_SECRET=');
+putenv('SEOSYS300_GOOGLE_REDIRECT_URI='); # e.g. https://dev.example/plugin/seo-system-300/api/integrations/google/callback.php
+putenv('SEOSYS300_TOKEN_KEY='); # 32-byte secret for AES-256-GCM; do not fall back in production
+putenv('SEOSYS300_SYNC_COOLDOWN_SECONDS=900');
+
+# --- Tool deep links (https only). Empty = NOT_CONFIGURED. Do not invent URLs. ---
+putenv('SEOSYS300_TOOL_CATCHDOMAIN_URL=');
+putenv('SEOSYS300_TOOL_CONTENT_URL=');
+putenv('SEOSYS300_TOOL_BACKLINK_URL=');
+putenv('SEOSYS300_TOOL_TRAFFIC_URL=');
+
+# --- AI Coach (optional). gemini | openai ---
+putenv('SEOSYS300_AI_PROVIDER=');
+putenv('SEOSYS300_AI_API_KEY=');
+putenv('SEOSYS300_AI_MODEL=');
+putenv('SEOSYS300_AI_COOLDOWN_SECONDS=21600');
+
+# --- Cron (optional; not registered by default) ---
+putenv('SEOSYS300_CRON_KEY=');

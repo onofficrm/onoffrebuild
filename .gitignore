@@ -13,6 +13,8 @@ data/onoff_private_keys.php
 /data/cache/
 /data/session/
 /data/file/
+/data/seo-system-300/**
+!/data/seo-system-300/.htaccess
 /data/log/
 /data/tmp/
 /cache/
@@ -33,6 +35,10 @@ node_modules/
 .env
 .env.*
 .env.local
+!.env.example
+!build/seo-system-300/.env.example
+plugin/seo-system-300/config.local.php
+
 
 # IDE / 로그
 .idea/
@@ -43,3 +49,7 @@ node_modules/
 
 # 대용량 패키지 아카이브
 plugin/auto_comment/packages/
+
+# SEO SYSTEM 300 isolated Docker (never production / never FTP)
+.dev/
+
