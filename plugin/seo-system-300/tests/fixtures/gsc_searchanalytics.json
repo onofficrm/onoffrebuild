@@ -1,0 +1,18 @@
+{
+  "rows": [
+    {
+      "keys": ["2026-08-01"],
+      "clicks": 12,
+      "impressions": 400,
+      "ctr": 0.03,
+      "position": 8.2
+    },
+    {
+      "keys": ["2026-08-02"],
+      "clicks": 18,
+      "impressions": 520,
+      "ctr": 0.034615,
+      "position": 7.1
+    }
+  ]
+}

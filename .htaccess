@@ -15,6 +15,9 @@
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
+  # SEO SYSTEM 300 Control Center SPA (do not collide with /seo-system landing)
+  RewriteRule ^seo-system-300(/.*)?$ /seo-system-300/index.html [QSA,L]
+
   # SEO SYSTEM 300 landing (static SPA). QSA keeps UTM query params.
   RewriteRule ^seo-system/?$ /seo-system/index.html [QSA,L]
 

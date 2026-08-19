@@ -1,0 +1,17 @@
+{
+  "accountSummaries": [
+    {
+      "name": "accountSummaries/1000",
+      "account": "accounts/1000",
+      "displayName": "Example Account",
+      "propertySummaries": [
+        {
+          "property": "properties/123456",
+          "displayName": "Example GA4",
+          "propertyType": "PROPERTY_TYPE_ORDINARY",
+          "parent": "accounts/1000"
+        }
+      ]
+    }
+  ]
+}
