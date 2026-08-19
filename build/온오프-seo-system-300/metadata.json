@@ -1,0 +1,6 @@
+{
+  "name": "온오프 SEO SYSTEM 300",
+  "description": "ONOFF MARKETING - 상위노출 시스템 구축 프로그램 (도메인, 웹사이트, 콘텐츠, 백링크, 트래픽 원스톱 실행환경 제공)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

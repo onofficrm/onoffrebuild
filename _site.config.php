@@ -79,7 +79,7 @@ $site_config = array(
     'auto_comment_builtin'      => true,
     /* RSS · sitemap · robots (lib/seo-feed.lib.php, rss.php, sitemap.php) */
     'seo_feed_enabled'          => true,
-    'sitemap_static_pages'      => '',  /* 비우면 /page/*.php 자동 (제외 목록 제외) */
+    'sitemap_static_pages'      => '/seo-system',  /* 비우면 /page/*.php 자동 (제외 목록 제외) */
     'sitemap_exclude_pages'     => '',  /* 추가 제외 경로, 쉼표 구분 */
     'sitemap_exclude_boards'    => 'inquiry',  /* 문의 게시판 등 sitemap/RSS 제외 */
     'sitemap_max_posts_per_board' => '500',
