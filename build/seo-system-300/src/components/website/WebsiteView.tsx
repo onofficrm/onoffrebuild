@@ -35,7 +35,7 @@ import { Modal } from '../common/Modal';
 import { WebsiteOrderWizard } from './WebsiteOrderWizard';
 import type { ApiWebsiteOrder } from '../../services/websiteOrderService';
 import type { UploadedFileItem } from './wizard/WizardStep8UploadCenter';
-import { isDraftOrderStatus, isSubmittedOrderStatus, WEBSITE_ORDER_STATUS_LABEL } from '../../constants/seoSystem300';
+import { isDraftOrderStatus, isSubmittedOrderStatus, WEBSITE_ORDER_STATUS, WEBSITE_ORDER_STATUS_LABEL, WEBSITE_PROCESS_STEPS } from '../../constants/seoSystem300';
 
 export interface WebsiteViewProps {
   activeSubTab: WebsiteSubTab;
@@ -57,7 +57,10 @@ export interface WebsiteViewProps {
   uploadError?: string;
   onUploadFiles?: (categoryId: string, files: FileList) => void;
   onDeleteFile?: (id: string) => void;
+  onUpdateFileMemo?: (id: string, memo: string) => void;
+  onReplaceFile?: (id: string, file: File) => void;
   saveError?: string;
+  saveStatus?: 'idle' | 'saving' | 'saved';
 }
 
 export const WebsiteView: React.FC<WebsiteViewProps> = ({
@@ -80,7 +83,10 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
   uploadError,
   onUploadFiles,
   onDeleteFile,
-  saveError
+  onUpdateFileMemo,
+  onReplaceFile,
+  saveError,
+  saveStatus
 }) => {
   // Modal states
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
@@ -175,7 +181,25 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
           </Button>
         </div>
       ) : null}
-      {liveOrder && isSubmittedOrderStatus(liveOrder.status) ? (
+      {liveOrder && liveOrder.status === WEBSITE_ORDER_STATUS.NEED_MORE_INFO ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-amber-900">⚠ 추가자료 필요</p>
+            <p className="text-xs text-amber-800">
+              {liveOrder.materialsRequest?.title || '관리자가 추가 자료를 요청했습니다.'}
+            </p>
+            {liveOrder.materialsRequest?.body ? (
+              <p className="text-xs text-amber-800 mt-1">{liveOrder.materialsRequest.body}</p>
+            ) : null}
+          </div>
+          <Button size="sm" variant="primary" onClick={() => setActiveSubTab('order')}>
+            자료 업로드
+          </Button>
+        </div>
+      ) : null}
+      {liveOrder &&
+      isSubmittedOrderStatus(liveOrder.status) &&
+      liveOrder.status !== WEBSITE_ORDER_STATUS.NEED_MORE_INFO ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-sm font-bold text-slate-900">
@@ -269,7 +293,9 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-blue-300">주문번호: {liveOrder ? liveOrder.id : order.id}</span>
+                  <span className="text-xs font-bold text-blue-300">
+                    주문번호: {liveOrder?.orderNo || liveOrder?.id || order.id}
+                  </span>
                   <Badge variant="green" size="sm" dot>
                     {liveOrder
                       ? WEBSITE_ORDER_STATUS_LABEL[liveOrder.status] || liveOrder.status
@@ -281,7 +307,7 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
                 </h2>
                 <p className="text-xs text-slate-300">
                   {liveOrder
-                    ? `제출 자료 ${(liveOrder.files || []).length}개`
+                    ? `자료 준비율 ${liveOrder.materialsReadiness ?? 0}% · 파일 ${(liveOrder.files || []).length}개`
                     : `담당 퍼블리셔: ${order.assignedEngineer} | 예상 일정: ${order.eta}`}
                 </p>
               </div>
@@ -338,41 +364,26 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
               <span className="text-xs text-[#64748B]">실제 상태 기록 기준</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-3">
-              {(
-                [
-                  { key: 'submitted', title: '주문 접수' },
-                  { key: 'material_waiting', title: '자료 제출' },
-                  { key: 'planning', title: '사이트 구조 확정' },
-                  { key: 'design', title: '디자인' },
-                  { key: 'development', title: '개발' },
-                  { key: 'customer_review', title: '검수' },
-                  { key: 'revision', title: '수정' },
-                  { key: 'completed', title: '오픈' }
-                ] as const
-              ).map((ms, idx) => {
-                const hist = liveOrder?.history || [];
-                const hit =
-                  hist.find((h) => h.toStatus === ms.key) ||
-                  (ms.key === 'customer_review' ? hist.find((h) => h.toStatus === 'internal_review') : undefined);
-                const isDone = Boolean(hit);
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-3">
+              {WEBSITE_PROCESS_STEPS.map((ms) => {
+                const current = liveOrder?.processStep || 0;
+                const isDone = current >= ms.id;
+                const isNow = current === ms.id;
                 return (
                   <div
-                    key={ms.key}
+                    key={ms.id}
                     className={`p-4 rounded-2xl border relative transition-all ${
                       isDone ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#0F172A]' : 'bg-[#F8FAFC] border-[#E2E8F0] opacity-70'
-                    }`}
+                    } ${isNow ? 'ring-2 ring-[#2563EB]/30' : ''}`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-black uppercase text-[#64748B] tracking-wider">STEP 0{idx + 1}</span>
+                      <span className="text-[10px] font-black uppercase text-[#64748B] tracking-wider">
+                        {ms.id} / 7
+                      </span>
                       {isDone ? <CheckCircle2 className="w-4 h-4 text-[#10B981]" /> : <Clock className="w-4 h-4 text-[#94A3B8]" />}
                     </div>
                     <h4 className="text-xs font-bold text-[#0F172A] mb-1">{ms.title}</h4>
-                    {isDone && hit?.createdAt ? (
-                      <p className="text-[10px] text-[#047857] font-semibold mt-2">완료일: {hit.createdAt.slice(0, 10)}</p>
-                    ) : (
-                      <p className="text-[10px] text-slate-400 mt-2">대기</p>
-                    )}
+                    <p className="text-[10px] text-slate-400 mt-2">{isNow ? '진행 중' : isDone ? '완료' : '대기'}</p>
                   </div>
                 );
               })}
@@ -438,7 +449,9 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
       {activeSubTab === 'order' && (
         <div>
           {orderMode === 'wizard' ? (
-            liveOrder && isSubmittedOrderStatus(liveOrder.status) ? (
+            liveOrder &&
+            isSubmittedOrderStatus(liveOrder.status) &&
+            liveOrder.status !== WEBSITE_ORDER_STATUS.NEED_MORE_INFO ? (
               <div className="bg-white rounded-3xl p-8 border border-[#E2E8F0] text-center space-y-3">
                 <h2 className="text-lg font-black">이미 제출된 주문이 있습니다.</h2>
                 <p className="text-sm text-slate-500">제작현황 화면에서 진행 상태를 확인하세요.</p>
@@ -469,6 +482,11 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
                       designStyle: liveOrder.designStyle,
                       primaryColor: liveOrder.primaryColor,
                       customColor: liveOrder.customColor,
+                      contacts: liveOrder.contacts || {},
+                      extraRequest: liveOrder.extraRequest || '',
+                      accentColor: liveOrder.accentColor || '',
+                      orderNo: liveOrder.orderNo || '',
+                      status: liveOrder.status,
                       menus: liveOrder.menus.map((m) => ({
                         id: String(m.id),
                         title: m.label,
@@ -485,6 +503,9 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
               uploadError={uploadError}
               onUploadFiles={onUploadFiles}
               onDeleteFile={onDeleteFile}
+              onUpdateFileMemo={onUpdateFileMemo}
+              onReplaceFile={onReplaceFile}
+              saveStatus={saveStatus}
             />
             )
           ) : (

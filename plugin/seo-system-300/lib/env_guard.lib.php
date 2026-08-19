@@ -196,6 +196,7 @@ function seosys300_ordered_migrations()
         '002_roadmap_missions_activity_admin.sql',
         '003_google_metrics.sql',
         '004_tools_ai.sql',
+        '005_website_order_wizard.sql',
     );
 }
 

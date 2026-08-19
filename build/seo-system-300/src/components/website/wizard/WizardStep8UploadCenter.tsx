@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   UploadCloud,
   FileCheck,
@@ -136,6 +136,10 @@ export interface WizardStep8UploadCenterProps {
   uploadError?: string;
   onUploadFiles?: (categoryId: string, files: FileList) => void;
   onDeleteFile?: (id: string) => void;
+  onUpdateFileMemo?: (id: string, memo: string) => void;
+  onReplaceFile?: (id: string, file: File) => void;
+  contacts?: Record<string, string>;
+  setContacts?: (next: Record<string, string>) => void;
 }
 
 export const WizardStep8UploadCenter: React.FC<WizardStep8UploadCenterProps> = ({
@@ -146,9 +150,15 @@ export const WizardStep8UploadCenter: React.FC<WizardStep8UploadCenterProps> = (
   uploadProgress = 0,
   uploadError = '',
   onUploadFiles,
-  onDeleteFile
+  onDeleteFile,
+  onUpdateFileMemo,
+  onReplaceFile,
+  contacts,
+  setContacts
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const replaceInputRef = React.useRef<HTMLInputElement>(null);
+  const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
   const [categories, setCategories] = useState<MaterialCategory[]>(
     MATERIAL_CATEGORIES.map((c) => ({ ...c, status: 'pending' as const }))
   );
@@ -156,13 +166,63 @@ export const WizardStep8UploadCenter: React.FC<WizardStep8UploadCenterProps> = (
   const [localFiles, setLocalFiles] = useState<UploadedFileItem[]>([]);
   const uploadedFiles = files || localFiles;
 
-  const [contactPhone, setContactPhone] = useState('');
-  const [contactKakao, setContactKakao] = useState('');
-  const [contactTelegram, setContactTelegram] = useState('');
-  const [contactWhatsapp, setContactWhatsapp] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactAddress, setContactAddress] = useState('');
-  const [contactMapUrl, setContactMapUrl] = useState('');
+  const [contactPhone, setContactPhone] = useState(contacts?.phone || '');
+  const [contactKakao, setContactKakao] = useState(contacts?.kakao || '');
+  const [contactTelegram, setContactTelegram] = useState(contacts?.telegram || '');
+  const [contactWhatsapp, setContactWhatsapp] = useState(contacts?.whatsapp || '');
+  const [contactEmail, setContactEmail] = useState(contacts?.email || '');
+  const [contactAddress, setContactAddress] = useState(contacts?.address || '');
+  const [contactMapUrl, setContactMapUrl] = useState(contacts?.mapUrl || '');
+  const [contactFacebook, setContactFacebook] = useState(contacts?.facebook || '');
+  const [contactInstagram, setContactInstagram] = useState(contacts?.instagram || '');
+  const [contactYoutube, setContactYoutube] = useState(contacts?.youtube || '');
+  const [contactTiktok, setContactTiktok] = useState(contacts?.tiktok || '');
+  const [contactNaverBlog, setContactNaverBlog] = useState(contacts?.naverBlog || '');
+  const [contactOtherSns, setContactOtherSns] = useState(contacts?.otherSns || '');
+
+  useEffect(() => {
+    if (!files) return;
+    setCategories(
+      MATERIAL_CATEGORIES.map((c) => ({
+        ...c,
+        status: files.some((f) => f.categoryId === c.id) ? ('completed' as const) : ('pending' as const)
+      }))
+    );
+  }, [files]);
+
+  useEffect(() => {
+    if (!setContacts) return;
+    setContacts({
+      phone: contactPhone,
+      kakao: contactKakao,
+      telegram: contactTelegram,
+      whatsapp: contactWhatsapp,
+      email: contactEmail,
+      address: contactAddress,
+      mapUrl: contactMapUrl,
+      facebook: contactFacebook,
+      instagram: contactInstagram,
+      youtube: contactYoutube,
+      tiktok: contactTiktok,
+      naverBlog: contactNaverBlog,
+      otherSns: contactOtherSns
+    });
+  }, [
+    contactPhone,
+    contactKakao,
+    contactTelegram,
+    contactWhatsapp,
+    contactEmail,
+    contactAddress,
+    contactMapUrl,
+    contactFacebook,
+    contactInstagram,
+    contactYoutube,
+    contactTiktok,
+    contactNaverBlog,
+    contactOtherSns,
+    setContacts
+  ]);
 
   // Active editing memo
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
@@ -229,6 +289,11 @@ export const WizardStep8UploadCenter: React.FC<WizardStep8UploadCenterProps> = (
 
   // Save memo
   const handleSaveMemo = (id: string) => {
+    if (onUpdateFileMemo) {
+      onUpdateFileMemo(id, memoDraft);
+      setEditingMemoId(null);
+      return;
+    }
     setLocalFiles(
       localFiles.map((f) => (f.id === id ? { ...f, memo: memoDraft } : f))
     );
@@ -402,6 +467,19 @@ export const WizardStep8UploadCenter: React.FC<WizardStep8UploadCenterProps> = (
                   e.currentTarget.value = '';
                 }}
               />
+              <input
+                ref={replaceInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const next = e.target.files?.[0];
+                  if (next && replaceTargetId && onReplaceFile) {
+                    onReplaceFile(replaceTargetId, next);
+                  }
+                  setReplaceTargetId(null);
+                  e.currentTarget.value = '';
+                }}
+              />
             </div>
             {uploadError ? (
               <p className="text-xs text-rose-600 font-semibold">{uploadError}</p>
@@ -442,7 +520,10 @@ export const WizardStep8UploadCenter: React.FC<WizardStep8UploadCenterProps> = (
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
-                          onClick={() => handleDropOrSelect()}
+                          onClick={() => {
+                            setReplaceTargetId(file.id);
+                            replaceInputRef.current?.click();
+                          }}
                           className="p-1.5 rounded-lg hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#2563EB]"
                           title="교체"
                         >
@@ -605,6 +686,21 @@ export const WizardStep8UploadCenter: React.FC<WizardStep8UploadCenterProps> = (
                 className="w-full bg-transparent focus:outline-hidden"
               />
             </div>
+            <input
+              type="url"
+              value={contactMapUrl}
+              onChange={(e) => setContactMapUrl(e.target.value)}
+              placeholder="Google Map URL"
+              className="w-full px-3 py-2 border border-[#E2E8F0] rounded-xl bg-[#F8FAFC] text-sm"
+            />
+          </div>
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input className="px-3 py-2 border border-[#E2E8F0] rounded-xl text-sm" placeholder="Facebook" value={contactFacebook} onChange={(e) => setContactFacebook(e.target.value)} />
+            <input className="px-3 py-2 border border-[#E2E8F0] rounded-xl text-sm" placeholder="Instagram" value={contactInstagram} onChange={(e) => setContactInstagram(e.target.value)} />
+            <input className="px-3 py-2 border border-[#E2E8F0] rounded-xl text-sm" placeholder="YouTube" value={contactYoutube} onChange={(e) => setContactYoutube(e.target.value)} />
+            <input className="px-3 py-2 border border-[#E2E8F0] rounded-xl text-sm" placeholder="TikTok" value={contactTiktok} onChange={(e) => setContactTiktok(e.target.value)} />
+            <input className="px-3 py-2 border border-[#E2E8F0] rounded-xl text-sm" placeholder="Naver Blog" value={contactNaverBlog} onChange={(e) => setContactNaverBlog(e.target.value)} />
+            <input className="px-3 py-2 border border-[#E2E8F0] rounded-xl text-sm" placeholder="기타 SNS" value={contactOtherSns} onChange={(e) => setContactOtherSns(e.target.value)} />
           </div>
         </div>
       </div>
@@ -628,7 +724,7 @@ export const WizardStep8UploadCenter: React.FC<WizardStep8UploadCenterProps> = (
             onClick={onSubmitFinal}
             className="w-full sm:w-auto bg-[#2563EB] hover:bg-blue-700 font-bold px-8 py-3.5 shadow-sm text-sm"
           >
-            기획 & 자료 완비 홈페이지 제작 주문서 최종 접수 →
+            다음: 최종 확인 →
           </Button>
         </div>
       </div>

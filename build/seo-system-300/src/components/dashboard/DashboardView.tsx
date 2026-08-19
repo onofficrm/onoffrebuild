@@ -36,6 +36,8 @@ import {
 } from 'recharts';
 import { Project, DailyMission, NavigationTab, ActivityLog, AiCoachInsight } from '../../types';
 import type { MetricsSummary } from '../../services/metricsService';
+import type { ApiWebsiteOrder } from '../../services/websiteOrderService';
+import { WEBSITE_ORDER_STATUS_LABEL } from '../../constants/seoSystem300';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
@@ -54,6 +56,7 @@ export interface DashboardViewProps {
   metricsSummary?: MetricsSummary | null;
   metricsTimeseries?: Array<{ date: string; impressions: number; clicks: number }>;
   unified?: Record<string, unknown> | null;
+  liveWebsiteOrder?: ApiWebsiteOrder | null;
   adminAttentionNotice?: {
     title: string;
     description: string;
@@ -74,13 +77,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   metricsSummary = null,
   metricsTimeseries = [],
   unified = null,
-  adminAttentionNotice = {
-    title: '홈페이지 1차 디자인 시안 검수 대기',
-    description: '전문 디자이너가 제작한 5개 페이지 반응형 디자인 시안이 등록되었습니다. 검수 후 수정을 요청하거나 최종 승인해주세요.',
-    actionTab: 'website',
-    actionSubTab: 'status',
-    actionText: '시안 검수하러 가기'
-  }
+  liveWebsiteOrder = null,
+  adminAttentionNotice
 }) => {
   if (!project) {
     return (
@@ -270,6 +268,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          {liveWebsiteOrder ? (
+            <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-[#E2E8F0] space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-bold text-[#2563EB] uppercase">내 홈페이지</span>
+                  <h4 className="text-sm font-black text-[#0F172A] mt-1">
+                    {WEBSITE_ORDER_STATUS_LABEL[liveWebsiteOrder.status] || liveWebsiteOrder.status}
+                  </h4>
+                  <p className="text-xs text-[#64748B] mt-1">
+                    Progress {liveWebsiteOrder.processStep || 0} / {liveWebsiteOrder.processTotal || 7}
+                    {liveWebsiteOrder.orderNo ? ` · ${liveWebsiteOrder.orderNo}` : ''}
+                  </p>
+                </div>
+                <Button variant="primary" size="sm" onClick={() => onNavigate('website', 'status')}>
+                  제작현황 보기
+                </Button>
+              </div>
+              {liveWebsiteOrder.status === 'need_more_info' ? (
+                <p className="text-xs font-bold text-amber-700">⚠ 추가자료 필요</p>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* 4. 관리자 / 시스템 요청사항 (Admin/System Attention Card) */}
           {adminAttentionNotice && (

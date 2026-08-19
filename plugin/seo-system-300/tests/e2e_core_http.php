@@ -361,25 +361,90 @@ if (($restOrder['siteName'] ?? '') === 'E2E Test Site' && count($restOrder['menu
 } else {
     e2e_fail('Website draft restore');
 }
+if (($restOrder['wizardStep'] ?? '') === 'step1') {
+    e2e_pass('Wizard step restore/alias info→step1');
+} else {
+    e2e_fail('Wizard step restore got=' . ($restOrder['wizardStep'] ?? ''));
+}
 
-function e2e_upload($base, $jar, $csrf, $orderId, $filename, $bytes, $mime)
+$saveExtra = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfA, array(
+    'projectId' => $idA,
+    'orderId' => $oid,
+    'wizardStep' => 'step8',
+    'designStyle' => 'clean_professional',
+    'primaryColor' => 'navy',
+    'customColor' => '#2563EB',
+    'accentColor' => '#10B981',
+    'colorPreset' => 'navy',
+    'features' => array('inquiry_form', 'map', 'kakaotalk'),
+    'contacts' => array(
+        'phone' => '010-0000-0000',
+        'kakao' => 'e2e-kakao',
+        'email' => 'student_a@example.test',
+    ),
+    'extraRequest' => '<script>alert(1)</script> E2E extra request memo',
+));
+$extraD = e2e_data($saveExtra);
+if (($extraD['contacts']['kakao'] ?? '') === 'e2e-kakao' && strpos((string) ($extraD['extraRequest'] ?? ''), 'E2E extra request memo') !== false) {
+    e2e_pass('Website extra_json contacts/request saved');
+} else {
+    e2e_fail('Website extra_json ' . $saveExtra['code'] . ' ' . substr($saveExtra['raw'], 0, 180));
+}
+$reqText = (string) ($extraD['extraRequest'] ?? '');
+$noLeak = strpos($saveExtra['raw'], 'mysqli_') === false && strpos($saveExtra['raw'], 'You have an error in your SQL') === false;
+if (strpos($reqText, 'alert(1)') !== false && $noLeak) {
+    e2e_pass('XSS stored as text; no filesystem/SQL leak in JSON');
+} else {
+    e2e_fail('XSS/path leak check extra=' . substr($reqText, 0, 80));
+}
+
+$inject = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfA, array(
+    'projectId' => $idA,
+    'orderId' => $oid,
+    'wizardStep' => '../etc/passwd',
+    'progress' => 99,
+    'materialsRequest' => array('title' => 'hacked-admin', 'body' => 'should-not-save'),
+    'extra_json' => array('adminInternal' => 'secret', 'materialsRequest' => array('title' => 'blob')),
+    'contacts' => array(
+        'phone' => '010-0000-0000',
+        'kakao' => 'e2e-kakao',
+        'email' => 'student_a@example.test',
+        'adminInternal' => 'nope',
+    ),
+));
+$injD = e2e_data($inject);
+$injStep = (string) ($injD['wizardStep'] ?? '');
+if (
+    $injStep !== '../etc/passwd'
+    && (int) ($injD['progress'] ?? 0) !== 99
+    && empty($injD['materialsRequest'])
+    && strpos($inject['raw'], 'hacked-admin') === false
+    && strpos($inject['raw'], 'adminInternal') === false
+) {
+    e2e_pass('extra_json/progress/wizard_step whitelist');
+} else {
+    e2e_fail('whitelist step=' . $injStep . ' progress=' . ($injD['progress'] ?? '') . ' ' . substr($inject['raw'], 0, 160));
+}
+
+function e2e_upload($base, $jar, $csrf, $orderId, $filename, $bytes, $mime, $action = 'upload', $extra = array())
 {
     $tmp = tempnam(sys_get_temp_dir(), 'up');
     file_put_contents($tmp, $bytes);
     $ch = curl_init($base . '/plugin/seo-system-300/api/website/index.php');
     $cfile = new CURLFile($tmp, $mime, $filename);
+    $fields = array_merge(array(
+        'action' => $action,
+        'orderId' => (string) $orderId,
+        'category' => 'logo',
+        'file' => $cfile,
+    ), $extra);
     curl_setopt_array($ch, array(
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_COOKIEFILE => $jar,
         CURLOPT_COOKIEJAR => $jar,
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => array('Accept: application/json', 'X-CSRF-Token: ' . $csrf),
-        CURLOPT_POSTFIELDS => array(
-            'action' => 'upload',
-            'orderId' => (string) $orderId,
-            'category' => 'logo',
-            'file' => $cfile,
-        ),
+        CURLOPT_POSTFIELDS => $fields,
     ));
     $body = curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -406,6 +471,43 @@ if ($upPng['code'] === 201 && $upJpg['code'] === 201 && $upPdf['code'] === 201 &
     e2e_pass('File upload png/jpg/pdf');
 } else {
     e2e_fail('File upload ' . $upPng['code'] . '/' . $upJpg['code'] . '/' . $upPdf['code'] . ' ' . substr($upPng['raw'], 0, 120));
+}
+$orig = (string) ($filePng['originalName'] ?? '');
+$dlUrl = (string) ($filePng['downloadUrl'] ?? '');
+if ($orig === 'logo.png' && strpos($dlUrl, 'download.php?id=') !== false && strpos($dlUrl, 'logo.png') === false) {
+    e2e_pass('Upload keeps original name; download URL is id-based');
+} else {
+    e2e_fail('Upload naming orig=' . $orig . ' url=' . $dlUrl);
+}
+$memo = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfA, array(
+    'action' => 'update_file',
+    'fileId' => $fileId,
+    'memo' => 'E2E logo memo',
+));
+$memoD = e2e_data($memo);
+if (($memoD['memo'] ?? '') === 'E2E logo memo') {
+    e2e_pass('File memo update');
+} else {
+    e2e_fail('File memo ' . $memo['code'] . ' ' . substr($memo['raw'], 0, 120));
+}
+$memoNoCsrf = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', '', array(
+    'action' => 'update_file',
+    'fileId' => $fileId,
+    'memo' => 'csrf-miss',
+));
+if ((int) $memoNoCsrf['code'] === 403) {
+    e2e_pass('File memo CSRF required');
+} else {
+    e2e_fail('File memo CSRF ' . $memoNoCsrf['code']);
+}
+$repl = e2e_upload($base, $jarA, $csrfA, $oid, 'logo-replace.jpg', $jpg, 'image/jpeg', 'replace_file', array('fileId' => (string) $fileId));
+$replD = e2e_data($repl);
+$newFileId = (int) ($replD['id'] ?? 0);
+if ($repl['code'] === 200 && $newFileId > 0) {
+    e2e_pass('File replace');
+    $fileId = $newFileId;
+} else {
+    e2e_fail('File replace ' . $repl['code'] . ' ' . substr($repl['raw'], 0, 160));
 }
 $delPdfId = (int) (e2e_data($upPdf)['id'] ?? 0);
 $del = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfA, array(
@@ -452,10 +554,16 @@ $sub = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.p
     'orderId' => $oid,
 ));
 $subD = e2e_data($sub);
+$orderNo = (string) ($subD['orderNo'] ?? '');
 if (($subD['status'] ?? '') === 'submitted' && empty($subD['isDraft'])) {
     e2e_pass('Website submit DRAFT→SUBMITTED');
 } else {
     e2e_fail('Website submit ' . $sub['code'] . ' ' . substr($sub['raw'], 0, 180));
+}
+if (preg_match('/^WEB-' . date('Y') . '-' . str_pad((string) $oid, 6, '0', STR_PAD_LEFT) . '$/', $orderNo) === 1) {
+    e2e_pass('order_no PK-based ' . $orderNo);
+} else {
+    e2e_fail('order_no got=' . $orderNo . ' oid=' . $oid);
 }
 
 $bOrder = e2e_api($base, $jarB, 'GET', '/plugin/seo-system-300/api/website/index.php?projectId=' . $idA, $csrfB);
@@ -470,6 +578,29 @@ if (e2e_denied($bOrder) && e2e_denied($bFiles) && e2e_denied($bDl) && e2e_denied
     e2e_pass('Website/file IDOR');
 } else {
     e2e_fail('Website/file IDOR codes ' . $bOrder['code'] . '/' . $bFiles['code'] . '/' . $bDl['code'] . '/' . $bSave['code']);
+}
+$bRepl = e2e_upload($base, $jarB, $csrfB, $oid, 'steal.jpg', $jpg, 'image/jpeg', 'replace_file', array('fileId' => (string) $fileId));
+$bMemo = e2e_api($base, $jarB, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfB, array(
+    'action' => 'update_file',
+    'fileId' => $fileId,
+    'memo' => 'stolen',
+));
+if (e2e_denied($bRepl) && e2e_denied($bMemo)) {
+    e2e_pass('File replace/memo IDOR');
+} else {
+    e2e_fail('File replace/memo IDOR ' . $bRepl['code'] . '/' . $bMemo['code']);
+}
+$guestDl = e2e_request('GET', $base . '/plugin/seo-system-300/api/website/download.php?id=' . $fileId, $jarGuest);
+if (e2e_denied($guestDl)) {
+    e2e_pass('Guest file download blocked');
+} else {
+    e2e_fail('Guest file download ' . $guestDl['code']);
+}
+$adminDl = e2e_request('GET', $base . '/plugin/seo-system-300/api/website/download.php?id=' . $fileId, $jarAdmin);
+if ((int) $adminDl['code'] === 200 && strlen($adminDl['raw']) > 10) {
+    e2e_pass('Admin file download allowed');
+} else {
+    e2e_fail('Admin file download ' . $adminDl['code']);
 }
 
 $rm = e2e_api($base, $jarA, 'GET', '/plugin/seo-system-300/api/roadmap/index.php?projectId=' . $idA, $csrfA);
@@ -613,6 +744,27 @@ if ($noCsrf['code'] === 403 && $badCsrf['code'] === 403) {
 } else {
     e2e_fail('CSRF ' . $noCsrf['code'] . '/' . $badCsrf['code']);
 }
+$webNoCsrf = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', '', array(
+    'projectId' => $idA,
+    'orderId' => $oid,
+    'siteName' => 'no csrf',
+));
+$webBadCsrf = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', '0.deadbeef', array(
+    'projectId' => $idA,
+    'orderId' => $oid,
+    'siteName' => 'bad csrf',
+));
+$adminNoCsrf = e2e_api($base, $jarAdmin, 'POST', '/plugin/seo-system-300/api/admin/index.php', '', array(
+    'action' => 'request-more-info',
+    'orderId' => $oid,
+    'title' => 'x',
+    'body' => 'y',
+));
+if ($webNoCsrf['code'] === 403 && $webBadCsrf['code'] === 403 && $adminNoCsrf['code'] === 403) {
+    e2e_pass('Website/admin CSRF missing/invalid rejected');
+} else {
+    e2e_fail('Website CSRF ' . $webNoCsrf['code'] . '/' . $webBadCsrf['code'] . '/' . $adminNoCsrf['code']);
+}
 
 $statuses = array('submitted', 'material_waiting', 'planning', 'design', 'development', 'internal_review', 'customer_review', 'revision', 'completed');
 $kanbanOk = true;
@@ -681,6 +833,102 @@ if ($noteGet['code'] === 200 && strpos($noteGet['raw'], 'E2E internal admin note
     e2e_pass('Admin note hidden from student');
 } else {
     e2e_fail('Admin note visibility');
+}
+
+$projMore = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/projects/index.php', $csrfA, array(
+    'name' => 'SEO SYSTEM E2E Materials Flow',
+    'description' => 'Materials request flow',
+    'purposes' => array('Google SEO'),
+    'domain' => '',
+));
+$pidMore = (int) (e2e_data($projMore)['id'] ?? 0);
+$draftMore = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfA, array(
+    'action' => 'draft',
+    'projectId' => $pidMore,
+));
+$oidMore = (int) (e2e_data($draftMore)['id'] ?? 0);
+e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfA, array(
+    'projectId' => $pidMore,
+    'orderId' => $oidMore,
+    'siteName' => 'Materials Flow Site',
+    'wizardStep' => 'step9',
+));
+$subMore = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfA, array(
+    'action' => 'submit',
+    'projectId' => $pidMore,
+    'orderId' => $oidMore,
+));
+$reqMore = e2e_api($base, $jarAdmin, 'POST', '/plugin/seo-system-300/api/admin/index.php', $csrfAdm, array(
+    'action' => 'request-more-info',
+    'orderId' => $oidMore,
+    'title' => '로고 원본 요청',
+    'body' => '투명 배경 PNG를 올려주세요.',
+    'categories' => array('logo'),
+    'adminMemo' => 'internal only',
+));
+$reqD = e2e_data($reqMore);
+$stuMore = e2e_api($base, $jarA, 'GET', '/plugin/seo-system-300/api/website/index.php?projectId=' . $pidMore, $csrfA);
+$stuMoreOrder = e2e_data($stuMore)['order'] ?? e2e_data($stuMore);
+$lockedSave = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfA, array(
+    'projectId' => $pidMore,
+    'orderId' => $oidMore,
+    'siteName' => 'should-not-save',
+));
+if (
+    ($reqD['status'] ?? '') === 'need_more_info'
+    && ($stuMoreOrder['status'] ?? '') === 'need_more_info'
+    && (($stuMoreOrder['materialsRequest']['title'] ?? '') === '로고 원본 요청')
+    && strpos(json_encode($stuMoreOrder), 'internal only') === false
+    && (int) $lockedSave['code'] === 409
+) {
+    e2e_pass('need_more_info request visible; wizard save locked; admin memo hidden');
+} else {
+    e2e_fail('need_more_info flow ' . $reqMore['code'] . '/' . $lockedSave['code'] . ' st=' . ($stuMoreOrder['status'] ?? ''));
+}
+$lockedExtra = e2e_api($base, $jarA, 'POST', '/plugin/seo-system-300/api/website/index.php', $csrfA, array(
+    'projectId' => $pidMore,
+    'orderId' => $oidMore,
+    'extraRequest' => 'should-not-change-core',
+    'siteName' => 'hijack',
+    'materialsRequest' => array('title' => 'student-overwrite'),
+));
+if ((int) $lockedExtra['code'] === 409) {
+    e2e_pass('need_more_info core fields remain locked');
+} else {
+    e2e_fail('need_more_info core lock ' . $lockedExtra['code']);
+}
+$alias = e2e_api($base, $jarAdmin, 'POST', '/plugin/seo-system-300/api/admin/index.php', $csrfAdm, array(
+    'action' => 'change-status',
+    'orderId' => $oidMore,
+    'status' => 'need_more_info',
+    'memo' => 'keep',
+));
+$upMore = e2e_upload($base, $jarA, $csrfA, $oidMore, 'more-logo.png', $png, 'image/png');
+$actMore = e2e_api($base, $jarA, 'GET', '/plugin/seo-system-300/api/activity/index.php?projectId=' . $pidMore . '&limit=50', $csrfA);
+$actTitles = array();
+foreach ((e2e_data($actMore)['activities'] ?? array()) as $a) {
+    $actTitles[] = (string) ($a['title'] ?? '');
+    $actTitles[] = (string) ($a['activityType'] ?? '');
+}
+$list = e2e_api($base, $jarAdmin, 'GET', '/plugin/seo-system-300/api/admin/index.php?action=website-orders', $csrfAdm);
+$foundMore = strpos($list['raw'], 'Materials Flow Site') !== false;
+$detMore = e2e_api($base, $jarAdmin, 'GET', '/plugin/seo-system-300/api/admin/index.php?action=order-detail&id=' . $oidMore, $csrfAdm);
+if ($upMore['code'] === 201 && in_array('새 자료가 제출됨', $actTitles, true) && $foundMore && strpos($detMore['raw'], 'more-logo.png') !== false) {
+    e2e_pass('Student extra upload + activity + admin list/detail files');
+} else {
+    e2e_fail('Extra upload/activity/admin files up=' . $upMore['code'] . ' titles=' . implode('|', $actTitles));
+}
+$reviewing = e2e_api($base, $jarAdmin, 'POST', '/plugin/seo-system-300/api/admin/index.php', $csrfAdm, array(
+    'action' => 'change-status',
+    'orderId' => $oidMore,
+    'status' => 'REVIEWING',
+    'memo' => 'alias map',
+));
+$revD = e2e_data($reviewing);
+if (($revD['status'] ?? '') === 'material_waiting') {
+    e2e_pass('Status alias REVIEWING→material_waiting');
+} else {
+    e2e_fail('Status alias ' . $reviewing['code'] . ' ' . ($revD['status'] ?? ''));
 }
 
 $detail = e2e_api($base, $jarAdmin, 'GET', '/plugin/seo-system-300/api/admin/index.php?action=student_detail&mbId=student_a', $csrfAdm);

@@ -71,12 +71,24 @@ export function parsePortalPath(pathname: string): ParsedPortalPath {
   if (parts[0] === 'admin') {
     const sub = parts[1];
     const adminTab: AdminTab =
-      sub === 'inbox' || sub === 'kanban' || sub === 'students' || sub === 'integrations' ? sub : 'dashboard';
+      sub === 'inbox'
+        ? 'inbox'
+        : sub === 'kanban' || sub === 'website-orders'
+          ? 'kanban'
+          : sub === 'students'
+            ? 'students'
+            : sub === 'integrations'
+              ? 'integrations'
+              : 'dashboard';
     return { mode: 'admin', adminTab };
   }
 
   const websiteSubTab: WebsiteSubTab = 'status';
   const toolSubTab: ToolSubTab = 'catchdomain';
+
+  if (parts[0] === 'website-order') {
+    return { mode: 'student', tab: 'website', websiteSubTab: 'order', toolSubTab };
+  }
 
   if (parts[0] === 'website') {
     const sub = parts[1];

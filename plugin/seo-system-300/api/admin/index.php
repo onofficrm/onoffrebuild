@@ -74,6 +74,11 @@ if ($action === 'note' || $action === 'admin-note') {
     seosys300_json_ok(seosys300_admin_add_note($pid, $oid, $note), 201);
 }
 
+if ($action === 'request-more-info' || $action === 'request_more_info' || $action === 'request-materials') {
+    $id = isset($input['orderId']) ? (int) $input['orderId'] : 0;
+    seosys300_json_ok(seosys300_admin_request_more_info($id, $input));
+}
+
 if ($action === 'sync-metrics' || $action === 'sync_metrics') {
     seosys300_require_metrics_tables();
     $pid = isset($input['projectId']) ? (int) $input['projectId'] : 0;

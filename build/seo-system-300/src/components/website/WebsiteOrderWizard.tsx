@@ -42,6 +42,7 @@ import { Badge } from '../common/Badge';
 import { WizardStep6Design } from './wizard/WizardStep6Design';
 import { WizardStep7Features } from './wizard/WizardStep7Features';
 import { WizardStep8UploadCenter } from './wizard/WizardStep8UploadCenter';
+import { WizardStep9Review } from './wizard/WizardStep9Review';
 
 export interface WebsiteOrderWizardProps {
   onSubmitOrder: (orderData: Record<string, unknown>) => void | Promise<void>;
@@ -54,7 +55,10 @@ export interface WebsiteOrderWizardProps {
   uploadError?: string;
   onUploadFiles?: (categoryId: string, files: FileList) => void;
   onDeleteFile?: (id: string) => void;
+  onUpdateFileMemo?: (id: string, memo: string) => void;
+  onReplaceFile?: (id: string, file: File) => void;
   saveError?: string;
+  saveStatus?: 'idle' | 'saving' | 'saved';
 }
 
 // 8 Wizard Steps + intro + success
@@ -68,6 +72,7 @@ export type WizardStep =
   | 'step6'
   | 'step7'
   | 'step8'
+  | 'step9'
   | 'success';
 
 // Step 1 Site Types
@@ -201,7 +206,10 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
   uploadError,
   onUploadFiles,
   onDeleteFile,
-  saveError
+  onUpdateFileMemo,
+  onReplaceFile,
+  saveError,
+  saveStatus = 'idle'
 }) => {
   const init = initialValues || {};
   const [currentStep, setCurrentStep] = useState<WizardStep>(
@@ -243,13 +251,25 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
   const [customPrimaryColor, setCustomPrimaryColor] = useState<string>(
     (init.customColor as string) || '#2563EB'
   );
-  const [customSecondaryColor, setCustomSecondaryColor] = useState<string>('#1E293B');
   const [referenceUrls, setReferenceUrls] = useState<string[]>(
-    Array.isArray(init.references) ? (init.references as string[]) : []
+    Array.isArray(init.references)
+      ? (init.references as Array<string | { url?: string }>)
+          .map((r) => (typeof r === 'string' ? r : String(r.url || '')))
+          .filter(Boolean)
+      : []
   );
 
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
     Array.isArray(init.features) ? (init.features as string[]) : []
+  );
+  const initContacts = (init.contacts && typeof init.contacts === 'object' ? init.contacts : {}) as Record<
+    string,
+    string
+  >;
+  const [contacts, setContacts] = useState<Record<string, string>>(initContacts);
+  const [extraRequest, setExtraRequest] = useState((init.extraRequest as string) || '');
+  const [customSecondaryColor, setCustomSecondaryColor] = useState<string>(
+    (init.accentColor as string) || (init.secondaryColor as string) || '#1E293B'
   );
 
   const collectPayload = (step: WizardStep = currentStep) => ({
@@ -268,6 +288,9 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
     primaryColor: selectedColorPalette,
     customColor: customPrimaryColor,
     targetRegion: location,
+    secondaryStyle: '',
+    colorPreset: selectedColorPalette,
+    accentColor: customSecondaryColor,
     menus: menuItems.map((m) => ({
       id: m.id,
       title: m.title,
@@ -276,7 +299,9 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
       parentTitle: m.parentTitle
     })),
     features: selectedFeatures,
-    references: referenceUrls.filter(Boolean)
+    references: referenceUrls.filter(Boolean).map((url) => ({ url, memo: '' })),
+    contacts,
+    extraRequest
   });
 
   const skipSave = useRef(true);
@@ -285,10 +310,36 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
       skipSave.current = false;
       return;
     }
-    if (!onSaveDraft || currentStep === 'success') return;
-    void onSaveDraft(collectPayload(currentStep));
+    if (!onSaveDraft || currentStep === 'success' || currentStep === 'intro') return;
+    if ((init.status as string) && init.status !== 'draft') return;
+    const timer = window.setTimeout(() => {
+      void onSaveDraft(collectPayload(currentStep));
+    }, 800);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep]);
+  }, [
+    currentStep,
+    selectedSiteType,
+    selectedPurposes,
+    selectedCategory,
+    customCategoryInput,
+    siteName,
+    brandName,
+    phone,
+    email,
+    location,
+    businessDesc,
+    existingUrl,
+    menuItems,
+    selectedStyle,
+    selectedColorPalette,
+    customPrimaryColor,
+    customSecondaryColor,
+    referenceUrls,
+    selectedFeatures,
+    contacts,
+    extraRequest
+  ]);
 
   const handleTogglePurpose = (id: string) => {
     if (selectedPurposes.includes(id)) {
@@ -411,7 +462,7 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
 
   // Final Submit Action after Step 8
   const handleFinalSubmit = () => {
-    void Promise.resolve(onSubmitOrder(collectPayload('success'))).then(() => {
+    void Promise.resolve(onSubmitOrder(collectPayload('step9'))).then(() => {
       setCurrentStep('success');
     });
   };
@@ -427,9 +478,11 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
     step6: 6,
     step7: 7,
     step8: 8,
-    success: 9
+    step9: 9,
+    success: 10
   };
   const currentStepNum = stepNumberMap[currentStep];
+  const totalSteps = 9;
 
   return (
     <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-xs">
@@ -439,28 +492,36 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#2563EB] font-bold text-xs border border-[#DBEAFE]">
-                STEP {currentStepNum} / 8
+                STEP {currentStepNum} / {totalSteps}
               </span>
               <h2 className="text-sm font-bold text-[#0F172A]">
                 {currentStep === 'step1' && '홈페이지 종류 선택'}
                 {currentStep === 'step2' && '홈페이지 목적 설정'}
                 {currentStep === 'step3' && '업종 카테고리'}
                 {currentStep === 'step4' && '기본 정보 입력'}
-                {currentStep === 'step5' && 'AI 추천 메뉴구조 & Silo 기획'}
+                {currentStep === 'step5' && '추천 메뉴구조 & Silo 기획'}
                 {currentStep === 'step6' && '디자인 스타일 & 브랜드 컬러'}
                 {currentStep === 'step7' && '필요한 기능 선택'}
                 {currentStep === 'step8' && '제작 자료 업로드 센터'}
+                {currentStep === 'step9' && '최종 확인 및 제작 요청'}
               </h2>
             </div>
-            <span className="text-xs font-bold text-[#2563EB]">
-              {Math.round((currentStepNum / 8) * 100)}% 진행
-            </span>
+            <div className="flex items-center gap-3">
+              {saveStatus === 'saving' ? (
+                <span className="text-xs font-bold text-[#64748B]">저장 중...</span>
+              ) : saveStatus === 'saved' ? (
+                <span className="text-xs font-bold text-[#10B981]">✓ 자동 저장됨</span>
+              ) : null}
+              <span className="text-xs font-bold text-[#2563EB]">
+                {Math.round((currentStepNum / totalSteps) * 100)}% 진행
+              </span>
+            </div>
           </div>
 
           <div className="w-full bg-[#F1F5F9] rounded-full h-2 overflow-hidden">
             <div
               className="bg-[#2563EB] h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStepNum / 8) * 100}%` }}
+              style={{ width: `${(currentStepNum / totalSteps) * 100}%` }}
             />
           </div>
         </div>
@@ -504,7 +565,7 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
             <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
               <div className="flex items-center gap-1.5 text-xs font-bold text-[#0F172A]">
                 <Layers className="w-4 h-4 text-[#2563EB]" />
-                <span>AI 메뉴 & 기능 추천</span>
+                <span>업종별 메뉴 & 기능 추천</span>
               </div>
               <p className="text-xs text-[#64748B]">업종별 Silo 및 기능 자동선정</p>
             </div>
@@ -1156,7 +1217,7 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* 7. STEP 7: 필요한 기능 선택 (AI 추천 연동) */}
+      {/* 7. STEP 7: 필요한 기능 선택 (규칙 기반 추천) */}
       {/* ========================================================================= */}
       {currentStep === 'step7' && (
         <WizardStep7Features
@@ -1175,13 +1236,52 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
       {currentStep === 'step8' && (
         <WizardStep8UploadCenter
           onPrev={() => setCurrentStep('step7')}
-          onSubmitFinal={handleFinalSubmit}
+          onSubmitFinal={() => setCurrentStep('step9')}
           files={files}
           uploading={uploading}
           uploadProgress={uploadProgress}
           uploadError={uploadError}
           onUploadFiles={onUploadFiles}
           onDeleteFile={onDeleteFile}
+          onUpdateFileMemo={onUpdateFileMemo}
+          onReplaceFile={onReplaceFile}
+          contacts={contacts}
+          setContacts={setContacts}
+        />
+      )}
+
+      {currentStep === 'step9' && (
+        <WizardStep9Review
+          siteType={selectedSiteType}
+          purposes={selectedPurposes}
+          industry={customCategoryInput.trim() || selectedCategory}
+          siteName={siteName}
+          brandName={brandName}
+          phone={phone}
+          email={email}
+          region={location}
+          businessDesc={businessDesc}
+          designStyle={selectedStyle}
+          colorPreset={selectedColorPalette}
+          customPrimaryColor={customPrimaryColor}
+          customSecondaryColor={customSecondaryColor}
+          references={referenceUrls.filter(Boolean).map((url) => ({ url }))}
+          menus={menuItems}
+          features={selectedFeatures}
+          filesCount={(files || []).length}
+          materialsPercent={
+            files && files.length
+              ? Math.round(
+                  (new Set(files.map((f) => f.categoryId)).size / 10) * 100
+                )
+              : 0
+          }
+          extraRequest={extraRequest}
+          setExtraRequest={setExtraRequest}
+          contacts={contacts}
+          onEdit={(step) => setCurrentStep(step)}
+          onPrev={() => setCurrentStep('step8')}
+          onSubmit={handleFinalSubmit}
         />
       )}
 
@@ -1209,6 +1309,12 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
 
           {/* Submission Info Card */}
           <div className="p-5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] text-left text-xs space-y-2.5">
+            <div className="flex justify-between py-1 border-b border-[#E2E8F0]">
+              <span className="text-[#64748B]">주문번호:</span>
+              <span className="font-bold text-[#0F172A]">
+                {(init.orderNo as string) || '접수 처리 중'}
+              </span>
+            </div>
             <div className="flex justify-between py-1 border-b border-[#E2E8F0]">
               <span className="text-[#64748B]">사이트명:</span>
               <span className="font-bold text-[#0F172A]">{siteName}</span>

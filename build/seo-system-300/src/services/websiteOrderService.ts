@@ -54,13 +54,29 @@ export type ApiWebsiteOrder = {
   primaryColor: string;
   customColor: string;
   targetRegion: string;
+  secondaryStyle?: string;
+  colorPreset?: string;
+  accentColor?: string;
+  contacts?: Record<string, string>;
+  extraRequest?: string;
+  materialsRequest?: {
+    title?: string;
+    body?: string;
+    categories?: string[];
+    requestedAt?: string;
+  } | null;
   status: string;
   progress: number;
+  processStep?: number;
+  processTotal?: number;
+  materialsReadiness?: number;
+  materialsStatus?: string;
   isDraft: boolean;
   wizardStep: string;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  orderNo?: string;
   menus: ApiMenuItem[];
   features: ApiFeature[];
   references: ApiReference[];
@@ -102,6 +118,11 @@ export type WebsiteOrderSaveInput = {
   references?: Array<string | { url: string; memo?: string }>;
   keywords?: string[];
   progress?: number;
+  contacts?: Record<string, string>;
+  extraRequest?: string;
+  secondaryStyle?: string;
+  colorPreset?: string;
+  accentColor?: string;
 };
 
 export async function getCurrentWebsiteOrder(projectId: string | number): Promise<ApiWebsiteOrder | null> {

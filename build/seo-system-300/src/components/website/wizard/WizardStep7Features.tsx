@@ -24,6 +24,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { Button } from '../../common/Button';
+import { recommendFeatureKeys } from '../../../services/featureRecommendService';
 
 export interface FeatureOption {
   id: string;
@@ -203,10 +204,10 @@ export const WizardStep7Features: React.FC<WizardStep7FeaturesProps> = ({
     return false;
   };
 
-  // AI Auto-recommend handler
-  const handleAiAutoSelect = () => {
+  // Rule-based recommend (not an external AI)
+  const handleRecommendSelect = () => {
     setAiAppliedAnim(true);
-    const recommendedIds = ALL_FEATURES.filter((f) => isRecommended(f)).map((f) => f.id);
+    const recommendedIds = recommendFeatureKeys(siteType, category);
     setSelectedFeatures(Array.from(new Set([...selectedFeatures, ...recommendedIds])));
     setTimeout(() => setAiAppliedAnim(false), 800);
   };
@@ -281,7 +282,7 @@ export const WizardStep7Features: React.FC<WizardStep7FeaturesProps> = ({
         </div>
       </div>
 
-      {/* AI Recommendation Banner */}
+      {/* Rule-based recommendation banner */}
       <div className={`p-4 rounded-3xl bg-[#EFF6FF] border border-[#DBEAFE] flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
         aiAppliedAnim ? 'ring-2 ring-[#2563EB]' : ''
       }`}>
@@ -292,7 +293,7 @@ export const WizardStep7Features: React.FC<WizardStep7FeaturesProps> = ({
           <div>
             <h4 className="text-xs font-bold text-[#1E40AF]">어떤 기능이 필요한지 모르겠어요</h4>
             <p className="text-[11px] text-[#1E3A8A]">
-              선택하신 업종({category || '일반'}) 및 웹사이트 목적에 가장 효과적인 필수 기능군을 AI가 추천해 드립니다.
+              선택하신 업종({category || '일반'})과 목적에 맞춰 추천 기능을 표시합니다. 외부 AI가 아닙니다.
             </p>
           </div>
         </div>
@@ -302,10 +303,10 @@ export const WizardStep7Features: React.FC<WizardStep7FeaturesProps> = ({
           variant="primary"
           size="sm"
           leftIcon={<Sparkles className="w-3.5 h-3.5" />}
-          onClick={handleAiAutoSelect}
+          onClick={handleRecommendSelect}
           className="shrink-0 bg-[#2563EB] hover:bg-blue-700 font-bold"
         >
-          AI가 업종에 맞게 추천해주세요
+          업종에 맞게 추천해주세요
         </Button>
       </div>
 

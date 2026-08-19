@@ -91,7 +91,7 @@ function seosys300_upload_file($order_id, $category, $memo = '')
     if (!$order) {
         seosys300_json_error(404, 'order_not_found', '주문을 찾을 수 없습니다.');
     }
-    seosys300_order_assert_editable($order);
+    seosys300_order_assert_uploadable($order);
 
     if (empty($_FILES['file']) || !is_uploaded_file($_FILES['file']['tmp_name'])) {
         seosys300_json_error(422, 'upload_missing', '업로드할 파일을 선택해주세요.');
@@ -181,7 +181,9 @@ function seosys300_upload_file($order_id, $category, $memo = '')
     $id = (int) sql_insert_id();
     $row = seosys300_fetch("SELECT * FROM `{$table}` WHERE id = {$id} LIMIT 1");
     if (!empty($row['project_id'])) {
-        seosys300_log_activity((int) $row['project_id'], 'WEBSITE_FILE_UPLOADED', '홈페이지 자료가 업로드되었습니다.', array(
+        $status = seosys300_normalize_order_status(isset($order['status']) ? $order['status'] : '');
+        $title = $status === 'need_more_info' ? '새 자료가 제출됨' : '홈페이지 자료가 업로드되었습니다.';
+        seosys300_log_activity((int) $row['project_id'], 'WEBSITE_FILE_UPLOADED', $title, array(
             'entity_type' => 'website_file',
             'entity_id' => $id,
         ));
@@ -218,7 +220,7 @@ function seosys300_delete_file($file_id)
     if (!$order) {
         seosys300_json_error(404, 'file_not_found', '파일을 찾을 수 없습니다.');
     }
-    seosys300_order_assert_editable($order);
+    seosys300_order_assert_uploadable($order);
 
     $abs = seosys300_upload_root() . '/' . ltrim((string) $row['file_path'], '/');
     $root = seosys300_upload_root();
@@ -250,6 +252,43 @@ function seosys300_send_file_download($file_id, $as_admin = false)
     header('Cache-Control: private, no-store');
     readfile($abs);
     exit;
+}
+
+function seosys300_update_file_meta($file_id, $input)
+{
+    global $g5;
+    $row = seosys300_file_row_accessible($file_id, false);
+    if (!$row) {
+        seosys300_json_error(404, 'file_not_found', '파일을 찾을 수 없습니다.');
+    }
+    $order = seosys300_get_owned_order($row['order_id'], seosys300_current_mb_id());
+    if (!$order) {
+        seosys300_json_error(404, 'file_not_found', '파일을 찾을 수 없습니다.');
+    }
+    seosys300_order_assert_uploadable($order);
+    $sets = array("updated_at = '" . seosys300_now() . "'");
+    if (array_key_exists('memo', $input)) {
+        $sets[] = "memo = '" . seosys300_esc(substr((string) $input['memo'], 0, 255)) . "'";
+    }
+    if (array_key_exists('category', $input)) {
+        $cat = seosys300_normalize_category($input['category']);
+        $sets[] = "category = '" . seosys300_esc($cat) . "'";
+    }
+    $table = $g5['seosys300_website_files_table'];
+    seosys300_query("UPDATE `{$table}` SET " . implode(', ', $sets) . ' WHERE id = ' . (int) $file_id);
+    $fresh = seosys300_fetch("SELECT * FROM `{$table}` WHERE id = " . (int) $file_id . ' LIMIT 1');
+    return seosys300_file_to_api($fresh);
+}
+
+function seosys300_replace_file($file_id, $memo = '')
+{
+    $old = seosys300_file_row_accessible($file_id, false);
+    if (!$old) {
+        seosys300_json_error(404, 'file_not_found', '파일을 찾을 수 없습니다.');
+    }
+    $uploaded = seosys300_upload_file((int) $old['order_id'], $old['category'], $memo !== '' ? $memo : $old['memo']);
+    seosys300_delete_file((int) $file_id);
+    return $uploaded;
 }
 
 function seosys300_upload_task_screenshot($project_id)

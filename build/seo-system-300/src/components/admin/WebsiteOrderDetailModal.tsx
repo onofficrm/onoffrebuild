@@ -25,6 +25,7 @@ export interface WebsiteOrderDetailModalProps {
   onClose: () => void;
   card: WebsiteKanbanCard | null;
   onUpdateCard: (updated: WebsiteKanbanCard) => void;
+  onRequestMoreInfo?: (payload: { title: string; body: string; adminMemo?: string }) => void;
 }
 
 const STAGE_OPTIONS: { id: WebsiteKanbanStage; label: string }[] = [
@@ -42,7 +43,8 @@ export const WebsiteOrderDetailModal: React.FC<WebsiteOrderDetailModalProps> = (
   isOpen,
   onClose,
   card,
-  onUpdateCard
+  onUpdateCard,
+  onRequestMoreInfo
 }) => {
   if (!isOpen || !card) return null;
 
@@ -50,6 +52,8 @@ export const WebsiteOrderDetailModal: React.FC<WebsiteOrderDetailModalProps> = (
   const [assignee, setAssignee] = useState(card.assignee);
   const [newNoteText, setNewNoteText] = useState('');
   const [isSaved, setIsSaved] = useState(false);
+  const [reqTitle, setReqTitle] = useState('');
+  const [reqBody, setReqBody] = useState('');
 
   const handleSave = () => {
     let updatedNotes = card.notes;
@@ -114,7 +118,7 @@ export const WebsiteOrderDetailModal: React.FC<WebsiteOrderDetailModalProps> = (
                 </Badge>
               </div>
               <p className="text-xs text-[#64748B] font-mono">
-                주문일: {card.orderDate} | 도메인: {card.domain}
+                주문번호: {card.orderNo || card.id} | mb_id: {card.mbId || card.studentId} | 주문일: {card.orderDate}
               </p>
             </div>
           </div>
@@ -211,6 +215,25 @@ export const WebsiteOrderDetailModal: React.FC<WebsiteOrderDetailModalProps> = (
                     <span>{card.brief.brandColor}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Features */}
+              <div className="space-y-1.5 pt-2 border-t border-[#F1F5F9]">
+                <span className="text-xs text-[#64748B]">업로드 파일</span>
+                {(card.files || []).length === 0 ? (
+                  <p className="text-xs text-slate-400">업로드된 파일이 없습니다.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {(card.files || []).map((f) => (
+                      <li key={f.id} className="text-xs">
+                        <a className="text-[#2563EB] font-bold" href={f.downloadUrl} target="_blank" rel="noreferrer">
+                          {f.originalName}
+                        </a>
+                        <span className="text-slate-500"> · {f.category}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               {/* Features */}
@@ -331,6 +354,35 @@ export const WebsiteOrderDetailModal: React.FC<WebsiteOrderDetailModalProps> = (
                 />
               </div>
             </div>
+
+            <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
+              <h3 className="text-xs font-bold text-amber-900">추가자료 요청 (학생에게 표시)</h3>
+              <input
+                value={reqTitle}
+                onChange={(e) => setReqTitle(e.target.value)}
+                placeholder="제목"
+                className="w-full p-2 text-xs border border-amber-200 rounded-xl"
+              />
+              <textarea
+                value={reqBody}
+                onChange={(e) => setReqBody(e.target.value)}
+                placeholder="요청 내용"
+                rows={3}
+                className="w-full p-2 text-xs border border-amber-200 rounded-xl"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!reqTitle.trim() || !reqBody.trim()}
+                onClick={() => {
+                  onRequestMoreInfo?.({ title: reqTitle.trim(), body: reqBody.trim(), adminMemo: newNoteText.trim() || undefined });
+                  setReqTitle('');
+                  setReqBody('');
+                }}
+              >
+                추가자료 요청
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -347,7 +399,7 @@ export const WebsiteOrderDetailModal: React.FC<WebsiteOrderDetailModalProps> = (
             leftIcon={isSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
             className="text-xs font-bold px-6 shadow-xs"
           >
-            {isSaved ? '저장 완료!' : '상태 저장 & 수강생 알림 발송'}
+            {isSaved ? '저장 완료!' : '상태 저장'}
           </Button>
         </div>
       </div>

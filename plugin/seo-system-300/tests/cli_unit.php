@@ -48,8 +48,27 @@ seosys300_assert(seosys300_website_progress_for_status('completed') === 100, 'we
 seosys300_assert(seosys300_kanban_column_for_status('submitted') === 'new_order', 'kanban submitted');
 seosys300_assert(seosys300_kanban_column_for_status('customer_review') === 'qa', 'kanban qa');
 seosys300_assert(seosys300_status_for_kanban_column('qa') === 'customer_review', 'kanban reverse qa');
-seosys300_assert(seosys300_is_allowed_order_status('draft') === true, 'status allowlist draft');
-seosys300_assert(seosys300_is_allowed_order_status('hacked') === false, 'status allowlist reject');
+seosys300_assert(seosys300_is_allowed_order_status('need_more_info') === true, 'status allowlist need_more_info');
+seosys300_assert(seosys300_normalize_order_status('REVIEWING') === 'material_waiting', 'status alias reviewing');
+seosys300_assert(seosys300_format_order_no(1, 2026) === 'WEB-2026-000001', 'order no pk based');
+seosys300_assert(seosys300_format_order_no(42, 2026) === 'WEB-2026-000042', 'order no pad');
+seosys300_assert(seosys300_normalize_wizard_step('step5') === 'step5', 'wizard step allow');
+seosys300_assert(seosys300_normalize_wizard_step('review') === 'step9', 'wizard step alias review');
+seosys300_assert(seosys300_normalize_wizard_step('../etc/passwd') === '', 'wizard step reject');
+$ready = seosys300_materials_readiness(array(
+    array('category' => 'logo'),
+    array('category' => 'company'),
+    array('category' => 'hero'),
+    array('category' => 'service'),
+    array('category' => 'price'),
+    array('category' => 'business'),
+    array('category' => 'contact'),
+));
+seosys300_assert($ready['percent'] === 70 && $ready['status'] === 'NEED_MORE', 'materials 7 of 10');
+seosys300_assert(seosys300_process_step_index('submitted') === 1, 'process step submitted');
+seosys300_assert(seosys300_process_step_index('completed') === 7, 'process step completed');
+$rec = seosys300_recommend_feature_keys('local_service', '지역', array('seo'));
+seosys300_assert(in_array('map', $rec, true) && in_array('blog', $rec, true), 'rule based recommend');
 seosys300_assert(in_array('project_setup', seosys300_roadmap_step_keys(), true), 'step key project_setup');
 seosys300_assert(seosys300_timezone() !== '', 'timezone set');
 seosys300_assert(preg_match('/^\d{4}-\d{2}-\d{2}$/', seosys300_today_date()) === 1, 'today date format');

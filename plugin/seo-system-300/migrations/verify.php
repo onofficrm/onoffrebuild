@@ -59,4 +59,33 @@ if ($steps) {
     echo "Roadmap steps: " . (int) $steps['c'] . " (expect 10)\n";
 }
 
+$orders = $prefix . 'seosys300_website_orders';
+$cols = array();
+$colRes = sql_query("SHOW COLUMNS FROM `{$orders}`", false);
+if ($colRes) {
+    while ($c = sql_fetch_array($colRes)) {
+        $cols[strtolower((string) $c['Field'])] = true;
+    }
+}
+foreach (array('order_no', 'extra_json', 'wizard_step') as $needCol) {
+    $ok = !empty($cols[$needCol]);
+    echo ($ok ? '  READY ' : '  MISSING ') . $orders . '.' . $needCol . "\n";
+    if (!$ok) {
+        $missing++;
+    }
+}
+$uniqueOrderNo = false;
+$idxRes = sql_query("SHOW INDEX FROM `{$orders}`", false);
+if ($idxRes) {
+    while ($idx = sql_fetch_array($idxRes)) {
+        if (isset($idx['Column_name']) && (string) $idx['Column_name'] === 'order_no' && (int) $idx['Non_unique'] === 0) {
+            $uniqueOrderNo = true;
+        }
+    }
+}
+echo ($uniqueOrderNo ? '  READY ' : '  MISSING ') . $orders . '.order_no UNIQUE' . "\n";
+if (!$uniqueOrderNo) {
+    $missing++;
+}
+
 exit($missing === 0 ? 0 : 9);

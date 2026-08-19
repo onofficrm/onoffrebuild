@@ -45,6 +45,17 @@ if ($action === 'delete_file' || $action === 'delete-file') {
     seosys300_json_ok(seosys300_delete_file($file_id));
 }
 
+if ($action === 'update_file' || $action === 'update-file' || $action === 'patch_file') {
+    $file_id = isset($input['fileId']) ? (int) $input['fileId'] : (isset($input['id']) ? (int) $input['id'] : 0);
+    seosys300_json_ok(seosys300_update_file_meta($file_id, $input));
+}
+
+if ($action === 'replace_file' || $action === 'replace-file') {
+    $file_id = isset($_POST['fileId']) ? (int) $_POST['fileId'] : (isset($input['fileId']) ? (int) $input['fileId'] : 0);
+    $memo = isset($_POST['memo']) ? $_POST['memo'] : (isset($input['memo']) ? $input['memo'] : '');
+    seosys300_json_ok(seosys300_replace_file($file_id, $memo));
+}
+
 if ($action === 'draft') {
     $project_id = isset($input['projectId']) ? (int) $input['projectId'] : 0;
     seosys300_json_ok(seosys300_order_ensure_draft($project_id), 201);
