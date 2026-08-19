@@ -52,6 +52,12 @@ function seosys300_mysql_host_is_docker_dev($host)
     return strtolower(trim((string) $host)) === 'db';
 }
 
+function seosys300_isolated_dev_db_name($dbName)
+{
+    $db = strtolower(trim((string) $dbName));
+    return $db === 'seosys300_dev' || $db === 'seosys300_rehearsal';
+}
+
 function seosys300_looks_like_production_db($host, $dbName)
 {
     $blob = strtolower(trim((string) $host) . ' ' . trim((string) $dbName));
@@ -121,8 +127,8 @@ function seosys300_cli_safety_check($opts = array())
     if ($mysqlHost !== '' && !seosys300_mysql_host_is_local($mysqlHost) && !seosys300_mysql_host_is_docker_dev($mysqlHost)) {
         return array('ok' => false, 'code' => 'REMOTE_DB_HOST', 'message' => 'MySQL host is not local.');
     }
-    if (($needMigration || $needE2e) && $mysqlDb !== '' && $mysqlDb !== 'seosys300_dev') {
-        return array('ok' => false, 'code' => 'DB_NAME_NOT_DEV', 'message' => 'G5_MYSQL_DB must be seosys300_dev.');
+    if (($needMigration || $needE2e) && $mysqlDb !== '' && !seosys300_isolated_dev_db_name($mysqlDb)) {
+        return array('ok' => false, 'code' => 'DB_NAME_NOT_DEV', 'message' => 'G5_MYSQL_DB must be seosys300_dev or seosys300_rehearsal.');
     }
     if ($mysqlDb !== '' && !seosys300_db_name_allowlisted($mysqlDb, $allowlist)) {
         return array('ok' => false, 'code' => 'DB_NOT_ALLOWLISTED', 'message' => 'G5_MYSQL_DB is not in SEOSYS300_DB_ALLOWLIST.');

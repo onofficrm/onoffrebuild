@@ -64,7 +64,7 @@ on production.
 
 ### 6. Migration
 
-Follow `docs/production-migration-plan.md` (backup → 001 → 002 → 003 → 004 → verify SQL).  
+Follow `docs/production-migration-plan.md` (backup → 001 → 002 → 003 → 004 → 005 → verify SQL).  
 The CLI `migrations/run.php` is **blocked** on production hostnames (`icrm.co.kr` / `onoff.icrm`).
 
 ### 7. Smoke test (after migrate)
@@ -87,4 +87,5 @@ The CLI `migrations/run.php` is **blocked** on production hostnames (`icrm.co.kr
 
 - `data/dbconfig.php` is gitignored and **was not present** in the verification workspace.
 - Isolated development DB + `SEOSYS300_ENV=development` + allowlist is required before `php plugin/seo-system-300/migrations/run.php --apply`.
+- Allowed isolated names: `seosys300_dev` (local Docker) or `seosys300_rehearsal` (fresh rehearsal Docker). Host must be `db`.
 - Do not point the runner at production MySQL (`SEOSYS300_DB_ALLOWLIST` + local host checks).

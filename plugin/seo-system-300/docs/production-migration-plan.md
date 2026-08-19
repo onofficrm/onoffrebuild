@@ -43,6 +43,7 @@ Run **exactly** this order. Stop on first error.
 | 2 | `plugin/seo-system-300/migrations/002_roadmap_missions_activity_admin.sql` | Roadmap catalog + per-project tasks, missions, activity, admin notes |
 | 3 | `plugin/seo-system-300/migrations/003_google_metrics.sql` | GSC/GA4 connections and daily metrics |
 | 4 | `plugin/seo-system-300/migrations/004_tools_ai.sql` | Tool integrations, AI runs/cache |
+| 5 | `plugin/seo-system-300/migrations/005_website_order_wizard.sql` | Website order `order_no` (nullable UNIQUE), `extra_json`, `wizard_step` |
 
 Optional ops-only (created automatically by the **dev** CLI runner; production may create the same table if you want apply history):
 
@@ -63,7 +64,7 @@ CREATE TABLE IF NOT EXISTS `g5_seosys300_migrations` (
 - **Downtime:** none expected if `CREATE TABLE` only; brief lock on empty new tables.
 - **App:** APIs already return `503 tables_missing` until these tables exist. After apply, Core features can go live. Google/AI stay `NOT_CONFIGURED` until env is filled.
 
-## 5. Verification SQL (after 001–004)
+## 5. Verification SQL (after 001–005)
 
 ```sql
 SHOW TABLES LIKE 'g5_seosys300_%';
@@ -73,8 +74,13 @@ SELECT step_key FROM g5_seosys300_roadmap_steps ORDER BY sort_order;
 -- project_setup, website, domain, technical_seo, keywords,
 -- content, backlink, traffic, analytics, growth
 
-SELECT COUNT(*) AS tasks FROM g5_seosys300_roadmap_tasks;
+SELECT COUNT(*) AS tasks FROM g5_seosys300_roadmap_tasks; -- expect 41
 SELECT task_key, COUNT(*) c FROM g5_seosys300_roadmap_tasks GROUP BY task_key HAVING c > 1;
+
+SHOW COLUMNS FROM g5_seosys300_website_orders LIKE 'order_no'; -- Null=YES
+SHOW INDEX FROM g5_seosys300_website_orders WHERE Column_name='order_no'; -- Non_unique=0
+SHOW COLUMNS FROM g5_seosys300_website_orders LIKE 'extra_json';
+SHOW COLUMNS FROM g5_seosys300_website_orders LIKE 'wizard_step';
 ```
 
 Expect zero duplicate `task_key` rows.
@@ -90,9 +96,9 @@ Spot-check groups:
 
 ## 6. Rollback
 
-Each numbered SQL has a matching `00N_*.down.sql`. Rollback **reverse order**: 004 → 003 → 002 → 001.
+Each numbered SQL has a matching `00N_*.down.sql`. Rollback **reverse order**: 005 → 004 → 003 → 002 → 001.
 
-**Warning:** `DROP TABLE` destroys any student/admin data in those tables. Prefer restore-from-dump if 001–004 already received live rows.
+**Warning:** `DROP TABLE` / `DROP COLUMN` destroys any student/admin data in those objects. Prefer restore-from-dump if 001–005 already received live rows.
 
 Down files do not restore GNUBoard data (they never touched it).
 

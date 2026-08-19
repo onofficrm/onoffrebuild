@@ -215,7 +215,19 @@ $denyName = seosys300_cli_safety_check(array(
     'db_allowlist' => 'seosys300_dev',
     'migration' => true,
 ));
-seosys300_assert($denyName['ok'] === false && $denyName['code'] === 'DB_NAME_NOT_DEV', 'guard requires seosys300_dev');
+seosys300_assert($denyName['ok'] === false && $denyName['code'] === 'DB_NAME_NOT_DEV', 'guard requires isolated seosys300 db name');
+$allowRehearsal = seosys300_cli_safety_check(array(
+    'sapi' => 'cli',
+    'env' => 'development',
+    'allow_migration' => '1',
+    'confirm' => 'dev-only',
+    'host_blob' => 'laptop.local',
+    'mysql_host' => 'db',
+    'mysql_db' => 'seosys300_rehearsal',
+    'db_allowlist' => 'seosys300_rehearsal',
+    'migration' => true,
+));
+seosys300_assert($allowRehearsal['ok'] === true, 'guard allows docker db + seosys300_rehearsal');
 $denyIcrmDb = seosys300_cli_safety_check(array(
     'sapi' => 'cli',
     'env' => 'development',
