@@ -10,13 +10,19 @@ if (!defined('_GNUBOARD_')) {
     exit;
 }
 
-# --- Environment (CLI migration / E2E only; never set allow flags on production) ---
+# --- Environment (CLI migration / E2E) ---
 putenv('SEOSYS300_ENV='); # development | production
-putenv('SEOSYS300_ALLOW_MIGRATION='); # 1 on isolated dev only
+putenv('SEOSYS300_ALLOW_MIGRATION='); # 1 only for an explicit migration window
 putenv('SEOSYS300_E2E=');
 putenv('SEOSYS300_ALLOW_DB=');
-putenv('SEOSYS300_E2E_CONFIRM='); # must be exactly: dev-only
-putenv('SEOSYS300_DB_ALLOWLIST='); # exact G5_MYSQL_DB name(s), comma-separated
+putenv('SEOSYS300_E2E_CONFIRM='); # development only: must be exactly dev-only
+putenv('SEOSYS300_DB_ALLOWLIST='); # exact G5_MYSQL_DB name(s), comma-separated. Do not commit real names.
+putenv('SEOSYS300_DB_HOST_ALLOWLIST='); # exact G5_MYSQL_HOST. Do not commit real hosts.
+putenv('SEOSYS300_BACKUP_CONFIRMED='); # production --apply only: 1 after a verified dump
+putenv('SEOSYS300_PRODUCTION_CONFIRM='); # production --apply only: SEO-SYSTEM-300-PRODUCTION
+# Also required for production --apply:
+#   php plugin/seo-system-300/migrations/run.php --apply --confirm-production=SEO-SYSTEM-300-PRODUCTION
+
 
 # --- Portal ---
 putenv('SEOSYS300_PORTAL_PATH=/seo-system-300');

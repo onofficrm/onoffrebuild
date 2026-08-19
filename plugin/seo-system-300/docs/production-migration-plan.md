@@ -7,12 +7,14 @@ Prefix: GNUBoard `G5_TABLE_PREFIX` (usually `g5_`). All tables are `{$prefix}seo
 
 ## 1. Preconditions
 
-- [ ] Full MySQL dump of the production database (not only SEO SYSTEM tables).
-- [ ] Confirm `data/dbconfig.php` on the server is the intended production instance.
+- [ ] Launch mode is **OFF** (`SEOSYS300_LAUNCH_MODE=off`) until smoke passes.
+- [ ] Full MySQL dump of the production database (not only SEO SYSTEM tables). Confirm dump size and restore-test if possible.
+- [ ] Confirm `data/dbconfig.php` on the server: record the **exact** `G5_MYSQL_HOST` and `G5_MYSQL_DB` (do not put those values in git).
 - [ ] Plugin PHP (`plugin/seo-system-300/`) and React dist (`seo-system-300/`) already deployed **or** deployed in the same window **before** members hit new APIs that require tables.
 - [ ] `plugin/seo-system-300/config.local.php` present on the server (gitignored). Secrets never in git.
 - [ ] Maintenance: **recommended but not strictly required** if traffic is low. New tables are additive (`CREATE TABLE IF NOT EXISTS`). Existing GNUBoard tables are not altered.
-- [ ] Do **not** set `SEOSYS300_ALLOW_MIGRATION=1` on production. Apply SQL via a controlled DBA/ops session, not the guarded CLI runner (the runner refuses production hostnames).
+
+Do **not** disguise production as `SEOSYS300_ENV=development`. The CLI runner has an explicit production path.
 
 ## 2. Backup (production)
 
@@ -33,9 +35,39 @@ mysqldump --single-transaction -h ... -u ... -p "$G5_MYSQL_DB" \
 
 (First production install has none of these tables yet.)
 
-## 3. Execution order
+## 3. CLI production procedure (001→005)
 
-Run **exactly** this order. Stop on first error.
+Run on the production app host only, after backup. Never from a laptop against production MySQL.
+
+1. Launch OFF.
+2. Whole-database backup (section 2). Set `SEOSYS300_BACKUP_CONFIRMED=1` only after the dump is verified.
+3. Confirm actual `G5_MYSQL_HOST` and `G5_MYSQL_DB` from `data/dbconfig.php`.
+4. Set allowlists to those exact values:
+   - `SEOSYS300_ENV=production`
+   - `SEOSYS300_DB_HOST_ALLOWLIST=<exact host>`
+   - `SEOSYS300_DB_ALLOWLIST=<exact db>`
+   - `SEOSYS300_ALLOW_MIGRATION=1` (apply window only)
+5. Status (read-only if the history table is missing; does **not** `CREATE TABLE`):
+   ```bash
+   php plugin/seo-system-300/migrations/run.php --status
+   ```
+6. Production confirmation (env **and** CLI; both must equal `SEO-SYSTEM-300-PRODUCTION`):
+   - `SEOSYS300_PRODUCTION_CONFIRM=SEO-SYSTEM-300-PRODUCTION`
+7. Apply:
+   ```bash
+   php plugin/seo-system-300/migrations/run.php --apply --confirm-production=SEO-SYSTEM-300-PRODUCTION
+   ```
+   The runner prints ENV, HOST, DB, PREFIX, and pending files. It does not print passwords. A failed file stops the run; later files are not applied; history is written only after success; no automatic DOWN.
+8. Status again: 001–005 APPLIED. Checksum mismatch aborts with `CHECKSUM_MISMATCH`.
+9. Verify:
+   ```bash
+   php plugin/seo-system-300/migrations/verify.php
+   ```
+10. Smoke (deployment runbook). Then remove `SEOSYS300_ALLOW_MIGRATION`, backup, and production confirm env vars from the standing config.
+
+## 4. Execution order (SQL files)
+
+Run **exactly** this order. Stop on first error. The runner applies pending files in this list only.
 
 | Order | File | Purpose |
 |------:|------|---------|
@@ -45,7 +77,7 @@ Run **exactly** this order. Stop on first error.
 | 4 | `plugin/seo-system-300/migrations/004_tools_ai.sql` | Tool integrations, AI runs/cache |
 | 5 | `plugin/seo-system-300/migrations/005_website_order_wizard.sql` | Website order `order_no` (nullable UNIQUE), `extra_json`, `wizard_step` |
 
-Optional ops-only (created automatically by the **dev** CLI runner; production may create the same table if you want apply history):
+Optional ops-only history table (created by **development** `--status`/`--apply`, and by **production `--apply`**. Production `--status` does **not** create it if missing):
 
 ```sql
 CREATE TABLE IF NOT EXISTS `g5_seosys300_migrations` (
@@ -58,13 +90,13 @@ CREATE TABLE IF NOT EXISTS `g5_seosys300_migrations` (
 
 002 uses `INSERT IGNORE` for step/task seeds (`UNIQUE` on `step_key` / `task_key`). Re-running 002 must not duplicate catalog rows.
 
-## 4. Expected impact
+## 5. Expected impact
 
 - **Reads/writes:** no change to GNUBoard `g5_member` or board tables.
 - **Downtime:** none expected if `CREATE TABLE` only; brief lock on empty new tables.
 - **App:** APIs already return `503 tables_missing` until these tables exist. After apply, Core features can go live. Google/AI stay `NOT_CONFIGURED` until env is filled.
 
-## 5. Verification SQL (after 001–005)
+## 6. Verification SQL (after 001–005)
 
 ```sql
 SHOW TABLES LIKE 'g5_seosys300_%';
@@ -94,7 +126,7 @@ Spot-check groups:
 
 (All names prefixed with `g5_seosys300_` unless prefix differs.)
 
-## 6. Rollback
+## 7. Rollback
 
 Each numbered SQL has a matching `00N_*.down.sql`. Rollback **reverse order**: 005 → 004 → 003 → 002 → 001.
 
@@ -102,7 +134,7 @@ Each numbered SQL has a matching `00N_*.down.sql`. Rollback **reverse order**: 0
 
 Down files do not restore GNUBoard data (they never touched it).
 
-## 7. Failure handling
+## 8. Failure handling
 
 1. Stop applying further files.
 2. Capture MySQL error and the file/statement that failed.
@@ -110,7 +142,7 @@ Down files do not restore GNUBoard data (they never touched it).
 4. Do not “fix forward” on production without a second backup.
 5. Keep `feat/seo-system-300` off `main` until Core E2E has passed on an isolated development database.
 
-## 8. What this branch must not do
+## 9. What this branch must not do
 
 - No `main` merge as part of this readiness step.
 - No GitHub Actions FTP deploy (workflow runs on `main` push only).

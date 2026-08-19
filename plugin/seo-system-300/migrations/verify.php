@@ -12,7 +12,7 @@ $plugin = realpath(dirname(__FILE__) . '/..');
 $root = realpath(dirname(__FILE__) . '/../../..');
 require_once $plugin . '/lib/env_guard.lib.php';
 
-$check = seosys300_cli_safety_check(array('migration' => true));
+$check = seosys300_cli_safety_check(array('migration' => true, 'intent' => 'verify'));
 if (!$check['ok']) {
     fwrite(STDERR, "REFUSED [{$check['code']}] {$check['message']}\n");
     fwrite(STDERR, "Schema verify skipped.\n");
@@ -30,6 +30,8 @@ include_once $root . '/common.php';
 
 $check2 = seosys300_cli_safety_check(array(
     'migration' => true,
+    'intent' => 'verify',
+    'require_mysql' => true,
     'mysql_host' => defined('G5_MYSQL_HOST') ? G5_MYSQL_HOST : '',
     'mysql_db' => defined('G5_MYSQL_DB') ? G5_MYSQL_DB : '',
 ));
