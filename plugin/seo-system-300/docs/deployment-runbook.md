@@ -1,6 +1,6 @@
 # SEO SYSTEM 300 — Deployment runbook
 
-**This runbook was not executed** during launch-readiness. Do not merge `main` or trigger FTP from this branch as part of verification.
+Website Order v2 + production guard are on `main` (from `2161b81`). Schema may already be applied on production via HeidiSQL when SSH is unavailable — see `production-migration-plan.md` §3.
 
 ## Actual CI/CD in this repository
 
@@ -66,19 +66,11 @@ Never set `SEOSYS300_E2E=1` on production. Do not set `SEOSYS300_ENV=development
 
 ### 6. Migration
 
-1. Launch OFF  
-2. Whole DB backup  
-3. Confirm DB host/name from `data/dbconfig.php`  
-4. Allowlist those exact values  
-5. `SEOSYS300_BACKUP_CONFIRMED=1`  
-6. `php plugin/seo-system-300/migrations/run.php --status`  
-7. Production confirmation env + CLI `--confirm-production=SEO-SYSTEM-300-PRODUCTION`  
-8. `php plugin/seo-system-300/migrations/run.php --apply --confirm-production=SEO-SYSTEM-300-PRODUCTION`  
-9. `--status` (001→005 APPLIED)  
-10. `php plugin/seo-system-300/migrations/verify.php`  
-11. Smoke (below)
+**A. SSH / PHP CLI available:** follow `production-migration-plan.md` §4 (guarded `run.php`).
 
-See `docs/production-migration-plan.md`. The runner never prints DB passwords. Failed files stop the batch; no automatic DOWN.
+**B. Shared hosting (FTP + HeidiSQL only):** follow `production-migration-plan.md` §3 — backup, then UP `001`→`005` in HeidiSQL; optional `ops_manual_history_001_005.sql`.
+
+HTTP must never execute `run.php`. Migration SQL under `migrations/` is denied by `.htaccess` after deploy.
 
 ### 7. Smoke test (after migrate)
 
@@ -89,6 +81,15 @@ See `docs/production-migration-plan.md`. The runner never prints DB passwords. F
 - Existing `/`, `/seo-system`, `/adm`, `/notice`, `/faq`, `/youtube`, GNUBoard login unchanged
 - Tools show NOT_CONFIGURED or LINK_ONLY — no fake KPIs
 - AI shows not configured — no fake coach copy
+
+### 7b. Launch ramp (after smoke)
+
+1. Keep Google/AI/tool secrets empty until ready.
+2. FTP-only edit `plugin/seo-system-300/config.local.php` on the server (never commit):
+   - `SEOSYS300_LAUNCH_MODE=admin` — GNUBoard admin only
+   - then `pilot` + `SEOSYS300_PILOT_USERS=mb_id1,mb_id2`
+   - then `all` for members
+3. Confirm `session.php` shows the new `launchMode` (still no pilot list in JSON).
 
 ### 8. Rollback
 

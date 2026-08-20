@@ -33,8 +33,8 @@ putenv('SEOSYS300_HTTP_TIMEOUT=15');
 # admin = GNUBoard admin only
 # pilot = admin + SEOSYS300_PILOT_USERS mb_id list
 # all = any logged-in member
-putenv('SEOSYS300_LAUNCH_MODE=off');
-putenv('SEOSYS300_PILOT_USERS=');
+putenv('SEOSYS300_LAUNCH_MODE=off'); # after schema smoke: admin → pilot → all
+putenv('SEOSYS300_PILOT_USERS='); # comma-separated mb_id when mode=pilot
 
 # --- Google OAuth (server-side only) ---
 putenv('SEOSYS300_GOOGLE_CLIENT_ID=');

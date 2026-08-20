@@ -35,7 +35,27 @@ mysqldump --single-transaction -h ... -u ... -p "$G5_MYSQL_DB" \
 
 (First production install has none of these tables yet.)
 
-## 3. CLI production procedure (001→005)
+## 3. Shared hosting / HeidiSQL procedure (FTP-only web hosts)
+
+When the web account allows **SFTP/FTP only** (no SSH shell) and MariaDB is a separate service (e.g. HeidiSQL from an allowlisted IP):
+
+1. Launch OFF (`SEOSYS300_LAUNCH_MODE=off`).
+2. Full DB export from HeidiSQL (ZIP SQL) to a PC path **outside** `public_html`.
+3. Confirm `SHOW TABLES LIKE 'g5_seosys300_%'` returns **0** rows (or stop if preexisting).
+4. Run UP files **one at a time** in HeidiSQL (File → Load SQL file → F9), never `.down.sql`:
+   - `001_projects_and_website.sql`
+   - `002_roadmap_missions_activity_admin.sql`
+   - `003_google_metrics.sql`
+   - `004_tools_ai.sql`
+   - `005_website_order_wizard.sql`
+5. Verify with section 6 SQL (`order_no` Null=YES + UNIQUE).
+6. Optional: run `migrations/ops_manual_history_001_005.sql` so `g5_seosys300_migrations` matches CLI checksums (not required for the app to work).
+7. Smoke HTTP; keep Launch OFF until admin smoke passes.
+8. Set standing `config.local.php` on the server via FTP (gitignored): Launch `admin` when ready. Do **not** leave `SEOSYS300_ALLOW_MIGRATION` / backup / production confirm flags set.
+
+Do not open `run.php` over HTTP. Do not paste DB passwords into chat.
+
+## 4. CLI production procedure (001→005)
 
 Run on the production app host only, after backup. Never from a laptop against production MySQL.
 
@@ -65,7 +85,7 @@ Run on the production app host only, after backup. Never from a laptop against p
    ```
 10. Smoke (deployment runbook). Then remove `SEOSYS300_ALLOW_MIGRATION`, backup, and production confirm env vars from the standing config.
 
-## 4. Execution order (SQL files)
+## 5. Execution order (SQL files)
 
 Run **exactly** this order. Stop on first error. The runner applies pending files in this list only.
 
@@ -90,13 +110,13 @@ CREATE TABLE IF NOT EXISTS `g5_seosys300_migrations` (
 
 002 uses `INSERT IGNORE` for step/task seeds (`UNIQUE` on `step_key` / `task_key`). Re-running 002 must not duplicate catalog rows.
 
-## 5. Expected impact
+## 6. Expected impact
 
 - **Reads/writes:** no change to GNUBoard `g5_member` or board tables.
 - **Downtime:** none expected if `CREATE TABLE` only; brief lock on empty new tables.
 - **App:** APIs already return `503 tables_missing` until these tables exist. After apply, Core features can go live. Google/AI stay `NOT_CONFIGURED` until env is filled.
 
-## 6. Verification SQL (after 001–005)
+## 7. Verification SQL (after 001–005)
 
 ```sql
 SHOW TABLES LIKE 'g5_seosys300_%';
@@ -126,7 +146,7 @@ Spot-check groups:
 
 (All names prefixed with `g5_seosys300_` unless prefix differs.)
 
-## 7. Rollback
+## 8. Rollback
 
 Each numbered SQL has a matching `00N_*.down.sql`. Rollback **reverse order**: 005 → 004 → 003 → 002 → 001.
 
@@ -134,7 +154,7 @@ Each numbered SQL has a matching `00N_*.down.sql`. Rollback **reverse order**: 0
 
 Down files do not restore GNUBoard data (they never touched it).
 
-## 8. Failure handling
+## 9. Failure handling
 
 1. Stop applying further files.
 2. Capture MySQL error and the file/statement that failed.
@@ -142,8 +162,14 @@ Down files do not restore GNUBoard data (they never touched it).
 4. Do not “fix forward” on production without a second backup.
 5. Keep `feat/seo-system-300` off `main` until Core E2E has passed on an isolated development database.
 
-## 9. What this branch must not do
+## 10. Launch after schema is ready
 
-- No `main` merge as part of this readiness step.
-- No GitHub Actions FTP deploy (workflow runs on `main` push only).
-- No production `mysqldump` / migrate from a developer laptop unless ops explicitly owns that window.
+1. Admin smoke on `/seo-system-300/` (login, dashboard, website order, admin kanban).
+2. FTP-edit server-only `plugin/seo-system-300/config.local.php`:
+   `putenv('SEOSYS300_LAUNCH_MODE=admin');`
+3. Later: `pilot` (with `SEOSYS300_PILOT_USERS`) → `all`.
+4. Google / AI / tool URLs stay empty until real credentials exist.
+
+## 11. Historical note
+
+Early readiness docs forbade casual `main` merge/FTP from feature branches. Website Order v2 + guard shipped on `main` (`2161b81`); production schema for 001–005 may be applied via CLI **or** HeidiSQL (section 3) when SSH is unavailable.
