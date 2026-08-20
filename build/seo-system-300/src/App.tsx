@@ -844,13 +844,16 @@ export default function App() {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const connectionBanner = (
+    <MockDataBanner
+      gscState={metricsSummary?.status.gscState || '연결 필요'}
+      ga4State={metricsSummary?.status.ga4State || '연결 필요'}
+      aiConfigured={Boolean(unifiedSummary?.aiConfigured)}
+    />
+  );
+
   return (
     <div className="min-h-screen bg-[#F1F5F9] text-[#1E293B] flex flex-col font-sans antialiased overflow-x-hidden">
-      <MockDataBanner
-        gscState={metricsSummary?.status.gscState || '연결 필요'}
-        ga4State={metricsSummary?.status.ga4State || '연결 필요'}
-        aiConfigured={Boolean(unifiedSummary?.aiConfigured)}
-      />
       {/* ========================================================================= */}
       {/* 1. ADMIN MODE CONTROL CENTER */}
       {/* ========================================================================= */}
@@ -866,12 +869,13 @@ export default function App() {
             urgentInboxCount={urgentInboxCount}
           />
 
-          {/* Admin Main Layout */}
+          {/* Admin Main Layout — banner stays in main column so it never clips the sidebar logo */}
           <div
             className={`flex-1 flex flex-col transition-all duration-300 ${
               isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'
             }`}
           >
+            {connectionBanner}
             <AdminHeader
               activeTab={adminTab}
               onNavigateTab={setAdminTab}
@@ -965,12 +969,13 @@ export default function App() {
             pendingMissionsCount={pendingMissionsCount}
           />
 
-          {/* Main Content Area */}
+          {/* Main Content Area — banner in main column only (sidebar logo stays fully visible) */}
           <div
             className={`flex-1 flex flex-col transition-all duration-300 ${
               isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'
             }`}
           >
+            {connectionBanner}
             {/* Top Header */}
             <Header
               activeProject={activeProject}

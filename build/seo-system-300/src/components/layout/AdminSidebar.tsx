@@ -82,10 +82,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       }`}
     >
       {/* Brand Header */}
-      <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+      <div className="min-h-16 px-4 py-3.5 flex items-center justify-between border-b border-slate-800 shrink-0">
         {!isCollapsed ? (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#2563EB] flex items-center justify-center text-white shadow-xs font-black text-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 shrink-0 rounded-xl bg-[#2563EB] flex items-center justify-center text-white shadow-xs font-black text-xs leading-none">
               AD
             </div>
             <div>
@@ -104,7 +104,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           </div>
         ) : (
           <div className="w-full flex justify-center">
-            <div className="w-8 h-8 rounded-xl bg-[#2563EB] flex items-center justify-center text-white shadow-xs font-black text-xs">
+            <div className="w-8 h-8 shrink-0 rounded-xl bg-[#2563EB] flex items-center justify-center text-white shadow-xs font-black text-xs leading-none">
               AD
             </div>
           </div>

@@ -156,22 +156,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
-      {/* Brand Header */}
-      <div className="h-16 px-5 flex items-center justify-between border-b border-[#E2E8F0] shrink-0">
+      {/* Brand Header — min-height + padding so the mark is never clipped at the top */}
+      <div className="min-h-16 px-5 py-3.5 flex items-center justify-between border-b border-[#E2E8F0] shrink-0">
         {!isCollapsed ? (
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#2563EB] rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-xs">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 bg-[#2563EB] rounded-xl flex items-center justify-center text-white font-bold text-xl leading-none shadow-xs">
               S
             </div>
-            <div>
-              <span className="text-lg font-bold tracking-tight text-[#0F172A]">
+            <div className="min-w-0 leading-tight">
+              <span className="block text-lg font-bold tracking-tight text-[#0F172A]">
                 SEO SYSTEM
               </span>
-              <p className="text-[10px] text-[#64748B] font-medium tracking-wide">300 Control Center</p>
+              <p className="text-[10px] text-[#64748B] font-medium tracking-wide leading-none mt-0.5">
+                300 Control Center
+              </p>
             </div>
           </div>
         ) : (
-          <div className="w-10 h-10 mx-auto bg-[#2563EB] rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-xs">
+          <div className="w-10 h-10 mx-auto shrink-0 bg-[#2563EB] rounded-xl flex items-center justify-center text-white font-bold text-xl leading-none shadow-xs">
             S
           </div>
         )}
