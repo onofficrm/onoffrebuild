@@ -45,14 +45,14 @@ const Card: React.FC<{
   onEdit: () => void;
   children: React.ReactNode;
 }> = ({ title, onEdit, children }) => (
-  <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 space-y-2">
+  <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 space-y-2 min-w-0">
     <div className="flex items-center justify-between gap-2">
       <h4 className="text-sm font-bold text-[#0F172A]">{title}</h4>
-      <button type="button" className="text-xs font-bold text-[#2563EB]" onClick={onEdit}>
+      <button type="button" className="text-xs font-bold text-[#2563EB] shrink-0" onClick={onEdit}>
         수정
       </button>
     </div>
-    <div className="text-xs text-[#475569] space-y-1">{children}</div>
+    <div className="text-xs text-[#475569] space-y-1 break-words [overflow-wrap:anywhere]">{children}</div>
   </div>
 );
 
@@ -86,7 +86,7 @@ export const WizardStep9Review: React.FC<WizardStep9ReviewProps> = ({
   const [confirmed, setConfirmed] = useState(false);
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
+    <div className="space-y-5 animate-in fade-in duration-200 wizard-step9-confirm">
       <div>
         <h3 className="text-lg font-bold text-[#0F172A]">최종 확인</h3>
         <p className="text-xs text-[#64748B] mt-1">입력한 내용을 확인한 뒤 제작을 요청하세요.</p>
@@ -156,15 +156,17 @@ export const WizardStep9Review: React.FC<WizardStep9ReviewProps> = ({
         />
       </div>
 
-      <label className="flex items-start gap-2 text-sm text-[#0F172A]">
+      <label className="flex items-start gap-2 text-sm text-[#0F172A] scroll-mb-36 pb-2 relative z-30">
         <input
           type="checkbox"
           checked={confirmed}
           onChange={(e) => setConfirmed(e.target.checked)}
-          className="mt-1"
+          className="mt-1 relative z-30"
         />
         <span>입력한 내용과 제작요청 사항을 확인했습니다.</span>
       </label>
+
+      <div className="h-2 sm:h-0" aria-hidden="true" />
 
       <div className="wizard-cta-bar">
         <Button variant="outline" size="md" leftIcon={<ArrowLeft className="w-4 h-4" />} onClick={onPrev}>

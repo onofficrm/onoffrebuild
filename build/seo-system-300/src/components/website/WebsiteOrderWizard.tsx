@@ -215,6 +215,14 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
   const [currentStep, setCurrentStep] = useState<WizardStep>(
     (init.wizardStep as WizardStep) || 'intro'
   );
+  const hydratedStepRef = useRef(false);
+  useEffect(() => {
+    if (hydratedStepRef.current) return;
+    const step = initialValues?.wizardStep as WizardStep | undefined;
+    if (!step || step === 'intro') return;
+    setCurrentStep(step);
+    hydratedStepRef.current = true;
+  }, [initialValues?.wizardStep]);
 
   const [selectedSiteType, setSelectedSiteType] = useState<string>((init.siteType as string) || '');
   const [selectedPurposes, setSelectedPurposes] = useState<string[]>(
@@ -489,12 +497,12 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
       {/* 8-Step Progress Header (Visible on step1 ~ step8) */}
       {currentStep !== 'intro' && currentStep !== 'success' && (
         <div className="mb-8 pb-6 border-b border-[#E2E8F0] space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#2563EB] font-bold text-xs border border-[#DBEAFE]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#2563EB] font-bold text-xs border border-[#DBEAFE] shrink-0">
                 STEP {currentStepNum} / {totalSteps}
               </span>
-              <h2 className="text-sm font-bold text-[#0F172A]">
+              <h2 className="text-sm font-bold text-[#0F172A] truncate">
                 {currentStep === 'step1' && '홈페이지 종류 선택'}
                 {currentStep === 'step2' && '홈페이지 목적 설정'}
                 {currentStep === 'step3' && '업종 카테고리'}
@@ -506,7 +514,7 @@ export const WebsiteOrderWizard: React.FC<WebsiteOrderWizardProps> = ({
                 {currentStep === 'step9' && '최종 확인 및 제작 요청'}
               </h2>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               {saveStatus === 'saving' ? (
                 <span className="text-xs font-bold text-[#64748B]">저장 중...</span>
               ) : saveStatus === 'saved' ? (

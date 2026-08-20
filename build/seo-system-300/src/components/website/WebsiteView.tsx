@@ -461,6 +461,7 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
               </div>
             ) : (
             <WebsiteOrderWizard
+              key={liveOrder ? `order-${liveOrder.id}` : 'order-new'}
               onSubmitOrder={handleWizardSubmit}
               onCancel={() => setActiveSubTab('status')}
               onSaveDraft={onSaveDraft}

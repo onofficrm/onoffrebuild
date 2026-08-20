@@ -77,7 +77,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   return (
     <aside
-      className={`fixed top-0 left-0 z-40 h-screen bg-[#0F172A] border-r border-slate-800 transition-all duration-300 flex flex-col ${
+      className={`fixed top-0 left-0 z-40 h-screen bg-[#0F172A] border-r border-slate-800 transition-all duration-300 hidden lg:flex flex-col ${
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >

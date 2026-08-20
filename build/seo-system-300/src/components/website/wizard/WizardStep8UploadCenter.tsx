@@ -450,12 +450,23 @@ export const WizardStep8UploadCenter: React.FC<WizardStep8UploadCenterProps> = (
                 <UploadCloud className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
+                <p className="hidden sm:block text-xs sm:text-sm font-bold text-[#0F172A]">
                   파일을 여기로 드래그하거나 <span className="text-[#2563EB] underline">클릭하여 선택</span>하세요
                 </p>
+                <p className="sm:hidden text-xs font-bold text-[#0F172A]">기기에서 제작 자료를 선택하세요</p>
                 <p className="text-[11px] text-[#64748B] mt-1">
                   지원 형식: {currentCategoryObj?.acceptedFormats} (최대 12MB, SVG/실행파일 불가)
                 </p>
+                <button
+                  type="button"
+                  className="sm:hidden mt-3 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#2563EB] text-white text-xs font-bold"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDropOrSelect();
+                  }}
+                >
+                  파일 선택
+                </button>
               </div>
               <input
                 ref={fileInputRef}

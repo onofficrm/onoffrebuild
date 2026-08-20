@@ -28,7 +28,7 @@
   border-top: 1px solid #e2e8f0;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(8px);
-  padding: 1rem 0 calc(1rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 640px) {
@@ -36,12 +36,23 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    padding: 1rem 0 calc(1rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
 @media (max-width: 1023px) {
   .wizard-cta-bar {
-    bottom: 4.5rem;
+    bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Keep last fields above sticky CTA + mobile bottom nav */
+  .wizard-cta-bar::before {
+    content: none;
+  }
+
+  /* Reserve space so the final confirm checkbox is not covered by sticky CTA */
+  .wizard-step9-confirm {
+    padding-bottom: 5.5rem;
   }
 }
 
