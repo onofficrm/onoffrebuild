@@ -68,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="hidden lg:flex items-center text-xs font-medium text-[#64748B]">
           <span className="font-bold text-[#64748B]">SEO SYSTEM 300</span>
           <span className="mx-2 text-[#CBD5E1]">/</span>
-          <span className="text-[#0F172A] font-bold">Control Center Dashboard</span>
+          <span className="text-[#0F172A] font-bold">대시보드</span>
         </div>
 
         {/* Project Selector Dropdown */}

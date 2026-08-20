@@ -53,25 +53,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeProject,
   pendingMissionsCount,
   unreadNotificationsCount,
-  websiteStatusBadgeText = '진행중',
+  websiteStatusBadgeText,
   onSwitchToAdminMode,
   projectCount = 0
 }) => {
   const { user } = useAuth();
   const [websiteExpanded, setWebsiteExpanded] = React.useState(true);
-  const [toolsExpanded, setToolsExpanded] = React.useState(true);
+  const [toolsExpanded, setToolsExpanded] = React.useState(false);
 
   const navItems = [
     {
       id: 'dashboard' as NavigationTab,
-      label: 'Dashboard',
+      label: '대시보드',
       icon: <LayoutDashboard className="w-4 h-4" />
     },
     {
       id: 'projects' as NavigationTab,
       label: '내 프로젝트',
       icon: <FolderKanban className="w-4 h-4" />,
-      badge: projectCount > 0 ? `${projectCount}개` : undefined
+      badge: projectCount > 0 ? `${projectCount}` : undefined
     },
     {
       id: 'website' as NavigationTab,
@@ -86,20 +86,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'roadmap' as NavigationTab,
-      label: 'SEO Roadmap',
-      icon: <Compass className="w-4 h-4" />,
-      badge: '10단계'
+      label: 'SEO 로드맵',
+      icon: <Compass className="w-4 h-4" />
     },
     {
       id: 'missions' as NavigationTab,
       label: '오늘의 미션',
       icon: <CheckSquare2 className="w-4 h-4" />,
-      badge: pendingMissionsCount > 0 ? `${pendingMissionsCount}개` : undefined,
+      badge: pendingMissionsCount > 0 ? `${pendingMissionsCount}` : undefined,
       badgeColor: 'blue'
     },
     {
       id: 'tools' as NavigationTab,
-      label: 'SEO Tools',
+      label: 'SEO 도구',
       icon: <Wrench className="w-4 h-4" />,
       hasSubmenu: true,
       subItems: [
@@ -116,21 +115,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'integrations' as NavigationTab,
-      label: 'SEO 데이터 연결',
+      label: '데이터 연결',
       icon: <Link2 className="w-4 h-4" />
     },
     {
       id: 'curriculum' as NavigationTab,
       label: '강의실',
-      icon: <GraduationCap className="w-4 h-4" />,
-      badge: '300기'
+      icon: <GraduationCap className="w-4 h-4" />
     },
     {
       id: 'ai_coach' as NavigationTab,
       label: 'AI SEO Coach',
-      icon: <Sparkles className="w-4 h-4" />,
-      badge: 'AI 코칭',
-      badgeColor: 'blue'
+      icon: <Sparkles className="w-4 h-4" />
     }
   ];
 
@@ -199,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Navigation List */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 custom-scrollbar">
         <div className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider px-3 mb-1.5">
-          {!isCollapsed ? 'MAIN MENU' : '•••'}
+          {!isCollapsed ? '메뉴' : '•••'}
         </div>
 
         {navItems.map((item) => {
@@ -277,7 +273,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }`}
                         >
                           <span className="truncate">{sub.label}</span>
-                          {item.id === 'website' && sub.id === 'status' && (
+                          {item.id === 'website' && sub.id === 'status' && websiteStatusBadgeText && (
                             <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-[#2563EB] font-bold">
                               {websiteStatusBadgeText}
                             </span>
@@ -326,7 +322,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="pt-3 mt-2 border-t border-[#E2E8F0]">
           <div className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider px-3 mb-1.5">
-            {!isCollapsed ? 'SUPPORT' : '•••'}
+            {!isCollapsed ? '설정' : '•••'}
           </div>
           {bottomItems.map((item) => {
             const isActive = activeTab === item.id;

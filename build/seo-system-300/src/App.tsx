@@ -919,7 +919,13 @@ export default function App() {
             activeProject={activeProject}
             pendingMissionsCount={pendingMissionsCount}
             unreadNotificationsCount={unreadNotificationsCount}
-            websiteStatusBadgeText={websiteOrder.status === 'delivered' ? '완료' : '진행중'}
+            websiteStatusBadgeText={
+              liveOrder
+                ? liveOrder.status === 'delivered'
+                  ? '완료'
+                  : '진행중'
+                : undefined
+            }
             onOpenNewProjectModal={() => setIsOnboardingWizardOpen(true)}
             onSwitchToAdminMode={isAdmin ? () => setAppMode('admin') : undefined}
             projectCount={projects.length}
