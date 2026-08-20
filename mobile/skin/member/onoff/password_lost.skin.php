@@ -13,6 +13,7 @@ if ($config['cf_cert_use'] && ($config['cf_cert_simple'] || $config['cf_cert_ipi
 <?php onoff_platform_member_top_bar(); ?>
 <div id="find_info" class="new_win onoff-platform__card<?php if ($config['cf_cert_use'] != 0 && $config['cf_cert_find'] != 0) { ?> cert<?php } ?>">
     <?php onoff_platform_member_brand('아이디/비밀번호 찾기'); ?>
+    <?php onoff_platform_member_tabs('login'); ?>
     <div class="new_win_con">
         <form name="fpasswordlost" action="<?php echo $action_url ?>" onsubmit="return fpasswordlost_submit(this);" method="post" autocomplete="off">
         <input type="hidden" name="cert_no" value="">
