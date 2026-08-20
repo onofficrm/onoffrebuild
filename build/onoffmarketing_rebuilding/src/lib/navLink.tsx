@@ -8,7 +8,7 @@ export function isSiteExternalPath(path: string): boolean {
   if (!path) return false;
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('//')) return true;
   if (EXTERNAL_PATHS.has(path)) return true;
-  if (path.startsWith('/bbs/') || path.startsWith('/adm/')) return true;
+  if (path.startsWith('/bbs/') || path.startsWith('/adm/') || path.startsWith('/seo-system-300')) return true;
   return false;
 }
 

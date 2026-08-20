@@ -18,6 +18,22 @@ export interface MenuItem {
   items: SubMenuItem[];
 }
 
+type SiteBoot = {
+  isMember?: boolean;
+  mbId?: string;
+  mbNick?: string;
+  loginUrl?: string;
+  registerUrl?: string;
+  logoutUrl?: string;
+  portalUrl?: string;
+};
+
+declare global {
+  interface Window {
+    __ONOFF_SITE__?: SiteBoot;
+  }
+}
+
 const menuData: MenuItem[] = [
   { 
     title: '회사소개', 
@@ -83,6 +99,52 @@ const menuData: MenuItem[] = [
   },
 ];
 
+function readSiteBoot(): SiteBoot {
+  if (typeof window === 'undefined') return {};
+  return window.__ONOFF_SITE__ || {};
+}
+
+function AuthLinks({
+  className = '',
+  linkClassName,
+  onNavigate,
+}: {
+  className?: string;
+  linkClassName: string;
+  onNavigate?: () => void;
+}) {
+  const boot = readSiteBoot();
+  const loginUrl = boot.loginUrl || '/bbs/login.php';
+  const registerUrl = boot.registerUrl || '/bbs/register.php';
+  const logoutUrl = boot.logoutUrl || '/bbs/logout.php';
+  const portalUrl = boot.portalUrl || '/seo-system-300/dashboard';
+  const isMember = Boolean(boot.isMember);
+
+  if (isMember) {
+    return (
+      <div className={className}>
+        <AppNavLink to={portalUrl} className={linkClassName} onClick={onNavigate}>
+          Control Center
+        </AppNavLink>
+        <AppNavLink to={logoutUrl} className={linkClassName} onClick={onNavigate}>
+          로그아웃
+        </AppNavLink>
+      </div>
+    );
+  }
+
+  return (
+    <div className={className}>
+      <AppNavLink to={loginUrl} className={linkClassName} onClick={onNavigate}>
+        로그인
+      </AppNavLink>
+      <AppNavLink to={registerUrl} className={linkClassName} onClick={onNavigate}>
+        회원가입
+      </AppNavLink>
+    </div>
+  );
+}
+
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -98,7 +160,7 @@ export default function Header() {
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/95 backdrop-blur-md shadow-md py-3.5' : 'bg-white/90 backdrop-blur-sm py-4.5 border-b border-slate-100'}`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center gap-3">
         {/* Logo */}
         <Link to="/" className="flex items-center shrink-0 group" aria-label="온오프마케팅 홈">
           <img
@@ -111,7 +173,7 @@ export default function Header() {
         </Link>
         
         {/* Desktop Nav */}
-        <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
+        <nav className="hidden lg:flex items-center space-x-5 xl:space-x-7">
           {menuData.map((menu) => (
             <div key={menu.title} className="relative group">
               <Link 
@@ -158,6 +220,11 @@ export default function Header() {
               )}
             </div>
           ))}
+
+          <AuthLinks
+            className="flex items-center gap-3 xl:gap-4 pl-1 border-l border-slate-200"
+            linkClassName="text-sm font-extrabold text-slate-700 hover:text-blue-900 transition-colors whitespace-nowrap"
+          />
 
           {/* Right CTA Button - Kept Header Styling */}
           <Link 
@@ -225,7 +292,12 @@ export default function Header() {
               </div>
             ))}
 
-            <div className="pt-4 pb-6 px-2">
+            <div className="pt-3 px-2 space-y-2">
+              <AuthLinks
+                className="grid grid-cols-2 gap-2"
+                linkClassName="flex items-center justify-center w-full border border-slate-200 bg-white text-slate-800 px-4 py-3 rounded-xl font-extrabold text-sm hover:border-blue-200 hover:bg-slate-50"
+                onNavigate={() => setIsMobileMenuOpen(false)}
+              />
               <Link 
                 to="/consult" 
                 onClick={() => setIsMobileMenuOpen(false)} 
@@ -241,4 +313,3 @@ export default function Header() {
     </header>
   );
 }
-

@@ -782,10 +782,51 @@ if (!function_exists('onoff_builder_render_import_page')) {
 
         $html = onoff_builder_remove_base_tags($html);
         $html = onoff_builder_rewrite_asset_paths($html, $id, $entry);
+        if (function_exists('onoff_builder_inject_site_boot')) {
+            $html = onoff_builder_inject_site_boot($html);
+        }
 
         header('Content-Type: text/html; charset=utf-8');
         echo $html;
         exit;
+    }
+}
+
+if (!function_exists('onoff_builder_inject_site_boot')) {
+    /**
+     * Expose GNUBoard member state to the homepage SPA header (login / logout).
+     */
+    function onoff_builder_inject_site_boot($html)
+    {
+        global $is_member, $member;
+
+        $nick = '';
+        $mb_id = '';
+        if (!empty($is_member) && !empty($member['mb_id'])) {
+            $mb_id = (string) $member['mb_id'];
+            $nick = isset($member['mb_nick']) && (string) $member['mb_nick'] !== ''
+                ? (string) $member['mb_nick']
+                : $mb_id;
+        }
+
+        $boot = array(
+            'isMember' => !empty($is_member) && $mb_id !== '',
+            'mbId' => $mb_id,
+            'mbNick' => $nick,
+            'loginUrl' => (defined('G5_BBS_URL') ? G5_BBS_URL : '/bbs') . '/login.php',
+            'registerUrl' => (defined('G5_BBS_URL') ? G5_BBS_URL : '/bbs') . '/register.php',
+            'logoutUrl' => (defined('G5_BBS_URL') ? G5_BBS_URL : '/bbs') . '/logout.php',
+            'portalUrl' => '/seo-system-300/dashboard',
+        );
+
+        $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            return $html;
+        }
+
+        $script = '<script>window.__ONOFF_SITE__=' . $json . ';</script>';
+        $replaced = preg_replace('/<head([^>]*)>/i', '<head$1>' . $script, $html, 1);
+        return is_string($replaced) ? $replaced : $html;
     }
 }
 
