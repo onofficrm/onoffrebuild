@@ -58,6 +58,30 @@ export const IntegrationsView: React.FC<{ projectId: string | null; projectDomai
     void load();
   }, [projectId]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const google = params.get('google');
+    if (!google) return;
+    const messages: Record<string, string> = {
+      connected: 'Google 계정이 연결되었습니다. GSC 사이트와 GA4 속성을 선택하세요.',
+      denied: 'Google 연결이 취소되었습니다.',
+      state_mismatch: '보안 검증에 실패했습니다. 다시 연결해주세요.',
+      missing_code: '인증 코드가 없습니다. 다시 연결해주세요.',
+      not_configured: '서버에 Google API 설정이 필요합니다.',
+      token_failed: '토큰 교환에 실패했습니다. 다시 연결해주세요.',
+      login_required: '로그인 후 다시 연결해주세요.',
+    };
+    if (google === 'connected') {
+      setInfo(messages.connected);
+      setError('');
+    } else {
+      setError(messages[google] || 'Google 연결에 실패했습니다.');
+    }
+    params.delete('google');
+    const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+    window.history.replaceState({}, '', next);
+  }, []);
+
   if (!projectId) {
     return (
       <div className="bg-white border rounded-3xl p-10 text-center">

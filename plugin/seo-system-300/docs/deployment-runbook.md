@@ -85,11 +85,13 @@ HTTP must never execute `run.php`. Migration SQL under `migrations/` is denied b
 ### 7b. Launch ramp (after smoke)
 
 1. Keep Google/AI/tool secrets empty until ready.
-2. FTP-only edit `plugin/seo-system-300/config.local.php` on the server (never commit):
+2. Apply **006** notifications when shipping student inbox/email (`migrations/006_notifications.sql`). See `pilot-open-checklist.md`.
+3. FTP-only edit `plugin/seo-system-300/config.local.php` on the server (never commit):
    - `SEOSYS300_LAUNCH_MODE=admin` — GNUBoard admin only
    - then `pilot` + `SEOSYS300_PILOT_USERS=mb_id1,mb_id2`
    - then `all` for members
-3. Confirm `session.php` shows the new `launchMode` (still no pilot list in JSON).
+4. Google OAuth: `docs/google-oauth-setup.md`
+5. Confirm `session.php` shows the new `launchMode` (still no pilot list in JSON).
 
 ### 8. Rollback
 

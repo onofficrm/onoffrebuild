@@ -37,6 +37,11 @@ import { addTaskResult, completeRoadmapTask, getRoadmap, mapRoadmapToUi, reopenR
 import { completeMission, getTodayMissions, mapMissionsToUi, reopenMission } from './services/missionService';
 import { listActivities, mapActivitiesToUi } from './services/activityService';
 import {
+  listNotifications,
+  mapNotificationsToUi,
+  markAllNotificationsRead,
+} from './services/notificationsService';
+import {
   adminChangeOrderStatus,
   adminInbox,
   adminKanbanOrders,
@@ -246,7 +251,7 @@ export default function App() {
   const [missionsError, setMissionsError] = useState('');
   const [activityError, setActivityError] = useState('');
   const [adminError, setAdminError] = useState('');
-  const [notifications, setNotifications] = useState<NotificationItem[]>(studentDemo.notifications);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [taskWorkLogs, setTaskWorkLogs] = useState<TaskWorkLog[]>(studentDemo.taskWorkLogs);
   const [seoTimelineItems, setSeoTimelineItems] = useState<SeoActivityTimelineItem[]>(studentDemo.seoTimelineItems);
   const [metricsSummary, setMetricsSummary] = useState<MetricsSummary | null>(null);
@@ -760,9 +765,28 @@ export default function App() {
     }
   };
 
-  const handleMarkAllNotificationsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      const res = await markAllNotificationsRead();
+      setNotifications(mapNotificationsToUi(res.notifications || []));
+    } catch {
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    }
   };
+
+  const loadNotifications = React.useCallback(async () => {
+    try {
+      const res = await listNotifications(40);
+      setNotifications(mapNotificationsToUi(res.notifications || []));
+    } catch {
+      setNotifications([]);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!authenticated || !launchAllowed) return;
+    void loadNotifications();
+  }, [authenticated, launchAllowed, loadNotifications]);
 
   const pendingMissionsCount = missions.filter((m) => !m.isCompleted).length;
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;

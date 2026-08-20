@@ -541,11 +541,6 @@ function seosys300_order_save($input, $submit = false)
             : '';
         seosys300_query("UPDATE `{$table}` SET status = 'submitted', is_draft = 0, progress = " . seosys300_website_progress_for_status('submitted') . ", submitted_at = '{$now}', updated_at = '{$now}' {$orderNoSql} WHERE id = {$order_id}");
         seosys300_append_status_history($order_id, (string) $row['status'], 'submitted', 'student', 'wizard submitted');
-        seosys300_notify_order_event('WEBSITE_ORDER_SUBMITTED', array(
-            'order_id' => $order_id,
-            'project_id' => (int) $row['project_id'],
-            'mb_id' => $mb_id,
-        ));
     }
 
     if (!seosys300_commit()) {
@@ -557,6 +552,11 @@ function seosys300_order_save($input, $submit = false)
         seosys300_log_activity((int) $row['project_id'], 'WEBSITE_ORDER_SUBMITTED', '홈페이지 제작 주문이 접수되었습니다.', array(
             'entity_type' => 'website_order',
             'entity_id' => $order_id,
+        ));
+        seosys300_notify_order_event('WEBSITE_ORDER_SUBMITTED', array(
+            'order_id' => $order_id,
+            'project_id' => (int) $row['project_id'],
+            'mb_id' => $mb_id,
         ));
         seosys300_sync_auto_roadmap((int) $row['project_id']);
     } elseif ((string) $row['status'] === 'draft' && empty($row['site_name']) && isset($input['siteName'])) {

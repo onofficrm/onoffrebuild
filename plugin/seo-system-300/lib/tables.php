@@ -19,6 +19,7 @@ $g5['seosys300_project_roadmap_tasks_table'] = $prefix . 'seosys300_project_road
 $g5['seosys300_task_results_table'] = $prefix . 'seosys300_task_results';
 $g5['seosys300_daily_missions_table'] = $prefix . 'seosys300_daily_missions';
 $g5['seosys300_activities_table'] = $prefix . 'seosys300_activities';
+$g5['seosys300_notifications_table'] = $prefix . 'seosys300_notifications';
 $g5['seosys300_admin_notes_table'] = $prefix . 'seosys300_admin_notes';
 $g5['seosys300_google_connections_table'] = $prefix . 'seosys300_google_connections';
 $g5['seosys300_project_integrations_table'] = $prefix . 'seosys300_project_integrations';

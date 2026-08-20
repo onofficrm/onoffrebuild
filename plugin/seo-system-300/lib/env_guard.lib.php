@@ -289,6 +289,7 @@ function seosys300_ordered_migrations()
         '003_google_metrics.sql',
         '004_tools_ai.sql',
         '005_website_order_wizard.sql',
+        '006_notifications.sql',
     );
 }
 

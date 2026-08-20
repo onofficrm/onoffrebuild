@@ -35,6 +35,11 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       </div>
 
       <Card>
+        {notifications.length === 0 ? (
+          <div className="p-10 text-center text-sm text-slate-500">
+            아직 알림이 없습니다. 홈페이지 주문·상태 변경 시 이곳에 표시됩니다.
+          </div>
+        ) : (
         <div className="divide-y divide-slate-100">
           {notifications.map((n) => {
             const iconMap = {
@@ -79,6 +84,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             );
           })}
         </div>
+        )}
       </Card>
     </div>
   );

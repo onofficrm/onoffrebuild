@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
   admin: '/plugin/seo-system-300/api/admin/index.php',
   tools: '/plugin/seo-system-300/api/tools/index.php',
   ai: '/plugin/seo-system-300/api/ai/index.php',
+  notifications: '/plugin/seo-system-300/api/notifications/index.php',
 } as const;
 
 export const GNUBOARD_LOGIN_PATH = '/bbs/login.php';
