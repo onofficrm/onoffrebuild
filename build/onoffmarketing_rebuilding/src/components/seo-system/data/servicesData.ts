@@ -143,17 +143,17 @@ export const CORE_SERVICES: SeoServiceItem[] = [
   },
   {
     id: 'seoflow',
-    name: 'SEOFLOW',
-    subName: '외부 SEO · 백링크 (Backlink & Off-page SEO)',
-    badge: 'STEP 4. 오프페이지 권위 부스팅',
-    role: '고품질 백링크 네트워크 & 도메인 신뢰도 증폭',
+    name: 'BACKLINK',
+    subName: '백링크 · 외부 SEO',
+    badge: 'STEP 4. 백링크 · 외부 SEO',
+    role: '고품질 백링크 네트워크 & 사이트 신뢰도 향상',
     url: SERVICE_URLS.seoflow,
     iconName: 'Link2',
     color: 'from-emerald-500 to-teal-600',
     accentColor: 'text-emerald-400',
-    tagline: '구글 최신 스팸 업데이트에 대응하는 정밀하고 자연스러운 백링크를 구축합니다.',
+    tagline: '검색엔진이 신뢰할 수 있는 자연스러운 백링크를 구축합니다.',
     description: '단순 대량 생성형 저품질 링크가 아닌, 실제 연관성 높은 고권위 미디어 및 업계 웹사이트로부터 문맥상 자연스러운(Contextual) Do-Follow 백링크를 구축하여 사이트의 전반적 도메인 파워를 상승시킵니다.',
-    problemSolved: '검색엔진은 외부에서 해당 사이트를 얼마나 신뢰하고 추천(링크)하는지 평가합니다. SEOFLOW는 앵커 텍스트 분산과 안전한 Tier 구조로 페널티 없는 강력한 백링크 파워를 주입합니다.',
+    problemSolved: '검색엔진은 외부에서 해당 사이트를 얼마나 신뢰하고 추천(링크)하는지 평가합니다. BACKLINK는 앵커 텍스트 분산과 안전한 Tier 구조로 페널티 없는 강력한 백링크 파워를 주입합니다.',
     keyFeatures: [
       {
         title: '고신뢰도 DA 40~90+ 미디어 네트워크 연계',
@@ -221,7 +221,7 @@ export const PIPELINE_STEPS: PipelineStep[] = [
   {
     step: 4,
     title: '안전하고 강력한 프리미엄 백링크 구축',
-    serviceName: 'SEOFLOW',
+    serviceName: 'BACKLINK',
     serviceUrl: SERVICE_URLS.seoflow,
     keyAction: '고권위 Do-Follow 미디어 백링크 공급, 자연스러운 앵커 텍스트 분산, Tier 링크 파워 전달',
     whyCrucial: '타 사이트들의 신뢰 추천 신호를 검색엔진에 전달하여 최종 1페이지 최상단 랭킹을 굳히고 유지합니다.',
@@ -237,13 +237,13 @@ export const CASE_STUDIES: CaseStudy[] = [
     title: '[SAMPLE] 신규 런칭 기업의 메인 키워드 노출·유입 성장 프레임워크',
     period: '예시 기간',
     challenge: '예시: 경쟁이 치열한 키워드 시장에서 신규 도메인으로 런칭하여 초기 검색 노출이 정체된 상태.',
-    solution: 'CatchDomain → SEO System 300 → icrm.co.kr 콘텐츠 → SEOFLOW 백링크 파이프라인 연계 (예시 시나리오).',
+    solution: 'CatchDomain → SEO System 300 → icrm.co.kr 콘텐츠 → BACKLINK 백링크 파이프라인 연계 (예시 시나리오).',
     results: [
       { label: '월간 유기적 트래픽', before: '예시', after: '예시', increase: 'SAMPLE' },
       { label: '주요 키워드 1페이지 진입', before: '예시', after: '예시', increase: 'SAMPLE' },
       { label: '도메인 권위 지수(DA)', before: '예시', after: '예시', increase: 'SAMPLE' }
     ],
-    appliedServices: ['CatchDomain', 'SEO System 300', 'icrm.co.kr', 'SEOFLOW']
+    appliedServices: ['CatchDomain', 'SEO System 300', 'icrm.co.kr', 'BACKLINK']
   },
   {
     id: 'case-2',
@@ -251,13 +251,13 @@ export const CASE_STUDIES: CaseStudy[] = [
     title: '[SAMPLE] 지역 기반 키워드 전환·상담 문의 성장 프레임워크',
     period: '예시 기간',
     challenge: '예시: 모바일 최적화 미흡 및 콘텐츠 부족으로 검색 노출이 낮은 상태.',
-    solution: 'SEO System 300 + icrm.co.kr 콘텐츠 + SEOFLOW 연계 (예시 시나리오).',
+    solution: 'SEO System 300 + icrm.co.kr 콘텐츠 + BACKLINK 연계 (예시 시나리오).',
     results: [
       { label: '월간 온라인 상담 문의', before: '예시', after: '예시', increase: 'SAMPLE' },
       { label: '평균 페이지 체류시간', before: '예시', after: '예시', increase: 'SAMPLE' },
       { label: '월 유료 광고비', before: '예시', after: '예시', increase: 'SAMPLE' }
     ],
-    appliedServices: ['SEO System 300', 'icrm.co.kr', 'SEOFLOW']
+    appliedServices: ['SEO System 300', 'icrm.co.kr', 'BACKLINK']
   },
   {
     id: 'case-3',
@@ -265,27 +265,27 @@ export const CASE_STUDIES: CaseStudy[] = [
     title: '[SAMPLE] 글로벌 검색 최적화·오가닉 매출 성장 프레임워크',
     period: '예시 기간',
     challenge: '예시: 해외 검색엔진 색인·현지 백링크 부족으로 트래픽 정체.',
-    solution: 'CatchDomain + SEO System 300 + icrm + SEOFLOW 연계 (예시 시나리오).',
+    solution: 'CatchDomain + SEO System 300 + icrm + BACKLINK 연계 (예시 시나리오).',
     results: [
       { label: '글로벌 구글 오가닉 매출', before: '예시', after: '예시', increase: 'SAMPLE' },
       { label: '구글 색인 페이지 수', before: '예시', after: '예시', increase: 'SAMPLE' },
       { label: '해외 유입 키워드 수', before: '예시', after: '예시', increase: 'SAMPLE' }
     ],
-    appliedServices: ['CatchDomain', 'SEO System 300', 'icrm.co.kr', 'SEOFLOW']
+    appliedServices: ['CatchDomain', 'SEO System 300', 'icrm.co.kr', 'BACKLINK']
   }
 ];
 
 export const SYSTEM_FAQ = [
   {
     q: '왜 SEO를 개별 단품이 아닌 "ONOFF SEO SYSTEM"으로 진행해야 하나요?',
-    a: 'SEO는 어느 한 가지만 잘한다고 성공하지 않습니다. 백링크만 많아도 사이트 구조(테크니컬)가 깨져있으면 색인이 안 되고, 도메인이 좋아도 읽을 만한 콘텐츠가 없으면 유저는 3초 만에 이탈합니다. 온오프마케팅의 ONOFF SEO SYSTEM은 [도메인 기초 ➔ 테크니컬 최적화 ➔ 콘텐츠 생성 ➔ SEOFLOW 백링크]의 필수 퍼즐을 연결하는 통합 체계입니다.'
+    a: 'SEO는 어느 한 가지만 잘한다고 성공하지 않습니다. 백링크만 많아도 사이트 구조(테크니컬)가 깨져있으면 색인이 안 되고, 도메인이 좋아도 읽을 만한 콘텐츠가 없으면 유저는 3초 만에 이탈합니다. 온오프마케팅의 ONOFF SEO SYSTEM은 [도메인 기초 ➔ 테크니컬 최적화 ➔ 콘텐츠 생성 ➔ BACKLINK 백링크]의 필수 퍼즐을 연결하는 통합 체계입니다.'
   },
   {
     q: '기존 운영 중인 제 사이트가 있는데, 도메인을 꼭 새로 사야 하나요?',
-    a: '아닙니다. 이미 운영 중인 사이트가 있다면 [SEO System 300 온페이지 최적화]와 [icrm.co.kr 콘텐츠 빌딩], [SEOFLOW] 단계부터 즉시 투입할 수 있습니다. 반면, 완전히 새로운 신규 프로젝트를 런칭하거나 서브 블로그/랜딩페이지를 빠르게 키우고 싶으실 때 [CatchDomain]을 병행하시면 시너지가 발생합니다.'
+    a: '아닙니다. 이미 운영 중인 사이트가 있다면 [SEO System 300 온페이지 최적화]와 [icrm.co.kr 콘텐츠 빌딩], [BACKLINK] 단계부터 즉시 투입할 수 있습니다. 반면, 완전히 새로운 신규 프로젝트를 런칭하거나 서브 블로그/랜딩페이지를 빠르게 키우고 싶으실 때 [CatchDomain]을 병행하시면 시너지가 발생합니다.'
   },
   {
-    q: '각 서비스(CatchDomain, icrm, SEOFLOW, SEO System 300)는 개별 이용도 가능한가요?',
+    q: '각 서비스(CatchDomain, icrm, BACKLINK, SEO System 300)는 개별 이용도 가능한가요?',
     a: '네, 물론입니다. 각 서비스는 해당 분야 전문 독립 플랫폼(domain.icrm.co.kr, icrm.co.kr, backlink.icrm.co.kr, onoff.icrm.co.kr/seo-system)으로 운영되어 필요에 따라 단독 이용도 가능하며, 통합 패키지로 진행 시 전체적인 유기적 연계 컨설팅을 제공합니다.'
   },
   {

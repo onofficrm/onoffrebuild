@@ -71,8 +71,8 @@ export default function SeoPlatformPage() {
       num: '04',
       title: '어떤 백링크가 필요한지 모름',
       desc: '출처 불명의 저품질 PBN 백링크를 구매했다가 검색엔진 페널티를 받거나, 도메인 권위를 올릴 실질 링크를 확보하지 못합니다.',
-      solutionTag: 'ALGORITHM-SAFE SEOFLOW',
-      tool: 'SEOFLOW 구축 시스템'
+      solutionTag: 'ALGORITHM-SAFE BACKLINK',
+      tool: 'BACKLINK 구축 시스템'
     },
     {
       id: 5,
@@ -122,8 +122,8 @@ export default function SeoPlatformPage() {
       lineColor: 'from-amber-500 to-emerald-500'
     },
     {
-      id: 'SEOFLOW',
-      title: 'SEOFLOW',
+      id: 'BACKLINK',
+      title: 'BACKLINK',
       sub: 'Backlink & Off-page SEO',
       icon: LinkIcon,
       status: 'Tier 1 Distributed',
@@ -433,7 +433,7 @@ export default function SeoPlatformPage() {
               온오프마케팅은 각각의 문제를 별도의 도구와 실행 시스템으로 해결합니다.
             </p>
             <p className="text-xs sm:text-sm text-blue-700 mt-1 font-medium">
-              CatchDomain &middot; SEO Website &middot; AI Content &middot; SEOFLOW &middot; Traffic
+              CatchDomain &middot; SEO Website &middot; AI Content &middot; BACKLINK &middot; Traffic
             </p>
           </div>
 
@@ -693,7 +693,7 @@ export default function SeoPlatformPage() {
             </div>
 
             {/* ---------------------------------------------------- */}
-            {/* STEP 03: OFF-PAGE SEO (SEOFLOW)                      */}
+            {/* STEP 03: OFF-PAGE SEO (BACKLINK)                      */}
             {/* ---------------------------------------------------- */}
             <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 lg:p-10 shadow-xs hover:border-emerald-500/60 transition-all">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
@@ -711,7 +711,7 @@ export default function SeoPlatformPage() {
 
                   <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
                     필요한 백링크를 찾습니다.<br />
-                    <span className="text-emerald-600">SEOFLOW</span>
+                    <span className="text-emerald-600">BACKLINK</span>
                   </h3>
 
                   {/* Highlight sentence */}
@@ -732,7 +732,7 @@ export default function SeoPlatformPage() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm transition-all group"
                     >
-                      <span>SEOFLOW 알아보기</span>
+                      <span>BACKLINK 알아보기</span>
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </a>
                   </div>
@@ -746,7 +746,7 @@ export default function SeoPlatformPage() {
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs">
                       <div className="flex items-center gap-2">
                         <LinkIcon className="w-4 h-4 text-emerald-400" />
-                        <span className="font-bold text-slate-200">SEOFLOW &middot; Backlink &amp; Off-page SEO Analyzer</span>
+                        <span className="font-bold text-slate-200">BACKLINK · 백링크 · 외부 SEO</span>
                       </div>
                       <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-400 text-[10px] font-mono">
                         GAP AUDIT
@@ -983,7 +983,7 @@ export default function SeoPlatformPage() {
                   <span className="text-xs font-bold text-slate-400 block mb-2">추천:</span>
                   <div className="flex flex-wrap gap-1.5">
                     <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-bold">Content</span>
-                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">SEOFLOW</span>
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">BACKLINK</span>
                     <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-bold">Traffic</span>
                   </div>
                 </div>
@@ -1014,7 +1014,7 @@ export default function SeoPlatformPage() {
                   <span className="text-xs font-bold text-slate-400 block mb-2">추천:</span>
                   <div className="flex flex-wrap gap-1.5">
                     <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-bold">Competitor Analysis</span>
-                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">SEOFLOW</span>
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">BACKLINK</span>
                     <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-bold">Traffic</span>
                   </div>
                 </div>
@@ -1346,7 +1346,7 @@ export default function SeoPlatformPage() {
                     AI Content
                   </span>
                   <span className="px-2 py-1 bg-white border border-slate-200 text-slate-700 text-[11px] font-bold rounded-lg">
-                    SEOFLOW
+                    BACKLINK
                   </span>
                 </div>
               </div>
@@ -1502,7 +1502,7 @@ export default function SeoPlatformPage() {
                     SEO System 300
                   </span>
                   <span className="px-2 py-1 bg-white border border-slate-200 text-slate-700 text-[11px] font-bold rounded-lg">
-                    SEOFLOW
+                    BACKLINK
                   </span>
                 </div>
               </div>
@@ -1593,12 +1593,12 @@ export default function SeoPlatformPage() {
               </div>
 
               <p className="text-sm text-slate-300 leading-relaxed font-normal">
-                외부 유료 툴에 의존하여 단편적인 데이터만 전달하지 않습니다. CatchDomain, SEOFLOW 등 검색엔진 최적화에 필요한 독자적인 자체 SaaS 기술 인프라를 직접 구축하여 영속적인 품질을 제공합니다.
+                외부 유료 툴에 의존하여 단편적인 데이터만 전달하지 않습니다. CatchDomain, BACKLINK 등 검색엔진 최적화에 필요한 독자적인 자체 SaaS 기술 인프라를 직접 구축하여 영속적인 품질을 제공합니다.
               </p>
 
               <div className="pt-2 flex items-center gap-2 text-xs text-cyan-400 font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
-                <span>CatchDomain &amp; SEOFLOW 등 독자 기술 인프라 보유</span>
+                <span>CatchDomain &amp; BACKLINK 등 독자 기술 인프라 보유</span>
               </div>
             </div>
 
