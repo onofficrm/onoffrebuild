@@ -23,6 +23,7 @@ import Pricing from './pages/Pricing';
 import Portfolio from './pages/Portfolio';
 import AITools from './pages/AITools';
 import SeoAeo from './pages/SeoAeo';
+import SeoPlatform from './pages/SeoPlatform';
 import CommonCTA from './components/CommonCTA';
 import Chatbot from './components/Chatbot';
 
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/traffic" element={<Traffic />} />
           <Route path="/seo-aeo" element={<SeoAeo />} />
+          <Route path="/seo-platform" element={<SeoPlatform />} />
           <Route path="/ai-tools" element={<AITools />} />
           <Route path="/blog" element={<BlogService />} />
           <Route path="/cafe" element={<CafeService />} />

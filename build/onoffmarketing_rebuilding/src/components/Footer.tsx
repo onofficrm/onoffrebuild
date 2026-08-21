@@ -43,6 +43,7 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-4">실행 서비스</h4>
             <ul className="space-y-3">
+              <li><Link to="/seo-platform" className="hover:text-white transition-colors">ONOFF SEO SYSTEM</Link></li>
               <li><Link to="/traffic" className="hover:text-white transition-colors">트래픽 서비스</Link></li>
               <li><Link to="/blog" className="hover:text-white transition-colors">블로그포스팅</Link></li>
               <li><Link to="/cafe" className="hover:text-white transition-colors">카페포스팅</Link></li>

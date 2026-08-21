@@ -1,5 +1,6 @@
 import HeroSection from '../components/HeroSection';
 import CoreServicesSummary from '../components/CoreServicesSummary';
+import OnoffSeoSystemHomeSection from '../components/OnoffSeoSystemHomeSection';
 import ProblemSolutionSection from '../components/ProblemSolutionSection';
 import RealResultsAndCasesSection from '../components/RealResultsAndCasesSection';
 import OnoffCpaSection from '../components/OnoffCpaSection';
@@ -19,6 +20,9 @@ export default function Home() {
 
       {/* 1. 핵심 서비스 요약 섹션 */}
       <CoreServicesSummary />
+
+      {/* 1b. ONOFF SEO SYSTEM 요약 (상세: /#/seo-platform) */}
+      <OnoffSeoSystemHomeSection />
 
       {/* 2. 문제-해결 섹션 */}
       <ProblemSolutionSection />

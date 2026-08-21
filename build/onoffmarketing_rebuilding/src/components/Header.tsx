@@ -52,12 +52,12 @@ const menuData: MenuItem[] = [
   },
   { 
     title: '서비스', 
-    path: '/traffic', 
+    path: '/seo-platform', 
     items: [
+      { name: 'ONOFF SEO SYSTEM', path: '/seo-platform', desc: '도메인부터 콘텐츠·백링크·트래픽까지' },
       { name: '트래픽', path: '/traffic', desc: '검색 노출 활성화 및 타겟 오가닉 유입 서비스' },
       { name: '블로그포스팅', path: '/blog', desc: '네이버·구글 키워드 맞춤형 전문 블로그 대행' },
       { name: '카페포스팅', path: '/cafe', desc: '타겟 커뮤니티 입소문 및 침투 마케팅' },
-      { name: '백링크', path: '/traffic', desc: '구글·네이버 도메인 신뢰도 향상을 위한 백링크 구축' },
       { name: 'SEO/AEO 컨설팅', path: '/seo-aeo', desc: '검색엔진 및 AI 답변엔진 최적화 종합 진단' }
     ] 
   },
