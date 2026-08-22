@@ -54,6 +54,23 @@ if (isset($_POST['cf_intercept_ip']) && $_POST['cf_intercept_ip']) {
     }
 }
 
+// 공개 마케팅 사이트: 접근가능 IP(화이트리스트) 저장 금지 — 전 세계 방문자 차단 사고 방지
+if (is_file(G5_PATH . '/_site.config.php')) {
+    include_once G5_PATH . '/_site.config.php';
+}
+if (function_exists('g5site_cfg_bool') && g5site_cfg_bool('public_access_forbid_possible_ip', true)) {
+    $possible_post = isset($_POST['cf_possible_ip']) ? trim((string) $_POST['cf_possible_ip']) : '';
+    if ($possible_post !== '') {
+        if (is_file(G5_LIB_PATH . '/onoff-access-guard.lib.php')) {
+            include_once G5_LIB_PATH . '/onoff-access-guard.lib.php';
+            if (function_exists('onoff_access_log')) {
+                onoff_access_log('blocked_possible_ip_save', array('by' => isset($member['mb_id']) ? $member['mb_id'] : ''));
+            }
+        }
+        alert('공개 사이트에서는 [접근가능 IP]를 사용할 수 없습니다. 이 설정은 허용 목록 외 모든 방문자·검색엔진 접속을 막습니다. 비워 둔 채 저장하세요. IP 보안은 iwinv 방화벽에서 악성 IP만 선별 차단하세요.');
+    }
+}
+
 $check_keys = array(
     'cf_use_email_certify' => 'int',
     'cf_use_homepage' => 'int',

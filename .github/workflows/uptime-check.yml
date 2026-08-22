@@ -1,0 +1,31 @@
+name: Production Access Uptime
+
+# Detects recurring iwinv/host blocks early.
+# Does NOT redeploy. Failures usually mean firewall/WAF, not app code.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: onoff-uptime-check
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Probe production access
+        run: |
+          chmod +x scripts/check-production-access.sh
+          ./scripts/check-production-access.sh
+
+      - name: Summarize failure guidance
+        if: failure()
+        run: |
+          echo "::error::onoff.icrm.co.kr public access probe failed. Check iwinv firewall / foreign-access block / WAF. Do not redeploy to fix TCP timeout or edge 403."

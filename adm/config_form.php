@@ -725,12 +725,12 @@ if ($config['cf_sms_use'] && $config['cf_icode_id'] && $config['cf_icode_pw']) {
                     <tr>
                         <th scope="row"><label for="cf_possible_ip">접근가능 IP</label></th>
                         <td>
-                            <?php echo help('입력된 IP의 컴퓨터만 접근할 수 있습니다.<br>123.123.+ 도 입력 가능. (엔터로 구분)') ?>
+                            <?php echo help('입력된 IP의 컴퓨터만 접근할 수 있습니다.<br>123.123.+ 도 입력 가능. (엔터로 구분)<br><strong style="color:#b91c1c;">공개 사이트(onoff)에서는 비워 두세요. 값이 있으면 전 세계 접속이 막힙니다. (저장 시 거부됨)</strong>') ?>
                             <textarea name="cf_possible_ip" id="cf_possible_ip"><?php echo get_sanitize_input($config['cf_possible_ip']); ?></textarea>
                         </td>
                         <th scope="row"><label for="cf_intercept_ip">접근차단 IP</label></th>
                         <td>
-                            <?php echo help('입력된 IP의 컴퓨터는 접근할 수 없음.<br>123.123.+ 도 입력 가능. (엔터로 구분)') ?>
+                            <?php echo help('입력된 IP의 컴퓨터는 접근할 수 없음.<br>123.123.+ 도 입력 가능. (엔터로 구분)<br>악성 IP만 선별 입력. 전체 해외 차단은 iwinv 패널에서 하지 마세요.') ?>
                             <textarea name="cf_intercept_ip" id="cf_intercept_ip"><?php echo get_sanitize_input($config['cf_intercept_ip']); ?></textarea>
                         </td>
                     </tr>

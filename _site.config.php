@@ -80,6 +80,9 @@ $site_config = array(
     /* RSS · sitemap · robots (lib/seo-feed.lib.php, rss.php, sitemap.php) */
     'seo_feed_enabled'          => true,
     'sitemap_static_pages'      => '/seo-system',  /* 비우면 /page/*.php 자동 (제외 목록 제외) */
+    /* 공개 사이트 접속 가드 (lib/onoff-access-guard.lib.php) — iwinv 방화벽과 별개 */
+    'public_access_guard_enabled'       => true,
+    'public_access_forbid_possible_ip'  => true,  /* 접근가능 IP 저장 금지 (전면 차단 사고 방지) */
     'sitemap_exclude_pages'     => '',  /* 추가 제외 경로, 쉼표 구분 */
     'sitemap_exclude_boards'    => 'inquiry',  /* 문의 게시판 등 sitemap/RSS 제외 */
     'sitemap_max_posts_per_board' => '500',
