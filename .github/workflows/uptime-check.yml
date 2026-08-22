@@ -1,11 +1,9 @@
 name: Production Access Uptime
 
-# Detects recurring iwinv/host blocks early.
-# Does NOT redeploy. Failures usually mean firewall/WAF, not app code.
+# Manual only. Scheduled probes from GitHub runners can look like abuse to host WAFs.
+# Symptom correlation: TCP timeout / edge 403 are hosting-edge, not app PHP.
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -28,4 +26,4 @@ jobs:
       - name: Summarize failure guidance
         if: failure()
         run: |
-          echo "::error::onoff.icrm.co.kr public access probe failed. Check iwinv firewall / foreign-access block / WAF. Do not redeploy to fix TCP timeout or edge 403."
+          echo "::error::Public access failed. If status is 000/timeout or English Forbidden 403 on access-health.php, this is hosting edge/WAF — not GNUBoard/React. Do not redeploy to fix."

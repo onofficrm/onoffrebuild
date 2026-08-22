@@ -1,41 +1,39 @@
-# iwinv 공개 접속 안정화 (onoff.icrm.co.kr)
+# 공개 접속 장애 구분 (onoff.icrm.co.kr)
 
-반복되는 `ERR_CONNECTION_TIMED_OUT` / 해외 `403` 은 **앱 배포로 고치지 않습니다.**
-원인 대부분은 iwinv **방화벽·해외접속차단·웹방화벽** 입니다.
+## 앱 코드 vs 엣지 차단
 
-## 패널에서 영구적으로 유지할 설정
+| 증상 | 의미 | 앱 코드로 해결? |
+|------|------|----------------|
+| `ERR_CONNECTION_TIMED_OUT` / curl 000 | TCP가 `115.68.168.240:443`에 도달 전 드롭 | **불가** |
+| HTTP `403 Forbidden`(영문) + `/access-health.php`도 403 | 호스팅 WAF/방화벽 응답 | **불가** |
+| 한글 `접근이 가능하지 않습니다` | 그누보드 `접근가능 IP` | 가능 (환경설정에서 비움) |
 
-계정: `rebuildonoff` · IP: `115.68.168.240`
+`/access-health.php`는 GNUBoard/`common.php`를 **로드하지 않습니다**.
+이 URL까지 영문 403이면 **PHP·React 로직 문제가 아닙니다.**
 
-1. **해외 접속 차단 / 국가 차단: OFF** (공개 마케팅 사이트는 반드시 개방)
-2. **웹방화벽**: 과도한 “전체 차단” 모드 사용 금지. 공격 IP만 개별 차단
-3. **방화벽**: 80 / 443 인바운드 허용
-4. 운영자 IP만 막을 경우 → **화이트리스트에 운영 IP 추가**하되, 일반 방문자는 열어 둘 것
-5. **계정 초기화** 버튼은 사용하지 말 것
+배포(FTP) 직후 잠깐 열리다가 다시 막히는 패턴은
+보안 규칙이 다시 적용된 경우와 겹쳐 보일 수 있습니다.
+홈 카피/SPA 수정이 TCP 연결을 끊지는 않습니다.
 
-## 그누보드 환경설정 (앱)
+## iwinv 패널 영구 설정
 
-- **접근가능 IP (`cf_possible_ip`)**: 반드시 비움  
-  (값이 있으면 허용 목록 외 전 세계 접속이 막힘)
-- **접근차단 IP**: 악성 IP만 선별 입력
+계정 `rebuildonoff` · IP `115.68.168.240`
 
-코드 가드: `_site.config.php` 의 `public_access_forbid_possible_ip=true`  
-→ 관리자가 접근가능 IP를 저장하려 하면 거부합니다.
+1. 해외 접속 차단 / 국가 차단: **OFF (영구)**
+2. 웹방화벽 전체 차단 모드: 사용 금지
+3. 80 / 443 허용
+4. 규칙이 배포·시간 후 자동 재활성화되는지 iwinv에 확인 요청
 
-## 자동 감시
+## 그누보드
 
-- GitHub Actions: `Production Access Uptime` (30분마다)
-- 로컬/수동: `./scripts/check-production-access.sh`
-- 헬스 URL: `https://onoff.icrm.co.kr/access-health.php`
+- `접근가능 IP`: 비움 (저장 거부 가드 있음)
+- 악성 IP만 `접근차단 IP`에 입력
 
-실패 시 조치: **iwinv 문의 / 패널 방화벽 수정** (재배포 금지)
+## 점검
 
-문의 템플릿:
-
+```bash
+./scripts/check-production-access.sh
+curl -I https://onoff.icrm.co.kr/access-health.php
 ```
-계정: rebuildonoff
-서버 IP: 115.68.168.240
-증상: 외부 HTTPS 타임아웃 또는 403
-요청: 공개 웹 80/443 개방, 해외접속차단 OFF, 방화벽에서 일반 방문자 허용
-운영 IP(참고): (curl -s https://api.ipify.org)
-```
+
+업타임 GitHub Action은 **수동 실행만** (자동 프로브 비활성).
