@@ -66,125 +66,12 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Breadcrumb Path */}
         <div className="hidden lg:flex items-center text-xs font-medium text-[#64748B]">
-          <span className="font-bold text-[#64748B]">SEO SYSTEM 300</span>
-          <span className="mx-2 text-[#CBD5E1]">/</span>
-          <span className="text-[#0F172A] font-bold">대시보드</span>
-        </div>
-
-        {/* Project Selector Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setProjectDropdownOpen(!projectDropdownOpen);
-              setNotifDropdownOpen(false);
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] hover:bg-slate-100 transition-colors text-left cursor-pointer"
-          >
-            <div className="w-5 h-5 rounded-lg bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center font-bold text-xs shrink-0">
-              <Globe2 className="w-3 h-3" />
-            </div>
-            <div className="hidden sm:block">
-              <div className="text-xs font-bold text-[#0F172A] truncate max-w-[140px]">
-                {activeProject?.name || '프로젝트 없음'}
-              </div>
-            </div>
-            <ChevronDown className="w-3 h-3 text-[#64748B]" />
-          </button>
-
-          {/* Project Dropdown Menu */}
-          {projectDropdownOpen && (
-            <div
-              className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-lg border border-[#E2E8F0] py-2 z-50 animate-in fade-in zoom-in-95 duration-100"
-              onMouseLeave={() => setProjectDropdownOpen(false)}
-            >
-              <div className="px-4 py-1.5 text-[11px] font-bold text-[#94A3B8] uppercase tracking-wider">
-                등록된 SEO 프로젝트
-              </div>
-              <div className="max-h-60 overflow-y-auto">
-                {projects.map((proj) => {
-                  const isSelected = Boolean(activeProject && proj.id === activeProject.id);
-                  return (
-                    <button
-                      key={proj.id}
-                      onClick={() => {
-                        onSelectProject(proj);
-                        setProjectDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2.5 hover:bg-[#F8FAFC] flex items-center justify-between transition-colors cursor-pointer ${
-                        isSelected ? 'bg-[#EFF6FF]' : ''
-                      }`}
-                    >
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-[#0F172A] truncate">{proj.name}</span>
-                          {isSelected && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#2563EB] text-white font-bold">
-                              선택됨
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[11px] text-[#64748B] font-mono block truncate">
-                          {proj.domain}
-                        </span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-bold text-[#2563EB]">{proj.overallProgress}%</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="pt-2 mt-1 border-t border-[#E2E8F0] px-2">
-                <button
-                  onClick={() => {
-                    setProjectDropdownOpen(false);
-                    onOpenNewProjectModal();
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-[#2563EB] hover:bg-[#EFF6FF] rounded-xl transition-colors cursor-pointer"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>새 SEO 프로젝트 추가</span>
-                </button>
-              </div>
-            </div>
-          )}
+          <span className="font-bold text-[#0F172A]">교육 플랫폼</span>
         </div>
       </div>
 
       {/* Right side: System Status Pill + Search + Notifications + Profile */}
       <div className="flex items-center gap-3">
-        {/* System Normal Status Indicator */}
-        <div className="hidden sm:flex items-center bg-[#F8FAFC] px-3.5 py-1.5 rounded-full border border-[#E2E8F0]">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse" />
-          <span className="text-xs font-bold text-[#64748B]">System Normal</span>
-        </div>
-
-        {/* Global Search Button */}
-        {onOpenGlobalSearch && (
-          <button
-            onClick={onOpenGlobalSearch}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] hover:bg-slate-100 text-[#64748B] hover:text-[#0F172A] text-xs font-medium transition-all cursor-pointer"
-            title="통합 검색 (Cmd+K / Ctrl+K)"
-          >
-            <Search className="w-3.5 h-3.5 text-[#94A3B8]" />
-            <span className="hidden md:inline">통합 검색...</span>
-            <kbd className="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.2 bg-white border border-[#CBD5E1] rounded text-[#64748B] shadow-2xs">
-              ⌘K
-            </kbd>
-          </button>
-        )}
-
-        {/* AI SEO Coach Button */}
-        <button
-          onClick={() => onNavigate('ai_coach')}
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EFF6FF] border border-[#DBEAFE] hover:bg-blue-100 text-[#2563EB] text-xs font-bold transition-all cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>AI Coach</span>
-        </button>
-
-        {/* Switch to Admin Mode Button */}
         {onSwitchToAdminMode && (
           <button
             onClick={onSwitchToAdminMode}

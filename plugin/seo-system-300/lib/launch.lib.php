@@ -73,6 +73,13 @@ function seosys300_is_pilot_member($mbId = null)
  */
 function seosys300_is_launch_allowed($opts = array())
 {
+    if (function_exists('edu_platform_is_host') && edu_platform_is_host()) {
+        $authenticated = array_key_exists('authenticated', $opts)
+            ? (bool) $opts['authenticated']
+            : (function_exists('seosys300_is_member') && seosys300_is_member());
+        return $authenticated;
+    }
+
     $mode = seosys300_launch_mode();
     if ($mode === 'off') {
         return false;
@@ -104,6 +111,13 @@ function seosys300_is_launch_allowed($opts = array())
 
 function seosys300_launch_public_state()
 {
+    if (function_exists('edu_platform_is_host') && edu_platform_is_host()) {
+        return array(
+            'launchMode' => 'all',
+            'launchAllowed' => function_exists('seosys300_is_member') && seosys300_is_member(),
+        );
+    }
+
     return array(
         'launchMode' => seosys300_launch_mode(),
         'launchAllowed' => seosys300_is_launch_allowed(),

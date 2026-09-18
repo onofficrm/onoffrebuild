@@ -145,6 +145,19 @@ function seosys300_content_counts($items)
     );
 }
 
+function seosys300_tool_money_field($raw)
+{
+    if (!is_array($raw)) {
+        return null;
+    }
+    foreach (array('spent', 'usedAmount', 'chargedAmount', 'chargeAmount', 'amount') as $key) {
+        if (isset($raw[$key]) && $raw[$key] !== '' && is_numeric($raw[$key])) {
+            return max(0, (int) $raw[$key]);
+        }
+    }
+    return null;
+}
+
 function seosys300_backlink_parse_summary($raw)
 {
     if (is_string($raw)) {
@@ -162,6 +175,7 @@ function seosys300_backlink_parse_summary($raw)
         'backlinks' => $bl === null || $bl === '' ? null : (int) $bl,
         'newBacklinks' => $nw === null || $nw === '' ? null : (int) $nw,
         'lostBacklinks' => $lost === null || $lost === '' ? null : (int) $lost,
+        'spent' => seosys300_tool_money_field($raw),
         'source' => isset($raw['source']) ? (string) $raw['source'] : 'external',
     );
 }
@@ -196,7 +210,11 @@ function seosys300_traffic_parse_campaigns($raw)
             'end_date' => isset($row['end_date']) ? (string) $row['end_date'] : '',
         );
     }
-    return array('campaigns' => $out, 'deliveredVisits' => $delivered);
+    return array(
+        'campaigns' => $out,
+        'deliveredVisits' => $delivered,
+        'chargedAmount' => seosys300_tool_money_field(is_array($raw) ? $raw : array()),
+    );
 }
 
 function seosys300_catchdomain_parse_summary($raw)

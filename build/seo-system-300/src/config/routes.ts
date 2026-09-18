@@ -34,6 +34,7 @@ export const ADMIN_PATH: Record<AdminTab, string> = {
   inbox: '/admin/inbox',
   kanban: '/admin/kanban',
   students: '/admin/students',
+  classes: '/admin/classes',
   integrations: '/admin/integrations',
 };
 
@@ -77,7 +78,9 @@ export function parsePortalPath(pathname: string): ParsedPortalPath {
           ? 'kanban'
           : sub === 'students'
             ? 'students'
-            : sub === 'integrations'
+            : sub === 'classes'
+              ? 'classes'
+              : sub === 'integrations'
               ? 'integrations'
               : 'dashboard';
     return { mode: 'admin', adminTab };

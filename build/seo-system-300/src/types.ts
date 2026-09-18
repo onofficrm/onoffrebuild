@@ -265,7 +265,7 @@ export interface NotificationItem {
   actionSubTab?: string;
 }
 
-export type AdminTab = 'dashboard' | 'inbox' | 'kanban' | 'students' | 'integrations';
+export type AdminTab = 'dashboard' | 'inbox' | 'kanban' | 'students' | 'classes' | 'integrations';
 
 export type WebsiteKanbanStage =
   | 'new_order'

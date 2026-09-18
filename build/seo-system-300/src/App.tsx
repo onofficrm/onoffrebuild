@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   NavigationTab,
   WebsiteSubTab,
@@ -52,7 +52,7 @@ import {
   mapInboxToPriority,
   mapOrderToKanbanCard,
 } from './services/adminKanbanService';
-import { ApiRequestError } from './services/apiClient';
+import { ApiRequestError, apiJson } from './services/apiClient';
 import {
   getBeforeNow,
   getMetricsPages,
@@ -64,12 +64,16 @@ import {
 } from './services/metricsService';
 import { getUnifiedSummary } from './services/toolsService';
 import { ADMIN_PATH, parsePortalPath, projectPath, studentPath } from './config/routes';
+import { API_ENDPOINTS } from './config/api';
 import { MockDataBanner } from './components/common/MockDataBanner';
 import { useAuth } from './auth/AuthContext';
 import { AuthLoadingScreen } from './components/auth/AuthLoadingScreen';
 import { LoginRequiredScreen } from './components/auth/LoginRequiredScreen';
 import { AdminForbiddenScreen } from './components/auth/AdminForbiddenScreen';
 import { LaunchPreparingScreen } from './components/auth/LaunchPreparingScreen';
+import { EnrollmentBlockedScreen } from './components/auth/EnrollmentBlockedScreen';
+import { EduAuthScreen, isEduAuthPath } from './components/auth/EduAuthScreen';
+import { ClassHome, classTodayScreen, type ClassJourney } from './components/class/ClassHome';
 
 // Layout components
 import { Sidebar } from './components/layout/Sidebar';
@@ -129,6 +133,9 @@ const IntegrationsView = React.lazy(() =>
 const AdminIntegrationsView = React.lazy(() =>
   import('./components/admin/AdminIntegrationsView').then((m) => ({ default: m.AdminIntegrationsView }))
 );
+const ClassQueueView = React.lazy(() =>
+  import('./components/admin/ClassQueueView').then((m) => ({ default: m.ClassQueueView }))
+);
 
 const UI_CATEGORY_FROM_API: Record<string, string> = {
   logo: 'logo',
@@ -170,7 +177,9 @@ const studentDemo = loadStudentDemoState();
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { loading, authenticated, isAdmin, launchMode, launchAllowed } = useAuth();
+  const { loading, authenticated, isAdmin, launchMode, launchAllowed, enrollment } = useAuth();
+  const [classPrepComplete, setClassPrepComplete] = useState<boolean | null>(null);
+  const [todayScreen, setTodayScreen] = useState('');
   const parsed = parsePortalPath(location.pathname);
 
   const appMode = parsed.mode;
@@ -181,8 +190,60 @@ export default function App() {
   const activeToolSubTab: ToolSubTab =
     parsed.mode === 'student' ? parsed.toolSubTab : 'catchdomain';
   const urlProjectId = parsed.mode === 'student' ? parsed.projectId : undefined;
+  const studentNavTabs = React.useMemo<NavigationTab[]>(
+    () =>
+      classPrepComplete === false
+        ? ['dashboard', 'website', 'account', 'notifications']
+        : ['dashboard', 'tools', 'website', 'account', 'notifications'],
+    [classPrepComplete]
+  );
 
+  useEffect(() => {
+    if (!authenticated || parsed.mode !== 'student') return;
+    let cancelled = false;
+    apiJson<ClassJourney>(API_ENDPOINTS.classJourney)
+      .then((data) => {
+        if (cancelled) return;
+        setClassPrepComplete(Boolean(data.prep?.complete));
+        const screen = classTodayScreen(data);
+        if (screen) setTodayScreen(screen);
+      })
+      .catch(() => {
+        if (!cancelled) setClassPrepComplete(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, parsed.mode]);
+
+  useEffect(() => {
+    if (parsed.mode !== 'student' || classPrepComplete === null) return;
+    if (!studentNavTabs.includes(activeTab)) {
+      navigate(studentPath('dashboard'));
+    }
+  }, [classPrepComplete, parsed.mode, activeTab, navigate, studentNavTabs]);
+
+  const openTodayScreen = () => {
+    if (todayScreen === 'website') {
+      navigate(studentPath('website', 'order'));
+      return;
+    }
+    const tool: ToolSubTab =
+      todayScreen === 'content' || todayScreen === 'backlink' || todayScreen === 'traffic' || todayScreen === 'catchdomain'
+        ? todayScreen
+        : 'catchdomain';
+    navigate(studentPath('tools', tool));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const setActiveTab = (tab: NavigationTab) => {
+    if (tab === 'tools') {
+      openTodayScreen();
+      return;
+    }
+    if (tab === 'website') {
+      navigate(studentPath('website', 'order'));
+      return;
+    }
     navigate(studentPath(tab));
   };
   const setActiveWebsiteSubTab = (subTab: WebsiteSubTab) => {
@@ -218,15 +279,15 @@ export default function App() {
 
   // Global Keyboard Shortcut for Cmd+K / Ctrl+K
   React.useEffect(() => {
+    if (parsed.mode !== 'student') return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setIsGlobalSearchOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [parsed.mode]);
 
   // Application Data State
   const [projects, setProjects] = useState<Project[]>([]);
@@ -825,6 +886,14 @@ export default function App() {
     return <AuthLoadingScreen />;
   }
 
+  if (isEduAuthPath(location.pathname)) {
+    return <EduAuthScreen />;
+  }
+
+  if (enrollment.required && !enrollment.access) {
+    return <EnrollmentBlockedScreen status={enrollment.status} />;
+  }
+
   if (!launchAllowed) {
     if (!authenticated && launchMode !== 'off') {
       return <LoginRequiredScreen />;
@@ -924,6 +993,8 @@ export default function App() {
                 />
               )}
 
+              {adminTab === 'classes' && <ClassQueueView />}
+
               {adminTab === 'integrations' && <AdminIntegrationsView />}
               </React.Suspense>
             </main>
@@ -957,6 +1028,7 @@ export default function App() {
             onOpenNewProjectModal={() => setIsOnboardingWizardOpen(true)}
             onSwitchToAdminMode={isAdmin ? () => setAppMode('admin') : undefined}
             projectCount={projects.length}
+            allowedTabs={studentNavTabs}
           />
 
           {/* Mobile Navigation Drawer */}
@@ -967,6 +1039,7 @@ export default function App() {
             setActiveTab={setActiveTab}
             activeProject={activeProject}
             pendingMissionsCount={pendingMissionsCount}
+            allowedTabs={studentNavTabs}
           />
 
           {/* Main Content Area — banner in main column only (sidebar logo stays fully visible) */}
@@ -1027,18 +1100,26 @@ export default function App() {
               ) : null}
               <React.Suspense fallback={<RouteFallback />}>
               {activeTab === 'dashboard' && (
-                <DashboardView
-                  project={activeProject}
-                  missions={missions}
-                  onToggleMission={handleToggleMission}
-                  onNavigate={handleNavigate}
-                  coachInsight={studentDemo.coachInsights[0]}
-                  activities={activities}
-                  onOpenOnboarding={() => setIsOnboardingWizardOpen(true)}
-                  metricsSummary={metricsSummary}
-                  metricsTimeseries={metricsTimeseries}
-                  unified={unifiedSummary}
-                  liveWebsiteOrder={liveOrder}
+                <ClassHome
+                  focus="home"
+                  projectId={activeProject?.id}
+                  onPrepChange={setClassPrepComplete}
+                  onTodayScreen={setTodayScreen}
+                  onOpenWebsite={() => handleNavigate('website', 'order')}
+                  onOpenScreen={(screenId) => {
+                    if (screenId === 'website') handleNavigate('website', 'order');
+                    else if (
+                      screenId === 'catchdomain' ||
+                      screenId === 'content' ||
+                      screenId === 'backlink' ||
+                      screenId === 'traffic'
+                    ) {
+                      handleNavigate('tools', screenId);
+                    }
+                  }}
+                  onProjectSaved={() => {
+                    void loadProjects();
+                  }}
                 />
               )}
 
@@ -1087,31 +1168,27 @@ export default function App() {
               )}
 
               {activeTab === 'roadmap' && (
-                <RoadmapView
-                  steps={roadmapSteps}
-                  taskWorkLogs={taskWorkLogs}
-                  onToggleChecklistItem={handleToggleChecklistItem}
-                  onSaveTaskLog={handleSaveTaskLog}
-                  onUploadScreenshot={async (file) => {
-                    if (!activeProject) throw new Error('프로젝트를 선택해주세요.');
-                    const uploaded = await uploadTaskScreenshot(Number(activeProject.id), file);
-                    return uploaded.id;
-                  }}
-                  onNavigate={handleNavigate}
-                  onOpenOnboarding={() => setIsOnboardingWizardOpen(true)}
+                <ClassHome
+                  focus="roadmap"
+                  projectId={activeProject?.id}
+                  onPrepChange={setClassPrepComplete}
+                  onOpenWebsite={() => handleNavigate('website', 'order')}
                 />
               )}
 
               {activeTab === 'missions' && (
-                <MissionsView
-                  missions={missions}
-                  onToggleMission={handleToggleMission}
-                  onNavigate={handleNavigate}
+                <ClassHome
+                  focus="mission"
+                  projectId={activeProject?.id}
+                  onPrepChange={setClassPrepComplete}
+                  onOpenWebsite={() => handleNavigate('website', 'order')}
                 />
               )}
 
               {activeTab === 'tools' && activeProject && (
                 <ToolsView
+                  studentFocus
+                  onBack={() => handleNavigate('dashboard')}
                   activeSubTab={activeToolSubTab}
                   setActiveSubTab={setActiveToolSubTab}
                   project={activeProject}
@@ -1119,6 +1196,9 @@ export default function App() {
                   tools={toolStatus}
                   onReloadTools={() => void loadUnified()}
                 />
+              )}
+              {activeTab === 'tools' && !activeProject && (
+                <p className="text-sm text-slate-500">먼저 사업 이름을 저장하면 오늘 열 화면이 열립니다.</p>
               )}
 
               {activeTab === 'reports' && activeProject && (
@@ -1174,6 +1254,7 @@ export default function App() {
               setActiveTab={setActiveTab}
               pendingMissionsCount={pendingMissionsCount}
               aiCoachBadge={false}
+              allowedTabs={studentNavTabs}
             />
           </div>
         </>

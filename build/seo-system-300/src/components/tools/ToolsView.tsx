@@ -15,6 +15,8 @@ export interface ToolsViewProps {
   onAddActivity?: () => void;
   tools?: Record<string, Record<string, unknown>>;
   onReloadTools?: () => void;
+  studentFocus?: boolean;
+  onBack?: () => void;
 }
 
 export type ToolsMainViewMode = 'hub' | 'detail' | 'history';
@@ -26,6 +28,8 @@ export const ToolsView: React.FC<ToolsViewProps> = ({
   activityItems = [],
   tools = {},
   onReloadTools,
+  studentFocus = false,
+  onBack,
 }) => {
   const [viewMode, setViewMode] = useState<ToolsMainViewMode>('hub');
   const [error, setError] = useState('');
@@ -36,6 +40,46 @@ export const ToolsView: React.FC<ToolsViewProps> = ({
   const [backlinks, setBacklinks] = useState('');
   const [delivered, setDelivered] = useState('');
   const [selectedDomain, setSelectedDomain] = useState('');
+
+  if (studentFocus) {
+    const titles: Record<ToolSubTab, string> = {
+      catchdomain: '낙장도메인',
+      content: '콘텐츠',
+      backlink: '백링크',
+      traffic: '트래픽',
+    };
+    const fallbacks: Record<ToolSubTab, string> = {
+      catchdomain: 'https://domain.icrm.co.kr/',
+      content: 'https://icrm.co.kr/',
+      backlink: 'https://backlink.icrm.co.kr/',
+      traffic: 'https://icrm.co.kr/',
+    };
+    const url = String((tools[activeSubTab] || {}).url || fallbacks[activeSubTab] || '');
+    return (
+      <div className="max-w-xl space-y-4">
+        <button type="button" onClick={onBack} className="text-sm font-bold text-slate-500">
+          다음 수업으로
+        </button>
+        <section className="rounded-3xl border border-slate-200 bg-white p-6">
+          <p className="text-[11px] font-bold tracking-widest text-sky-600 uppercase">오늘 열 화면</p>
+          <h1 className="mt-1 text-2xl font-black text-slate-900">{titles[activeSubTab]}</h1>
+          <p className="mt-2 text-sm text-slate-600 [word-break:keep-all]">수업에서 이 화면만 엽니다. 다른 도구는 오늘 할 일이 아닙니다.</p>
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-flex min-h-[44px] items-center rounded-full bg-slate-900 px-5 text-sm font-bold text-white"
+            >
+              {titles[activeSubTab]} 열기
+            </a>
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">연결 전입니다. 강사에게 화면을 열어 달라고 해 주세요.</p>
+          )}
+        </section>
+      </div>
+    );
+  }
 
   const save = async (toolKey: ToolKey, payload: Record<string, unknown>) => {
     setError('');

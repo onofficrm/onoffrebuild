@@ -11,6 +11,24 @@
   RewriteRule ^robots\.txt$ /robots.php [L]
   RewriteRule ^sitemap\.xml$ /sitemap.php [L]
 
+  # edu.icrm.co.kr — student platform at site root. Same tree, separate host.
+  # Create data/EDU_HOST_LIVE after the vhost answers, to send /seo-system-300 here.
+  RewriteCond %{HTTP_HOST} !^edu\.icrm\.co\.kr$ [NC]
+  RewriteCond %{DOCUMENT_ROOT}/data/EDU_HOST_LIVE -f
+  RewriteRule ^seo-system-300/?(.*)$ https://edu.icrm.co.kr/$1 [R=302,L,QSA]
+
+  RewriteCond %{HTTP_HOST} ^edu\.icrm\.co\.kr$ [NC]
+  RewriteRule ^assets/(.*)$ edu/assets/$1 [END]
+
+  RewriteCond %{HTTP_HOST} ^edu\.icrm\.co\.kr$ [NC]
+  RewriteCond %{REQUEST_URI} !^/(plugin|api|bbs|adm|data|lib|theme|skin|install|shop|mobile|edu|js|img|css|extend)/
+  RewriteRule ^ edu/index.html [END]
+
+  # Soft-redirect classic GNUBoard member entry → branded AuthShell SPA
+  # Must run BEFORE the existing-file pass-through (bbs/login.php is a real file).
+  RewriteRule ^bbs/login\.php$ /login [L,R=302,QSA]
+  RewriteRule ^bbs/register\.php$ /signup [L,R=302,QSA]
+
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
@@ -33,6 +51,22 @@
   RewriteRule ^youtube/?$ /bbs/board.php?bo_table=youtube&rewrite=1 [QSA,L]
   RewriteRule ^youtube/write$ /bbs/write.php?bo_table=youtube&rewrite=1 [QSA,L]
   RewriteRule ^youtube/([0-9]+)$ /bbs/board.php?bo_table=youtube&wr_id=$1&rewrite=1 [QSA,L]
+
+  # BEGIN ONOFF BRANDED AUTH SPA ROUTES
+  # Must stay BEFORE GNUBoard board catch-all ^([0-9a-zA-Z_]+)$
+  RewriteRule ^(login|signup|session-expired)/?$ /index.php [L,QSA]
+  RewriteRule ^password/forgot/?$ /index.php [L,QSA]
+  RewriteRule ^auth/callback/?$ /index.php [L,QSA]
+  RewriteRule ^account(/.*)?$ /index.php [L,QSA]
+  # END ONOFF BRANDED AUTH SPA ROUTES
+
+  # BEGIN ONOFF RENEWAL PRETTY ROUTES
+  # Exact-match renewal SPA entry → index.php (home builder bridge renders SPA)
+  RewriteRule ^education/classroom/?$ /index.php [L,QSA]
+  RewriteRule ^(geo|domain|backlink|traffic|education)/?$ /index.php [L,QSA]
+  # /content exact only — do NOT match /content/{co_id} (GNUBoard content)
+  RewriteRule ^content/?$ /index.php [L,QSA]
+  # END ONOFF RENEWAL PRETTY ROUTES
 
   #### GNUBOARD5 rewrite BEGIN #####
   RewriteRule ^content/([0-9a-zA-Z_]+)$ bbs/content.php?co_id=$1&rewrite=1 [QSA,L]

@@ -219,6 +219,63 @@ if (!function_exists('seosys300_require_admin')) {
     }
 }
 
+if (!function_exists('seosys300_enrollment_state')) {
+    function seosys300_enrollment_state()
+    {
+        $courseId = 'seo-geo-master';
+        $open = array(
+            'required' => false,
+            'access' => true,
+            'status' => '',
+            'courseId' => $courseId,
+        );
+        if (!function_exists('edu_platform_is_host') || !edu_platform_is_host()) {
+            return $open;
+        }
+        if (!seosys300_is_member()) {
+            return array(
+                'required' => true,
+                'access' => false,
+                'status' => '',
+                'courseId' => $courseId,
+            );
+        }
+        if (seosys300_is_admin()) {
+            return array(
+                'required' => true,
+                'access' => true,
+                'status' => 'admin',
+                'courseId' => $courseId,
+            );
+        }
+
+        $lib = dirname(__FILE__) . '/../../../lib/onoff-education.lib.php';
+        if (is_file($lib)) {
+            include_once $lib;
+        }
+        $mbId = seosys300_current_mb_id();
+        $active = function_exists('onoff_education_get_active_enrollment')
+            ? onoff_education_get_active_enrollment($mbId, $courseId)
+            : null;
+        $status = $active ? 'active' : 'none';
+        if (!$active && function_exists('onoff_education_enrollment_table') && function_exists('sql_fetch')) {
+            $table = onoff_education_enrollment_table();
+            $safe = sql_real_escape_string($mbId);
+            $course = sql_real_escape_string($courseId);
+            $latest = sql_fetch(" select status from {$table} where mb_id = '{$safe}' and course_id = '{$course}' order by en_id desc limit 1 ");
+            if (!empty($latest['status'])) {
+                $status = (string) $latest['status'];
+            }
+        }
+        return array(
+            'required' => true,
+            'access' => (bool) $active,
+            'status' => $status,
+            'courseId' => $courseId,
+        );
+    }
+}
+
 if (!function_exists('seosys300_session_payload')) {
     function seosys300_session_payload()
     {
@@ -241,6 +298,7 @@ if (!function_exists('seosys300_session_payload')) {
             'csrfToken' => $csrf,
             'launchMode' => $launch['launchMode'],
             'launchAllowed' => $launch['launchAllowed'],
+            'enrollment' => seosys300_enrollment_state(),
         );
     }
 }
@@ -251,7 +309,8 @@ if (!function_exists('seosys300_safe_return_path')) {
      */
     function seosys300_safe_return_path($raw)
     {
-        $fallback = '/seo-system-300/dashboard';
+        $prefix = function_exists('edu_platform_portal_prefix') ? edu_platform_portal_prefix() : '/seo-system-300';
+        $fallback = ($prefix === '' ? '' : $prefix) . '/dashboard';
         $url = trim((string) $raw);
         if ($url === '') {
             return $fallback;
@@ -273,7 +332,11 @@ if (!function_exists('seosys300_safe_return_path')) {
         if ($qpos !== false) {
             $path = substr($path, 0, $qpos);
         }
-        if ($path !== '/seo-system-300' && strpos($path, '/seo-system-300/') !== 0) {
+        $prefix = function_exists('edu_platform_portal_prefix') ? edu_platform_portal_prefix() : '/seo-system-300';
+        $onPortal = $prefix === ''
+            ? ($path === '/' || ($path !== '' && $path[0] === '/'))
+            : ($path === $prefix || strpos($path, $prefix . '/') === 0);
+        if (!$onPortal) {
             return $fallback;
         }
         return $url;

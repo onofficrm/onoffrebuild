@@ -11,6 +11,13 @@ export type PortalUser = {
 
 export type LaunchMode = 'off' | 'admin' | 'pilot' | 'all';
 
+export type EnrollmentState = {
+  required: boolean;
+  access: boolean;
+  status: string;
+  courseId: string;
+};
+
 export type SessionPayload = {
   authenticated: boolean;
   isAdmin: boolean;
@@ -19,6 +26,7 @@ export type SessionPayload = {
   csrfToken?: string;
   launchMode: LaunchMode;
   launchAllowed: boolean;
+  enrollment: EnrollmentState;
 };
 
 function emptyPayload(): SessionPayload {
@@ -30,6 +38,7 @@ function emptyPayload(): SessionPayload {
     csrfToken: '',
     launchMode: 'all',
     launchAllowed: true,
+    enrollment: { required: false, access: true, status: '', courseId: '' },
   };
 }
 
@@ -69,6 +78,16 @@ function normalize(raw: unknown): SessionPayload {
   const hasLaunch = Object.prototype.hasOwnProperty.call(data, 'launchAllowed');
   const launchMode = hasLaunch ? asLaunchMode(data.launchMode) : 'all';
   const launchAllowed = hasLaunch ? data.launchAllowed === true : true;
+  const enrollmentRaw = data.enrollment;
+  const enrollment: EnrollmentState =
+    enrollmentRaw && typeof enrollmentRaw === 'object'
+      ? {
+          required: (enrollmentRaw as EnrollmentState).required === true,
+          access: (enrollmentRaw as EnrollmentState).access !== false,
+          status: String((enrollmentRaw as EnrollmentState).status || ''),
+          courseId: String((enrollmentRaw as EnrollmentState).courseId || ''),
+        }
+      : { required: false, access: true, status: '', courseId: '' };
 
   return {
     authenticated,
@@ -78,6 +97,7 @@ function normalize(raw: unknown): SessionPayload {
     csrfToken: String(data.csrfToken ?? ''),
     launchMode,
     launchAllowed,
+    enrollment,
   };
 }
 

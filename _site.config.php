@@ -44,6 +44,21 @@ $site_config = array(
     /* 웹훅 알림 (Slack/Discord 등) — 추후 확장 */
     'inquiry_notify_webhook_enabled' => false,
     'inquiry_notify_webhook_url'     => '',
+    /*
+     * 카카오 알림톡 — 카카오 비즈니스센터 템플릿 승인 후 공식 비즈메시지 발송사 API/릴레이 입력
+     * provider_url/token/sender_key는 운영 서버에서만 입력하고 외부 공유 금지
+     */
+    'inquiry_notify_kakao_enabled' => false,
+    'inquiry_notify_kakao_provider_url' => '',
+    'inquiry_notify_kakao_provider_token' => '',
+    'inquiry_notify_kakao_sender_key' => '',
+    'inquiry_notify_kakao_channel_id' => '@onoffmarketing',
+    'inquiry_notify_kakao_admin_receiver' => '',
+    'inquiry_notify_kakao_template_inquiry' => 'ONOFF_INQUIRY_ADMIN',
+    'inquiry_notify_kakao_template_education_active' => 'ONOFF_EDU_ACTIVE',
+    /* 수업 전날/다음날만. 변수 name, screen, meet_at, memo, classroom_url. 템플릿 승인 전에도 코드만 둔다. */
+    'inquiry_notify_kakao_template_class_before' => 'ONOFF_EDU_CLASS_BEFORE',
+    'inquiry_notify_kakao_template_class_after' => 'ONOFF_EDU_CLASS_AFTER',
     /* 문의 접수 완료 페이지 (상대 경로) */
     'inquiry_thanks_url'      => '/page/inquiry-thanks.php',
     /* 전환·방문 추적 ID — 비우면 출력 안 함 */

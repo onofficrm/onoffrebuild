@@ -1,3 +1,5 @@
+import { SEO_SYSTEM_300_BASENAME } from './app';
+
 export const API_ENDPOINTS = {
   session: '/plugin/seo-system-300/session.php',
   sessionAlias: '/plugin/seo-system-300/api/session.php',
@@ -14,8 +16,9 @@ export const API_ENDPOINTS = {
   tools: '/plugin/seo-system-300/api/tools/index.php',
   ai: '/plugin/seo-system-300/api/ai/index.php',
   notifications: '/plugin/seo-system-300/api/notifications/index.php',
+  classJourney: '/plugin/seo-system-300/api/class/index.php',
 } as const;
 
 export const GNUBOARD_LOGIN_PATH = '/bbs/login.php';
-export const PORTAL_FALLBACK_PATH = '/seo-system-300/dashboard';
+export const PORTAL_FALLBACK_PATH = `${SEO_SYSTEM_300_BASENAME}/dashboard`;
 export const EMPTY_MEMBER_FIELD = '등록되지 않음';

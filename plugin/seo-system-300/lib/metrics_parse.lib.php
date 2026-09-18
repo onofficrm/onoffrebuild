@@ -54,7 +54,11 @@ function seosys300_redirect_path_allowed($path)
     if (strpos($path, '..') !== false) {
         return false;
     }
-    return (bool) preg_match('#^/seo-system-300(/|$)#', $path);
+    $prefix = function_exists('edu_platform_portal_prefix') ? edu_platform_portal_prefix() : '/seo-system-300';
+    if ($prefix === '') {
+        return $path === '/' || ($path !== '' && $path[0] === '/');
+    }
+    return (bool) preg_match('#^' . preg_quote($prefix, '#') . '(/|$)#', $path);
 }
 
 function seosys300_normalize_host($value)

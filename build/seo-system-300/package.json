@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "build:deploy": "vite build && node ./scripts/copy-dist.mjs",
+    "build:edu": "VITE_BASE=/ VITE_EDU_HOST=true vite build && node ./scripts/copy-edu-dist.mjs",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
   },

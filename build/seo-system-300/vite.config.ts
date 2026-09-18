@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: '/seo-system-300/',
+    base: process.env.VITE_BASE || '/seo-system-300/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

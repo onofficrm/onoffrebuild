@@ -44,6 +44,9 @@ function seosys300_google_configured()
 
 function seosys300_portal_path()
 {
+    if (function_exists('edu_platform_is_host') && edu_platform_is_host()) {
+        return '';
+    }
     $path = trim(seosys300_env('SEOSYS300_PORTAL_PATH', '/seo-system-300'));
     if ($path === '' || $path[0] !== '/') {
         return '/seo-system-300';

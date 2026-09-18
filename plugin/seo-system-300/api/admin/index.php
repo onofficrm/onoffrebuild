@@ -1,5 +1,6 @@
 <?php
 include_once(dirname(__FILE__) . '/../_init.php');
+include_once(dirname(__FILE__) . '/../../lib/class_journey.lib.php');
 
 seosys300_require_admin();
 
@@ -53,6 +54,9 @@ if ($method === 'GET') {
     if ($action === 'ai-monitor' || $action === 'ai_monitor') {
         seosys300_json_ok(array('items' => seosys300_admin_ai_monitor()));
     }
+    if ($action === 'classes' || $action === 'class-queue') {
+        seosys300_json_ok(seosys300_class_admin_queue());
+    }
     seosys300_json_ok(array(
         'projects' => seosys300_admin_project_list(),
     ));
@@ -88,6 +92,10 @@ if ($action === 'sync-metrics' || $action === 'sync_metrics') {
         seosys300_json_error(409, $res['code'], seosys300_sync_user_message($res['code']));
     }
     seosys300_json_ok($res);
+}
+
+if ($action === 'class-save' || $action === 'class_save') {
+    seosys300_json_ok(seosys300_class_admin_save($input));
 }
 
 seosys300_json_error(400, 'unknown_action', '요청을 처리할 수 없습니다.');

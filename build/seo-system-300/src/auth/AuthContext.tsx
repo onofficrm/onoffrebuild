@@ -17,6 +17,7 @@ type AuthContextValue = {
   session: SessionPayload | null;
   launchMode: SessionPayload['launchMode'];
   launchAllowed: boolean;
+  enrollment: SessionPayload['enrollment'];
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       launchMode: session?.launchMode || 'off',
       launchAllowed: session ? session.launchAllowed : false,
+      enrollment: session?.enrollment || { required: false, access: true, status: '', courseId: '' },
     };
   }, [status, session]);
 

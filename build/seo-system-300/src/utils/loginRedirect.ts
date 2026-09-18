@@ -1,5 +1,5 @@
 import { GNUBOARD_LOGIN_PATH, PORTAL_FALLBACK_PATH } from '../config/api';
-import { SEO_SYSTEM_300_BASENAME } from '../config/app';
+import { isEduHost, SEO_SYSTEM_300_BASENAME } from '../config/app';
 
 /**
  * Same-origin portal paths only. Blocks protocol-relative and external URLs.
@@ -16,7 +16,9 @@ export function sanitizePortalReturnPath(raw: string): string {
   const pathOnly = url.split('#')[0];
   const pathname = pathOnly.split('?')[0];
   const allowed =
-    pathname === SEO_SYSTEM_300_BASENAME || pathname.startsWith(`${SEO_SYSTEM_300_BASENAME}/`);
+    SEO_SYSTEM_300_BASENAME === ''
+      ? pathname.startsWith('/') && !pathname.startsWith('//')
+      : pathname === SEO_SYSTEM_300_BASENAME || pathname.startsWith(`${SEO_SYSTEM_300_BASENAME}/`);
   if (!allowed) return fallback;
   return pathOnly;
 }
@@ -29,4 +31,13 @@ export function currentPortalReturnPath(pathname: string, search = ''): string {
 export function gnuboardLoginUrl(returnPath: string): string {
   const safe = sanitizePortalReturnPath(returnPath);
   return `${GNUBOARD_LOGIN_PATH}?url=${encodeURIComponent(safe)}`;
+}
+
+export function portalLoginUrl(returnPath: string): string {
+  const safe = sanitizePortalReturnPath(returnPath);
+  if (!isEduHost()) {
+    return gnuboardLoginUrl(safe);
+  }
+  const base = SEO_SYSTEM_300_BASENAME;
+  return `${base}/login?return=${encodeURIComponent(safe)}`;
 }

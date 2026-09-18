@@ -39,6 +39,7 @@ export interface SidebarProps {
   onOpenNewProjectModal: () => void;
   onSwitchToAdminMode?: () => void;
   projectCount?: number;
+  allowedTabs?: NavigationTab[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -55,7 +56,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   unreadNotificationsCount,
   websiteStatusBadgeText,
   onSwitchToAdminMode,
-  projectCount = 0
+  projectCount = 0,
+  allowedTabs
 }) => {
   const { user } = useAuth();
   const [websiteExpanded, setWebsiteExpanded] = React.useState(true);
@@ -64,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     {
       id: 'dashboard' as NavigationTab,
-      label: '대시보드',
+      label: '다음 수업',
       icon: <LayoutDashboard className="w-4 h-4" />
     },
     {
@@ -75,14 +77,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'website' as NavigationTab,
-      label: '홈페이지 제작',
-      icon: <LayoutTemplate className="w-4 h-4" />,
-      hasSubmenu: true,
-      subItems: [
-        { id: 'order' as WebsiteSubTab, label: '홈페이지 주문' },
-        { id: 'status' as WebsiteSubTab, label: '제작현황' },
-        { id: 'revision' as WebsiteSubTab, label: '수정요청' }
-      ]
+      label: '홈페이지 주문',
+      icon: <LayoutTemplate className="w-4 h-4" />
     },
     {
       id: 'roadmap' as NavigationTab,
@@ -98,15 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'tools' as NavigationTab,
-      label: 'SEO 도구',
-      icon: <Wrench className="w-4 h-4" />,
-      hasSubmenu: true,
-      subItems: [
-        { id: 'catchdomain' as ToolSubTab, label: 'CatchDomain' },
-        { id: 'content' as ToolSubTab, label: 'Content Automation' },
-        { id: 'backlink' as ToolSubTab, label: 'Backlink' },
-        { id: 'traffic' as ToolSubTab, label: 'Traffic' }
-      ]
+      label: '오늘 열 화면',
+      icon: <Wrench className="w-4 h-4" />
     },
     {
       id: 'reports' as NavigationTab,
@@ -148,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: '내 계정',
       icon: <User className="w-4 h-4" />
     }
-  ];
+  ].filter((item) => !allowedTabs || allowedTabs.includes(item.id));
 
   return (
     <aside
@@ -165,10 +154,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div className="min-w-0 leading-tight">
               <span className="block text-lg font-bold tracking-tight text-[#0F172A]">
-                SEO SYSTEM
+                ONOFF 교육
               </span>
               <p className="text-[10px] text-[#64748B] font-medium tracking-wide leading-none mt-0.5">
-                300 Control Center
+                1:1 수업
               </p>
             </div>
           </div>
@@ -185,11 +174,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between text-[11px] text-[#64748B] mb-1">
             <span className="flex items-center gap-1 font-medium">
               <Globe2 className="w-3 h-3 text-[#2563EB]" />
-              <span>활성 프로젝트</span>
+              <span>내 사업</span>
             </span>
-            <span className="font-bold text-emerald-600">{activeProject?.overallProgress ?? 0}%</span>
           </div>
-          <p className="text-xs font-bold text-[#0F172A] truncate">{activeProject?.name || '프로젝트 없음'}</p>
+          <p className="text-xs font-bold text-[#0F172A] truncate">{activeProject?.name || '아직 없음'}</p>
           <p className="text-[11px] text-[#64748B] font-mono truncate">{activeProject?.domain || '-'}</p>
         </div>
       )}
@@ -200,94 +188,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isCollapsed ? '메뉴' : '•••'}
         </div>
 
-        {navItems.map((item) => {
+        {navItems.filter((item) => !allowedTabs || allowedTabs.includes(item.id)).map((item) => {
           const isActive = activeTab === item.id;
-
-          if (item.hasSubmenu) {
-            const isExpanded =
-              item.id === 'website' ? websiteExpanded : toolsExpanded;
-            const toggleExpand = () => {
-              if (item.id === 'website') setWebsiteExpanded(!websiteExpanded);
-              if (item.id === 'tools') setToolsExpanded(!toolsExpanded);
-            };
-
-            return (
-              <div key={item.id} className="space-y-0.5">
-                <button
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    if (isCollapsed) setIsCollapsed(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-[#EFF6FF] text-[#2563EB] font-bold shadow-2xs'
-                      : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] font-medium'
-                  }`}
-                  title={isCollapsed ? item.label : undefined}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={isActive ? 'text-[#2563EB]' : 'text-[#64748B]'}>
-                      {item.icon}
-                    </span>
-                    {!isCollapsed && <span>{item.label}</span>}
-                  </div>
-                  {!isCollapsed && (
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleExpand();
-                      }}
-                      className="p-1 text-[#94A3B8] hover:text-[#0F172A]"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      )}
-                    </div>
-                  )}
-                </button>
-
-                {/* Submenu */}
-                {!isCollapsed && isExpanded && (
-                  <div className="pl-9 pr-2 py-1 space-y-1">
-                    {item.subItems?.map((sub) => {
-                      const isSubActive =
-                        item.id === 'website'
-                          ? activeTab === 'website' && activeWebsiteSubTab === sub.id
-                          : activeTab === 'tools' && activeToolSubTab === sub.id;
-
-                      return (
-                        <button
-                          key={sub.id}
-                          onClick={() => {
-                            setActiveTab(item.id);
-                            if (item.id === 'website') {
-                              setActiveWebsiteSubTab(sub.id as WebsiteSubTab);
-                            } else {
-                              setActiveToolSubTab(sub.id as ToolSubTab);
-                            }
-                          }}
-                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] transition-colors cursor-pointer flex items-center justify-between ${
-                            isSubActive
-                              ? 'bg-[#EFF6FF] text-[#2563EB] font-bold'
-                              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-                          }`}
-                        >
-                          <span className="truncate">{sub.label}</span>
-                          {item.id === 'website' && sub.id === 'status' && websiteStatusBadgeText && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-[#2563EB] font-bold">
-                              {websiteStatusBadgeText}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          }
 
           return (
             <button

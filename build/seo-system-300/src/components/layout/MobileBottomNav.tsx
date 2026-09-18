@@ -1,10 +1,9 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  CheckSquare2,
-  Compass,
-  FolderKanban,
-  Sparkles
+  LayoutTemplate,
+  Wrench,
+  Bell
 } from 'lucide-react';
 import { NavigationTab } from '../../types';
 
@@ -13,43 +12,38 @@ export interface MobileBottomNavProps {
   setActiveTab: (tab: NavigationTab) => void;
   pendingMissionsCount?: number;
   aiCoachBadge?: boolean;
+  allowedTabs?: NavigationTab[];
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activeTab,
   setActiveTab,
   pendingMissionsCount = 0,
-  aiCoachBadge = false
+  aiCoachBadge = false,
+  allowedTabs
 }) => {
   const navItems = [
     {
       id: 'dashboard' as NavigationTab,
-      label: 'Dashboard',
+      label: '다음 수업',
       icon: <LayoutDashboard className="w-5 h-5" />
     },
     {
-      id: 'missions' as NavigationTab,
-      label: 'Today',
-      icon: <CheckSquare2 className="w-5 h-5" />,
-      badge: pendingMissionsCount > 0 ? `${pendingMissionsCount}` : undefined
+      id: 'tools' as NavigationTab,
+      label: '오늘 화면',
+      icon: <Wrench className="w-5 h-5" />
     },
     {
-      id: 'roadmap' as NavigationTab,
-      label: 'Roadmap',
-      icon: <Compass className="w-5 h-5" />
+      id: 'website' as NavigationTab,
+      label: '홈페이지',
+      icon: <LayoutTemplate className="w-5 h-5" />
     },
     {
-      id: 'projects' as NavigationTab,
-      label: 'Project',
-      icon: <FolderKanban className="w-5 h-5" />
-    },
-    {
-      id: 'ai_coach' as NavigationTab,
-      label: 'AI Coach',
-      icon: <Sparkles className="w-5 h-5" />,
-      hasDot: aiCoachBadge
+      id: 'notifications' as NavigationTab,
+      label: '알림',
+      icon: <Bell className="w-5 h-5" />
     }
-  ];
+  ].filter((item) => !allowedTabs || allowedTabs.includes(item.id));
 
   return (
     <nav
@@ -71,18 +65,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 <div className={`transition-transform duration-150 ${isActive ? 'scale-110' : ''}`}>
                   {item.icon}
                 </div>
-
-                {/* Badge for Pending Missions */}
-                {item.badge && (
-                  <span className="absolute -top-1.5 -right-2 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white font-bold text-[9px] flex items-center justify-center shadow-xs">
-                    {item.badge}
-                  </span>
-                )}
-
-                {/* Dot for AI Coach Insight */}
-                {item.hasDot && !isActive && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-500 animate-pulse ring-2 ring-white" />
-                )}
               </div>
 
               <span

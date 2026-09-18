@@ -1,18 +1,12 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  FolderKanban,
   LayoutTemplate,
-  Compass,
-  CheckSquare2,
   Wrench,
-  BarChart3,
-  GraduationCap,
-  Sparkles,
-  Link2,
+  Bell,
   X,
   Globe2,
-  ChevronRight
+  User
 } from 'lucide-react';
 import { NavigationTab, Project } from '../../types';
 import { useAuth } from '../../auth/AuthContext';
@@ -25,6 +19,7 @@ export interface MobileNavProps {
   setActiveTab: (tab: NavigationTab) => void;
   activeProject: Project | null;
   pendingMissionsCount: number;
+  allowedTabs?: NavigationTab[];
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({
@@ -33,28 +28,19 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   activeTab,
   setActiveTab,
   activeProject,
-  pendingMissionsCount
+  pendingMissionsCount,
+  allowedTabs
 }) => {
   const { user } = useAuth();
   if (!isOpen) return null;
 
   const navItems = [
-    { id: 'dashboard' as NavigationTab, label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'projects' as NavigationTab, label: '내 프로젝트', icon: <FolderKanban className="w-5 h-5" /> },
-    { id: 'website' as NavigationTab, label: '홈페이지 제작', icon: <LayoutTemplate className="w-5 h-5" /> },
-    { id: 'roadmap' as NavigationTab, label: 'SEO Roadmap', icon: <Compass className="w-5 h-5" /> },
-    {
-      id: 'missions' as NavigationTab,
-      label: '오늘의 미션',
-      icon: <CheckSquare2 className="w-5 h-5" />,
-      badge: pendingMissionsCount > 0 ? `${pendingMissionsCount}` : undefined
-    },
-    { id: 'tools' as NavigationTab, label: 'SEO Tools', icon: <Wrench className="w-5 h-5" /> },
-    { id: 'reports' as NavigationTab, label: '성과 리포트', icon: <BarChart3 className="w-5 h-5" /> },
-    { id: 'integrations' as NavigationTab, label: 'SEO 데이터 연결', icon: <Link2 className="w-5 h-5" /> },
-    { id: 'curriculum' as NavigationTab, label: '강의실', icon: <GraduationCap className="w-5 h-5" /> },
-    { id: 'ai_coach' as NavigationTab, label: 'AI SEO Coach', icon: <Sparkles className="w-5 h-5 text-[#2563EB]" /> }
-  ];
+    { id: 'dashboard' as NavigationTab, label: '다음 수업', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'tools' as NavigationTab, label: '오늘 열 화면', icon: <Wrench className="w-5 h-5" /> },
+    { id: 'website' as NavigationTab, label: '홈페이지 주문', icon: <LayoutTemplate className="w-5 h-5" /> },
+    { id: 'notifications' as NavigationTab, label: '알림', icon: <Bell className="w-5 h-5" /> },
+    { id: 'account' as NavigationTab, label: '내 계정', icon: <User className="w-5 h-5" /> }
+  ].filter((item) => !allowedTabs || allowedTabs.includes(item.id));
 
   return (
     <div className="fixed inset-0 z-50 lg:hidden flex">
@@ -80,9 +66,9 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         <div className="p-4 border-b border-[#E2E8F0] bg-[#F8FAFC]">
           <div className="text-[11px] text-[#64748B] mb-1 flex items-center gap-1">
             <Globe2 className="w-3 h-3 text-[#2563EB]" />
-            <span className="font-bold">선택된 프로젝트</span>
+            <span className="font-bold">내 사업</span>
           </div>
-          <p className="text-xs font-bold text-[#0F172A] truncate">{activeProject?.name || '프로젝트 없음'}</p>
+          <p className="text-xs font-bold text-[#0F172A] truncate">{activeProject?.name || '아직 없음'}</p>
           <p className="text-[11px] text-[#64748B] font-mono">{activeProject?.domain || '-'}</p>
         </div>
 
@@ -107,11 +93,6 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                   <span className={isActive ? 'text-[#2563EB]' : 'text-[#64748B]'}>{item.icon}</span>
                   <span>{item.label}</span>
                 </div>
-                {item.badge && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE] font-bold">
-                    {item.badge}
-                  </span>
-                )}
               </button>
             );
           })}
@@ -120,7 +101,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         {/* Footer */}
         <div className="p-4 border-t border-[#E2E8F0] bg-white text-xs text-[#64748B]">
           <p className="font-bold text-[#0F172A]">{memberDisplayName(user)}</p>
-          <p className="text-[11px] mt-0.5">SEO SYSTEM 300</p>
+          <p className="text-[11px] mt-0.5">교육 플랫폼</p>
         </div>
       </div>
     </div>

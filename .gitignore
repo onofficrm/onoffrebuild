@@ -39,6 +39,11 @@ node_modules/
 !build/seo-system-300/.env.example
 plugin/seo-system-300/config.local.php
 
+# Phase 5 private canary token (server-only; never commit)
+plugin/onoff-builder-bridge/data/canary.local.php
+.onoff-canary.local.env
+ftp.env
+.ftp-deploy.env
 
 # IDE / 로그
 .idea/
@@ -53,3 +58,7 @@ plugin/auto_comment/packages/
 # SEO SYSTEM 300 isolated Docker (never production / never FTP)
 .dev/
 
+
+# Platform Auth secrets (never commit)
+data/onoff-platform-auth.env
+data/onoff-platform-auth.credentials.json
