@@ -6,7 +6,8 @@ import {
   Bell,
   X,
   Globe2,
-  User
+  User,
+  Presentation
 } from 'lucide-react';
 import { NavigationTab, Project } from '../../types';
 import { useAuth } from '../../auth/AuthContext';
@@ -38,6 +39,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     { id: 'dashboard' as NavigationTab, label: '다음 수업', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'tools' as NavigationTab, label: '오늘 열 화면', icon: <Wrench className="w-5 h-5" /> },
     { id: 'website' as NavigationTab, label: '홈페이지 주문', icon: <LayoutTemplate className="w-5 h-5" /> },
+    { id: 'slides' as NavigationTab, label: '교육 슬라이드', icon: <Presentation className="w-5 h-5" /> },
     { id: 'notifications' as NavigationTab, label: '알림', icon: <Bell className="w-5 h-5" /> },
     { id: 'account' as NavigationTab, label: '내 계정', icon: <User className="w-5 h-5" /> }
   ].filter((item) => !allowedTabs || allowedTabs.includes(item.id));

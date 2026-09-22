@@ -109,6 +109,11 @@ const ReportsView = React.lazy(() =>
 const AiCoachView = React.lazy(() =>
   import('./components/ai-coach/AiCoachView').then((m) => ({ default: m.AiCoachView }))
 );
+const EducationSlideLibraryView = React.lazy(() =>
+  import('./components/slides/EducationSlideLibraryView').then((m) => ({
+    default: m.EducationSlideLibraryView,
+  }))
+);
 const AdminDashboardView = React.lazy(() =>
   import('./components/admin/AdminDashboardView').then((m) => ({ default: m.AdminDashboardView }))
 );
@@ -193,8 +198,8 @@ export default function App() {
   const studentNavTabs = React.useMemo<NavigationTab[]>(
     () =>
       classPrepComplete === false
-        ? ['dashboard', 'website', 'account', 'notifications']
-        : ['dashboard', 'tools', 'website', 'account', 'notifications'],
+        ? ['dashboard', 'website', 'curriculum', 'slides', 'account', 'notifications']
+        : ['dashboard', 'tools', 'website', 'curriculum', 'slides', 'account', 'notifications'],
     [classPrepComplete]
   );
 
@@ -1228,7 +1233,11 @@ export default function App() {
                 <IntegrationsView projectId={activeProject ? activeProject.id : null} projectDomain={activeProject?.domain} />
               )}
 
-              {activeTab === 'curriculum' && <CurriculumView />}
+              {activeTab === 'curriculum' && (
+                <CurriculumView onOpenSlides={() => handleNavigate('slides')} />
+              )}
+
+              {activeTab === 'slides' && <EducationSlideLibraryView onNavigate={handleNavigate} />}
 
               {activeTab === 'ai_coach' && activeProject && (
                 <AiCoachView project={activeProject} onNavigate={handleNavigate} />

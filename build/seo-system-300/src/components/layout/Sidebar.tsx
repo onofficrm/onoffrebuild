@@ -17,7 +17,8 @@ import {
   Globe2,
   Bot,
   ExternalLink,
-  Link2
+  Link2,
+  Presentation
 } from 'lucide-react';
 import { NavigationTab, WebsiteSubTab, ToolSubTab, Project } from '../../types';
 import { useAuth } from '../../auth/AuthContext';
@@ -111,6 +112,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'curriculum' as NavigationTab,
       label: '강의실',
       icon: <GraduationCap className="w-4 h-4" />
+    },
+    {
+      id: 'slides' as NavigationTab,
+      label: '교육 슬라이드',
+      icon: <Presentation className="w-4 h-4" />
     },
     {
       id: 'ai_coach' as NavigationTab,

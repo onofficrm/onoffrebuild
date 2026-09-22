@@ -10,7 +10,8 @@ import {
   ExternalLink,
   BookOpen,
   Award,
-  Video
+  Video,
+  Presentation
 } from 'lucide-react';
 import { CurriculumLesson } from '../../types';
 import { Card } from '../common/Card';
@@ -21,9 +22,10 @@ import { MOCK_CURRICULUM } from '../../mocks/studentFixtures';
 
 export interface CurriculumViewProps {
   lessons?: CurriculumLesson[];
+  onOpenSlides?: () => void;
 }
 
-export const CurriculumView: React.FC<CurriculumViewProps> = () => {
+export const CurriculumView: React.FC<CurriculumViewProps> = ({ onOpenSlides }) => {
   const [lessons, setLessons] = useState<CurriculumLesson[]>(MOCK_CURRICULUM);
   const [activeVideoLesson, setActiveVideoLesson] = useState<CurriculumLesson | null>(null);
 
@@ -55,10 +57,22 @@ export const CurriculumView: React.FC<CurriculumViewProps> = () => {
           </p>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4.5 border border-white/15 min-w-[220px] shrink-0 text-center space-y-1">
-          <span className="text-xs text-blue-200 font-medium">강의 수강 진척도</span>
-          <div className="text-3xl font-black text-white">{progressPercent}%</div>
-          <p className="text-[11px] text-emerald-300 font-bold">{completedCount}/{totalCount} 강 완료</p>
+        <div className="min-w-[220px] shrink-0 space-y-2">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4.5 border border-white/15 text-center space-y-1">
+            <span className="text-xs text-blue-200 font-medium">강의 수강 진척도</span>
+            <div className="text-3xl font-black text-white">{progressPercent}%</div>
+            <p className="text-[11px] text-emerald-300 font-bold">{completedCount}/{totalCount} 강 완료</p>
+          </div>
+          {onOpenSlides ? (
+            <button
+              type="button"
+              onClick={onOpenSlides}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+            >
+              <Presentation className="h-4 w-4" />
+              1·2강 교육 슬라이드 보기
+            </button>
+          ) : null}
         </div>
       </div>
 

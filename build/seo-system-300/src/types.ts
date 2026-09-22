@@ -8,6 +8,7 @@ export type NavigationTab =
   | 'reports'
   | 'integrations'
   | 'curriculum'
+  | 'slides'
   | 'ai_coach'
   | 'notifications'
   | 'help'

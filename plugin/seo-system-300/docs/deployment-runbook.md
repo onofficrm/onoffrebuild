@@ -27,6 +27,24 @@ There is **no** GitHub Action that runs PHP migrations. Schema is a **manual ops
 
 React source lives in `build/seo-system-300/`. Production serves `seo-system-300/` (copied by `npm run build:deploy` in that package). Operators must commit/push the dist (or generate it in CI — **this workflow does not currently run `npm`**). If dist is stale on `main`, FTP will ship a stale SPA.
 
+### SPA permissions (required)
+
+The developer volume may be **exFAT** (`/Volumes/onoff`), which **cannot store Unix modes**. Local files/dirs often show as `700`. If those modes are synced to Cafe24 (e.g. plain `lftp mirror`), Apache returns **403**.
+
+**Critical trap:** when `.htaccess` is mode `700`, Apache cannot read it and returns **403 for the entire `/seo-system-300/` tree** (index + assets). FTP `NLST` hides `.htaccess`, so a naive recursive CHMOD can “succeed” while leaving the site broken.
+
+**Always deploy the student SPA with:**
+
+```bash
+set -a; source ~/.config/onoffmarketing/ftp.env; set +a
+./scripts/deploy-seo-system-300.sh
+```
+
+This script mirrors with `--no-perms`, runs `scripts/ftp-chmod-tree.py` (dirs `755`, files `644`, **including `.htaccess`**), and fails if live index/assets are not HTTP 200.  
+CI (`deploy.yml`) also runs `ftp-chmod-tree.py` after the main FTP push.
+
+Do **not** rely on local `chmod` before upload on exFAT — it will not stick. After any manual FTP/mirror, re-run `python3 scripts/ftp-chmod-tree.py seo-system-300`.
+
 ## Recommended production sequence (future)
 
 ### 1. Merge to `main`
