@@ -222,14 +222,14 @@ if (!function_exists('seosys300_require_admin')) {
 if (!function_exists('seosys300_enrollment_state')) {
     function seosys300_enrollment_state()
     {
-        $courseId = 'seo-geo-master';
+        $courseId = 'any';
         $open = array(
             'required' => false,
             'access' => true,
             'status' => '',
             'courseId' => $courseId,
         );
-        if (!function_exists('edu_platform_is_host') || !edu_platform_is_host()) {
+        if (!function_exists('edu_platform_is_request') || !edu_platform_is_request()) {
             return $open;
         }
         if (!seosys300_is_member()) {
@@ -253,25 +253,72 @@ if (!function_exists('seosys300_enrollment_state')) {
         if (is_file($lib)) {
             include_once $lib;
         }
-        $mbId = seosys300_current_mb_id();
-        $active = function_exists('onoff_education_get_active_enrollment')
-            ? onoff_education_get_active_enrollment($mbId, $courseId)
+        $mbId = seosys300_launch_mb_id();
+        $active = function_exists('onoff_education_platform_grant_enrollment')
+            ? onoff_education_platform_grant_enrollment('any')
             : null;
+        if (!$active && function_exists('onoff_education_get_active_enrollment')) {
+            $active = onoff_education_get_active_enrollment($mbId, 'any');
+        }
+        // The ONOFF portal and the education platform can issue different
+        // member IDs for the same unified account. Enrollments are created
+        // from the ONOFF identity, so fall back to the verified account email
+        // when the education identity does not match that enrollment row.
+        $member = seosys300_public_member();
+        $email = strtolower(trim((string) ($member['mbEmail'] ?? '')));
+        if (
+            !$active
+            && $email !== ''
+            && function_exists('onoff_education_enrollment_table')
+            && function_exists('sql_fetch')
+            && function_exists('onoff_education_platform_course_ids')
+        ) {
+            $table = onoff_education_enrollment_table();
+            $safeEmail = sql_real_escape_string($email);
+            $now = defined('G5_TIME_YMDHIS') ? G5_TIME_YMDHIS : date('Y-m-d H:i:s');
+            $safeNow = sql_real_escape_string($now);
+            $courseList = array();
+            foreach (onoff_education_platform_course_ids() as $cid) {
+                $courseList[] = "'" . sql_real_escape_string($cid) . "'";
+            }
+            $inCourses = implode(',', $courseList);
+            $activeByEmail = sql_fetch(
+                " select *
+                    from {$table}
+                   where lower(email) = '{$safeEmail}'
+                     and course_id in ({$inCourses})
+                     and status = 'active'
+                     and (starts_at is null or starts_at = '' or starts_at <= '{$safeNow}')
+                     and (ends_at is null or ends_at = '' or ends_at >= '{$safeNow}')
+                   order by en_id desc
+                   limit 1 "
+            );
+            if (!empty($activeByEmail['en_id'])) {
+                $active = $activeByEmail;
+            }
+        }
         $status = $active ? 'active' : 'none';
-        if (!$active && function_exists('onoff_education_enrollment_table') && function_exists('sql_fetch')) {
+        $resolvedCourse = $active ? (string) ($active['course_id'] ?? $courseId) : $courseId;
+        if (!$active && function_exists('onoff_education_enrollment_table') && function_exists('sql_fetch') && function_exists('onoff_education_platform_course_ids')) {
             $table = onoff_education_enrollment_table();
             $safe = sql_real_escape_string($mbId);
-            $course = sql_real_escape_string($courseId);
-            $latest = sql_fetch(" select status from {$table} where mb_id = '{$safe}' and course_id = '{$course}' order by en_id desc limit 1 ");
+            $emailWhere = $email !== '' ? " or lower(email) = '" . sql_real_escape_string($email) . "'" : '';
+            $courseList = array();
+            foreach (onoff_education_platform_course_ids() as $cid) {
+                $courseList[] = "'" . sql_real_escape_string($cid) . "'";
+            }
+            $inCourses = implode(',', $courseList);
+            $latest = sql_fetch(" select status, course_id from {$table} where (mb_id = '{$safe}'{$emailWhere}) and course_id in ({$inCourses}) order by en_id desc limit 1 ");
             if (!empty($latest['status'])) {
                 $status = (string) $latest['status'];
+                $resolvedCourse = (string) ($latest['course_id'] ?? $resolvedCourse);
             }
         }
         return array(
             'required' => true,
             'access' => (bool) $active,
             'status' => $status,
-            'courseId' => $courseId,
+            'courseId' => $resolvedCourse,
         );
     }
 }
@@ -288,7 +335,17 @@ if (!function_exists('seosys300_session_payload')) {
             $csrf = get_token();
         }
 
+        $enrollment = seosys300_enrollment_state();
         $launch = seosys300_launch_public_state();
+        // The enrollment gate is evaluated by the SPA before the launch gate.
+        // Once a member is authenticated, launch mode must not replace the
+        // active/pending enrollment decision with the generic preparation page.
+        if ($authenticated) {
+            $launch = array(
+                'launchMode' => 'all',
+                'launchAllowed' => true,
+            );
+        }
 
         return array(
             'authenticated' => $authenticated,
@@ -298,7 +355,7 @@ if (!function_exists('seosys300_session_payload')) {
             'csrfToken' => $csrf,
             'launchMode' => $launch['launchMode'],
             'launchAllowed' => $launch['launchAllowed'],
-            'enrollment' => seosys300_enrollment_state(),
+            'enrollment' => $enrollment,
         );
     }
 }

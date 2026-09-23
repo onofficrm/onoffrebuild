@@ -216,11 +216,22 @@ export const ConsultModal: React.FC<ConsultModalProps> = ({
   const isLive = CONSULTATION_CONFIG.mode === 'LIVE';
   const isLecture =
     Boolean(presetLabel) ||
-    (initialTopics ?? []).some((topic) => topic.toUpperCase() === 'EDUCATION');
+    form.selectedTopics.some((topic) => {
+      const t = topic.toUpperCase();
+      return t === 'EDUCATION' || t === 'EDUCATION_MARKETING';
+    });
   const contractPkg = resolvedPackage ?? resolveContractPackage(form.selectedTopics);
   const contractMode = resolveContractMode();
   const showContractStep = contractEnabled && contractMode !== 'OFF';
   const needSignature = contractEnabled && requiresInAppSignature();
+  const serviceTypeOptions = [
+    { topic: 'EDUCATION', label: '교육만', desc: 'SEO·GEO 수강' },
+    { topic: 'MARKETING', label: '마케팅만', desc: '마케팅 의뢰' },
+    { topic: 'EDUCATION_MARKETING', label: '교육+마케팅', desc: '수강과 의뢰 함께' },
+  ] as const;
+  const selectedServiceType =
+    serviceTypeOptions.find((opt) => form.selectedTopics.includes(opt.topic))?.topic ?? '';
+  const showServiceTypePicker = contractEnabled && !presetLabel;
 
   const canSubmitStep2 =
     form.privacyAgreed &&
@@ -240,7 +251,10 @@ export const ConsultModal: React.FC<ConsultModalProps> = ({
   };
 
   const canGoStep2 =
-    form.privacyAgreed && form.name.trim().length > 0 && form.phone.trim().length > 0;
+    form.privacyAgreed &&
+    form.name.trim().length > 0 &&
+    form.phone.trim().length > 0 &&
+    (!showServiceTypePicker || Boolean(selectedServiceType));
 
   const handleGoStep2 = (e: React.FormEvent) => {
     e.preventDefault();
@@ -443,6 +457,39 @@ export const ConsultModal: React.FC<ConsultModalProps> = ({
               <h3 ref={stepHeadingRef} tabIndex={-1} className="sr-only outline-hidden">
                 1단계 신청 정보
               </h3>
+
+              {showServiceTypePicker && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    신청 유형 <span className="text-blue-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {serviceTypeOptions.map((opt) => {
+                      const active = selectedServiceType === opt.topic;
+                      return (
+                        <button
+                          key={opt.topic}
+                          type="button"
+                          onClick={() =>
+                            setForm((p) => ({
+                              ...p,
+                              selectedTopics: [opt.topic],
+                            }))
+                          }
+                          className={`py-2.5 px-3 rounded-lg text-left border transition-all cursor-pointer ${
+                            active
+                              ? 'bg-blue-50 border-blue-600 text-blue-800'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="block text-xs font-bold">{opt.label}</span>
+                          <span className="block text-[11px] opacity-80 mt-0.5">{opt.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {!isLecture && (
               <div>
