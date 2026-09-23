@@ -17,6 +17,9 @@ export const API_ENDPOINTS = {
   ai: '/plugin/seo-system-300/api/ai/index.php',
   notifications: '/plugin/seo-system-300/api/notifications/index.php',
   classJourney: '/plugin/seo-system-300/api/class/index.php',
+  revision: '/plugin/seo-system-300/api/revision/index.php',
+  geo: '/plugin/seo-system-300/api/geo/index.php',
+  contract: '/plugin/seo-system-300/api/contract/index.php',
 } as const;
 
 export const GNUBOARD_LOGIN_PATH = '/bbs/login.php';

@@ -200,8 +200,9 @@ export function courseIdForPackage(packageId: ContractPackageId | string): strin
 }
 
 export function contractPathForCourse(courseId: string): string {
-  if (courseId === SERVICE_COURSE_IDS.marketing) return '/marketing/contract';
-  if (courseId === SERVICE_COURSE_IDS.combined) return '/service/contract';
+  if (courseId === SERVICE_COURSE_IDS.marketing || courseId === SERVICE_COURSE_IDS.combined) {
+    return '/seo-system-300/contract';
+  }
   return '/education/contract';
 }
 

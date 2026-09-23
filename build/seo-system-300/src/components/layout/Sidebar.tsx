@@ -18,11 +18,27 @@ import {
   Bot,
   ExternalLink,
   Link2,
-  Presentation
+  Presentation,
+  ScrollText
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { NavigationTab, WebsiteSubTab, ToolSubTab, Project } from '../../types';
 import { useAuth } from '../../auth/AuthContext';
-import { memberDisplayName, memberInitials } from '../../services/authService';
+import { memberDisplayName, memberInitials, type ContractAccessState } from '../../services/authService';
+import { contractPathFor } from '../../config/routes';
+
+function contractNavLabel(contract: ContractAccessState): string {
+  if (contract.status === 'review_pending') return '계약 승인 대기';
+  if (contract.status === 'rejected') return '계약서 재작성';
+  if (contract.status === 'signed' || (contract.viewable && !contract.requires)) return '계약 정보';
+  return '계약서 체결하기';
+}
+
+function contractNavBadge(contract: ContractAccessState): string | undefined {
+  if (contract.status === 'review_pending') return '대기';
+  if (contract.requires && !contract.signed) return '필수';
+  return undefined;
+}
 
 export interface SidebarProps {
   activeTab: NavigationTab;
@@ -60,7 +76,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   projectCount = 0,
   allowedTabs
 }) => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, contract } = useAuth();
   const [websiteExpanded, setWebsiteExpanded] = React.useState(true);
   const [toolsExpanded, setToolsExpanded] = React.useState(false);
 
@@ -156,6 +173,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   ].filter((item) => !allowedTabs || allowedTabs.includes(item.id));
 
+  const showContractNav =
+    contract.applies && (!allowedTabs || allowedTabs.includes('contract'));
+  const contractBadge = showContractNav ? contractNavBadge(contract) : undefined;
+
   return (
     <aside
       className={`fixed top-0 left-0 bottom-0 z-40 bg-[#0F172A] text-white hidden lg:flex flex-col transition-all duration-300 ease-in-out border-r border-[#1E293B] ${
@@ -205,12 +226,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const groupItems = navItems.filter(
             (item) => item.group === group && (!allowedTabs || allowedTabs.includes(item.id))
           );
-          if (groupItems.length === 0) return null;
+          const withContract =
+            group === '프로젝트 & 제작' && showContractNav
+              ? [{ id: 'contract' as NavigationTab, label: contractNavLabel(contract), inject: true as const }]
+              : [];
+          if (groupItems.length === 0 && withContract.length === 0) return null;
           return (
             <div key={group} className="space-y-1">
               <div className="px-3 mb-1.5 text-[10px] font-bold text-[#475569] uppercase tracking-wider">
                 {!isCollapsed ? group : '•••'}
               </div>
+              {withContract.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => navigate(contractPathFor(contract))}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] ${
+                      isActive
+                        ? 'bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-500/20'
+                        : 'text-[#94A3B8] hover:text-white hover:bg-[#1E293B] font-medium'
+                    }`}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={isActive ? 'text-white' : 'text-[#64748B]'}>
+                        <ScrollText className="w-4 h-4" />
+                      </span>
+                      {!isCollapsed && <span>{item.label}</span>}
+                    </div>
+                    {!isCollapsed && contractBadge ? (
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold leading-none ${
+                          isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-[#1E293B] text-[#3B82F6] border border-[#334155]'
+                        }`}
+                      >
+                        {contractBadge}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
               {groupItems.map((item) => {
                 const isActive = activeTab === item.id;
                 return (

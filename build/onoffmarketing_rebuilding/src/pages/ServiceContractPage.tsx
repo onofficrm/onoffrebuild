@@ -381,10 +381,42 @@ export function EducationContractPage() {
   return <ServiceContractPage kind="education" />;
 }
 
+function PlatformContractGuide({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-6 py-16">
+      <div className="max-w-lg w-full rounded-2xl border border-slate-800 bg-slate-900/80 p-8 shadow-xl">
+        <p className="text-xs font-mono uppercase tracking-[0.2em] text-cyan-400/90">ONOFF Contract</p>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="mt-3 text-sm leading-relaxed text-slate-300">{body}</p>
+        <a
+          href="/seo-system-300/contract"
+          className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition-colors"
+        >
+          강의 플랫폼에서 계약 작성하기
+          <ArrowRight className="h-4 w-4" />
+        </a>
+        <p className="mt-4 text-xs text-slate-500">
+          마케팅·통합 계약은 CPA 방식과 같이 플랫폼 계약 관리에서 작성·서명 후 관리자 승인을 받습니다.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function MarketingContractPage() {
-  return <ServiceContractPage kind="marketing" />;
+  return (
+    <PlatformContractGuide
+      title="마케팅 의뢰 계약"
+      body="마케팅 계약서 작성과 전자서명은 강의 플랫폼의 계약 관리 메뉴에서 진행합니다."
+    />
+  );
 }
 
 export function CombinedContractPage() {
-  return <ServiceContractPage kind="combined" />;
+  return (
+    <PlatformContractGuide
+      title="교육·마케팅 통합 계약"
+      body="통합 계약서 작성과 전자서명은 강의 플랫폼의 계약 관리 메뉴에서 진행합니다."
+    />
+  );
 }

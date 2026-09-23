@@ -1,9 +1,15 @@
 import React from 'react';
 
-const STATUS_COPY: Record<string, { title: string; body: string }> = {
+const STATUS_COPY: Record<string, { title: string; body: string; href?: string; cta?: string }> = {
   pending_deposit: {
     title: '입금 확인 후 열립니다.',
-    body: '수강 신청은 접수되어 있습니다. 관리자가 입금을 확인하면 이 교육 플랫폼이 열립니다.',
+    body: '수강 신청은 접수되어 있습니다. 관리자가 입금을 확인하면 계약서 작성 단계로 넘어갑니다.',
+  },
+  pending_contract: {
+    title: '수강 계약서 작성이 필요합니다.',
+    body: '수강 권한이 부여되었습니다. 계약서를 작성·서명하면 교육 플랫폼이 열립니다.',
+    href: 'https://onoff.icrm.co.kr/education/contract',
+    cta: '계약서 작성하기',
   },
   expired: {
     title: '수강 기간이 끝났습니다.',
@@ -28,10 +34,10 @@ export const EnrollmentBlockedScreen: React.FC<{ status: string }> = ({ status }
         <h1 className="mt-2 text-xl font-black text-slate-900 [word-break:keep-all]">{copy.title}</h1>
         <p className="mt-2 text-sm text-slate-500 [word-break:keep-all]">{copy.body}</p>
         <a
-          href="https://onoff.icrm.co.kr/education"
+          href={copy.href || 'https://onoff.icrm.co.kr/education/classroom'}
           className="mt-6 inline-flex items-center justify-center w-full min-h-[48px] rounded-full bg-slate-900 text-white font-bold text-sm"
         >
-          교육 안내 보기
+          {copy.cta || '강의실 권한 다시 확인'}
         </a>
       </div>
     </div>

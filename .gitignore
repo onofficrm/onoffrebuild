@@ -58,6 +58,8 @@ plugin/auto_comment/packages/
 # SEO SYSTEM 300 isolated Docker (never production / never FTP)
 .dev/
 
+# TCPDF vendor (deployed via FTP; too large for git — copy from CPA if needed)
+plugin/seo-system-300/lib/vendor/tcpdf/
 
 # Platform Auth secrets (never commit)
 data/onoff-platform-auth.env

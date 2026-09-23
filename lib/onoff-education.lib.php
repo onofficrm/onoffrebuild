@@ -284,11 +284,9 @@ if (!function_exists('onoff_education_contract_path_for_course')) {
     function onoff_education_contract_path_for_course($course_id)
     {
         $course_id = preg_replace('/[^a-z0-9_\-]/i', '', (string) $course_id);
-        if ($course_id === 'marketing-service') {
-            return '/marketing/contract';
-        }
-        if ($course_id === 'education-marketing') {
-            return '/service/contract';
+        // Marketing / combined packages use the CPA-style platform contract flow.
+        if ($course_id === 'marketing-service' || $course_id === 'education-marketing') {
+            return '/seo-system-300/contract';
         }
         return '/education/contract';
     }
@@ -464,7 +462,20 @@ if (!function_exists('onoff_education_update_enrollment')) {
                         {$activated_sql}
                         {$cancelled_sql}
                   where en_id = '{$en_id}' ";
-        return (bool) sql_query($sql, false);
+        $ok = (bool) sql_query($sql, false);
+        if ($ok && $status === 'pending_contract') {
+            $lib = dirname(__FILE__) . '/onoff-service-contract.lib.php';
+            if (is_file($lib)) {
+                include_once $lib;
+            }
+            if (function_exists('onoff_service_contract_maybe_create_on_enrollment_status')) {
+                $row = onoff_education_get_enrollment($en_id);
+                if (is_array($row)) {
+                    onoff_service_contract_maybe_create_on_enrollment_status($row, $status);
+                }
+            }
+        }
+        return $ok;
     }
 }
 

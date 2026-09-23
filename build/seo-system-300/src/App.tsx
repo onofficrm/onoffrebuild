@@ -5,7 +5,6 @@ import {
   ToolSubTab,
   Project,
   WebsiteOrder,
-  RevisionTicket,
   ActivityLog,
   NotificationItem,
   TaskWorkLog,
@@ -29,6 +28,7 @@ import {
   getCurrentWebsiteOrder,
   saveWebsiteOrder,
   submitWebsiteOrder,
+  appendWebsiteMaterials,
   type ApiWebsiteOrder,
   type WebsiteOrderSaveInput,
 } from './services/websiteOrderService';
@@ -47,6 +47,7 @@ import {
   adminKanbanOrders,
   adminProjectList,
   adminRequestMoreInfo,
+  adminSaveRequestChecklist,
   KANBAN_TO_STATUS,
   mapAdminProjectsToStudents,
   mapInboxToPriority,
@@ -63,17 +64,16 @@ import {
   type MetricsSummary,
 } from './services/metricsService';
 import { getUnifiedSummary } from './services/toolsService';
-import { ADMIN_PATH, parsePortalPath, projectPath, studentPath } from './config/routes';
+import { ADMIN_PATH, contractPathFor, parsePortalPath, projectPath, studentPath } from './config/routes';
 import { API_ENDPOINTS } from './config/api';
 import { MockDataBanner } from './components/common/MockDataBanner';
 import { useAuth } from './auth/AuthContext';
 import { AuthLoadingScreen } from './components/auth/AuthLoadingScreen';
 import { LoginRequiredScreen } from './components/auth/LoginRequiredScreen';
 import { AdminForbiddenScreen } from './components/auth/AdminForbiddenScreen';
-import { LaunchPreparingScreen } from './components/auth/LaunchPreparingScreen';
 import { EnrollmentBlockedScreen } from './components/auth/EnrollmentBlockedScreen';
 import { EduAuthScreen, isEduAuthPath } from './components/auth/EduAuthScreen';
-import { ClassHome, classTodayScreen, type ClassJourney } from './components/class/ClassHome';
+import { classTodayScreen, type ClassJourney } from './components/class/ClassHome';
 
 // Layout components
 import { Sidebar } from './components/layout/Sidebar';
@@ -141,6 +141,13 @@ const AdminIntegrationsView = React.lazy(() =>
 const ClassQueueView = React.lazy(() =>
   import('./components/admin/ClassQueueView').then((m) => ({ default: m.ClassQueueView }))
 );
+const AdminRevisionQueueView = React.lazy(() =>
+  import('./components/admin/AdminRevisionQueueView').then((m) => ({ default: m.AdminRevisionQueueView }))
+);
+const AdminGeoQueueView = React.lazy(() =>
+  import('./components/admin/AdminGeoQueueView').then((m) => ({ default: m.AdminGeoQueueView }))
+);
+const ContractPage = React.lazy(() => import('./components/contract/ContractPage'));
 
 const UI_CATEGORY_FROM_API: Record<string, string> = {
   logo: 'logo',
@@ -182,7 +189,7 @@ const studentDemo = loadStudentDemoState();
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { loading, authenticated, isAdmin, launchMode, launchAllowed, enrollment } = useAuth();
+  const { loading, authenticated, isAdmin, launchAllowed, enrollment, contract } = useAuth();
   const [classPrepComplete, setClassPrepComplete] = useState<boolean | null>(null);
   const [todayScreen, setTodayScreen] = useState('');
   const parsed = parsePortalPath(location.pathname);
@@ -195,13 +202,33 @@ export default function App() {
   const activeToolSubTab: ToolSubTab =
     parsed.mode === 'student' ? parsed.toolSubTab : 'catchdomain';
   const urlProjectId = parsed.mode === 'student' ? parsed.projectId : undefined;
-  const studentNavTabs = React.useMemo<NavigationTab[]>(
-    () =>
-      classPrepComplete === false
-        ? ['dashboard', 'website', 'curriculum', 'slides', 'account', 'notifications']
-        : ['dashboard', 'tools', 'website', 'curriculum', 'slides', 'account', 'notifications'],
-    [classPrepComplete]
-  );
+  const contractSubTab =
+    parsed.mode === 'student' ? parsed.contractSubTab || 'write' : ('write' as const);
+  const studentNavTabs = React.useMemo<NavigationTab[]>(() => {
+    if (contract.blocked) {
+      return ['contract', 'notifications', 'help', 'account'];
+    }
+    const tabs: NavigationTab[] = [
+      'dashboard',
+      'projects',
+      'website',
+      'roadmap',
+      'missions',
+      'tools',
+      'reports',
+      'integrations',
+      'curriculum',
+      'slides',
+      'ai_coach',
+      'notifications',
+      'help',
+      'account',
+    ];
+    if (contract.applies) {
+      return ['contract', ...tabs];
+    }
+    return tabs;
+  }, [contract.applies, contract.blocked]);
 
   useEffect(() => {
     if (!authenticated || parsed.mode !== 'student') return;
@@ -224,9 +251,17 @@ export default function App() {
   useEffect(() => {
     if (parsed.mode !== 'student' || classPrepComplete === null) return;
     if (!studentNavTabs.includes(activeTab)) {
-      navigate(studentPath('dashboard'));
+      navigate(contract.blocked ? contractPathFor(contract) : studentPath('dashboard'));
     }
-  }, [classPrepComplete, parsed.mode, activeTab, navigate, studentNavTabs]);
+  }, [classPrepComplete, parsed.mode, activeTab, navigate, studentNavTabs, contract]);
+
+  useEffect(() => {
+    if (!authenticated || parsed.mode !== 'student' || !contract.blocked) return;
+    const allowed: NavigationTab[] = ['contract', 'notifications', 'help', 'account'];
+    if (!allowed.includes(activeTab)) {
+      navigate(contractPathFor(contract));
+    }
+  }, [authenticated, parsed.mode, contract, activeTab, navigate]);
 
   const openTodayScreen = () => {
     if (todayScreen === 'website') {
@@ -241,6 +276,10 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const setActiveTab = (tab: NavigationTab) => {
+    if (tab === 'contract') {
+      navigate(contractPathFor(contract));
+      return;
+    }
     if (tab === 'tools') {
       openTodayScreen();
       return;
@@ -309,7 +348,6 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [websiteOrder, setWebsiteOrder] = useState<WebsiteOrder>(studentDemo.websiteOrder);
-  const [revisions, setRevisions] = useState<RevisionTicket[]>(studentDemo.revisions);
   const [roadmapSteps, setRoadmapSteps] = useState<typeof studentDemo.roadmapSteps>([]);
   const [missions, setMissions] = useState<typeof studentDemo.missions>([]);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -376,6 +414,14 @@ export default function App() {
     }
   };
 
+  const handleUploadTaskScreenshot = async (file: File) => {
+    if (!activeProject) {
+      throw new Error('프로젝트를 먼저 선택해주세요.');
+    }
+    const uploaded = await uploadTaskScreenshot(Number(activeProject.id), file);
+    return uploaded.id;
+  };
+
   const handleToggleMission = async (missionId: string) => {
     if (!activeProject) return;
     const current = missions.find((m) => m.id === missionId);
@@ -412,19 +458,6 @@ export default function App() {
     } catch (err) {
       setRoadmapError(err instanceof ApiRequestError ? err.message : '저장 중 문제가 발생했습니다. 다시 시도해주세요.');
     }
-  };
-
-  const handleAddRevision = (
-    newRev: Omit<RevisionTicket, 'id' | 'createdAt' | 'updatedAt' | 'status'>
-  ) => {
-    const revItem: RevisionTicket = {
-      ...newRev,
-      id: `rev-${String(revisions.length + 1).padStart(2, '0')}`,
-      status: 'pending',
-      createdAt: '2026-08-18 (오늘)',
-      updatedAt: '2026-08-18'
-    };
-    setRevisions([revItem, ...revisions]);
   };
 
   const handleSubmitNewOrder = (orderData: Partial<WebsiteOrder>) => {
@@ -831,6 +864,38 @@ export default function App() {
     }
   };
 
+  const handleAdminSaveChecklist = async (
+    orderId: number,
+    checklist: { board: Record<string, string>; program: Record<string, string> }
+  ) => {
+    const saved = await adminSaveRequestChecklist(orderId, checklist);
+    const mapped = mapOrderToKanbanCard(saved);
+    setKanbanCards((prev) => prev.map((c) => (c.id === String(saved.id) ? mapped : c)));
+    setSelectedCardForModal(mapped);
+  };
+
+  const handleAppendWebsiteMaterials = async (payload: {
+    businessInfoNote?: string;
+    extraRequest?: string;
+    boardRequests?: string[];
+    programRequests?: string[];
+    references?: Array<string | { url: string; memo?: string }>;
+  }) => {
+    if (!activeProject || !liveOrder) return;
+    setOrderSaveError('');
+    try {
+      const saved = await appendWebsiteMaterials({
+        orderId: liveOrder.id,
+        projectId: Number(activeProject.id),
+        ...payload,
+      });
+      setLiveOrder(saved);
+    } catch (err) {
+      setOrderSaveError(err instanceof ApiRequestError ? err.message : '자료 추가에 실패했습니다. 다시 시도해주세요.');
+      throw err;
+    }
+  };
+
   const handleMarkAllNotificationsRead = async () => {
     try {
       const res = await markAllNotificationsRead();
@@ -856,7 +921,7 @@ export default function App() {
 
   const pendingMissionsCount = missions.filter((m) => !m.isCompleted).length;
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
-  const urgentInboxCount = adminPriorityItems.length;
+  const urgentInboxCount = adminPriorityItems.filter((it) => it.urgentLevel === 'urgent').length;
 
   const handleUpdateKanbanCard = async (updated: WebsiteKanbanCard) => {
     const previous = kanbanCards;
@@ -897,13 +962,6 @@ export default function App() {
 
   if (enrollment.required && !enrollment.access) {
     return <EnrollmentBlockedScreen status={enrollment.status} />;
-  }
-
-  if (!launchAllowed) {
-    if (!authenticated && launchMode !== 'off') {
-      return <LoginRequiredScreen />;
-    }
-    return <LaunchPreparingScreen />;
   }
 
   if (!authenticated) {
@@ -979,6 +1037,7 @@ export default function App() {
                   kanbanCards={kanbanCards}
                   onOpenStudentDetail={handleOpenStudentDetail}
                   onOpenWebsiteOrder={handleOpenWebsiteOrder}
+                  onNavigateTab={setAdminTab}
                 />
               )}
 
@@ -988,6 +1047,7 @@ export default function App() {
                   onUpdateCard={handleUpdateKanbanCard}
                   onOpenCardDetail={handleOpenWebsiteOrder}
                   onRequestMoreInfo={(orderId, payload) => void handleAdminRequestMoreInfo(orderId, payload)}
+                  onSaveChecklist={(orderId, checklist) => handleAdminSaveChecklist(orderId, checklist)}
                 />
               )}
 
@@ -999,7 +1059,8 @@ export default function App() {
               )}
 
               {adminTab === 'classes' && <ClassQueueView />}
-
+              {adminTab === 'revisions' && <AdminRevisionQueueView />}
+              {adminTab === 'geo' && <AdminGeoQueueView />}
               {adminTab === 'integrations' && <AdminIntegrationsView />}
               </React.Suspense>
             </main>
@@ -1054,8 +1115,14 @@ export default function App() {
             }`}
           >
             {connectionBanner}
+            {contract.requires && contract.graceActive ? (
+              <div className="mx-4 sm:mx-6 lg:mx-8 mt-3 rounded-2xl border border-amber-300/80 bg-amber-50 px-4 py-3 text-sm text-amber-950 [word-break:keep-all]">
+                서비스 계약 체결이 필요합니다. 유예 기간 중입니다 — 기한 내 계약을 완료해 주세요.
+              </div>
+            ) : null}
             {/* Top Header */}
             <Header
+              activeTab={activeTab}
               activeProject={activeProject}
               projects={projects}
               onSelectProject={handleSelectProject}
@@ -1105,26 +1172,17 @@ export default function App() {
               ) : null}
               <React.Suspense fallback={<RouteFallback />}>
               {activeTab === 'dashboard' && (
-                <ClassHome
-                  focus="home"
-                  projectId={activeProject?.id}
-                  onPrepChange={setClassPrepComplete}
-                  onTodayScreen={setTodayScreen}
-                  onOpenWebsite={() => handleNavigate('website', 'order')}
-                  onOpenScreen={(screenId) => {
-                    if (screenId === 'website') handleNavigate('website', 'order');
-                    else if (
-                      screenId === 'catchdomain' ||
-                      screenId === 'content' ||
-                      screenId === 'backlink' ||
-                      screenId === 'traffic'
-                    ) {
-                      handleNavigate('tools', screenId);
-                    }
-                  }}
-                  onProjectSaved={() => {
-                    void loadProjects();
-                  }}
+                <DashboardView
+                  project={activeProject}
+                  missions={missions}
+                  onToggleMission={handleToggleMission}
+                  onNavigate={handleNavigate}
+                  activities={activities}
+                  onOpenOnboarding={() => setIsOnboardingWizardOpen(true)}
+                  metricsSummary={metricsSummary}
+                  metricsTimeseries={metricsTimeseries}
+                  unified={unifiedSummary}
+                  liveWebsiteOrder={liveOrder}
                 />
               )}
 
@@ -1143,15 +1201,14 @@ export default function App() {
                   activeSubTab={activeWebsiteSubTab}
                   setActiveSubTab={setActiveWebsiteSubTab}
                   order={websiteOrder}
-                  revisions={revisions}
                   project={activeProject}
-                  onAddRevision={handleAddRevision}
                   onSubmitNewOrder={handleSubmitNewOrder}
                   liveOrder={liveOrder}
                   liveError={liveOrderError}
                   onRetryLive={() => void loadWebsiteOrder()}
                   onSaveDraft={handleSaveWebsiteDraft}
                   onSubmitLive={handleSubmitWebsiteLive}
+                  onAppendMaterials={handleAppendWebsiteMaterials}
                   wizardFiles={(liveOrder?.files || []).map((f) => ({
                     id: String(f.id),
                     categoryId: UI_CATEGORY_FROM_API[f.category] || f.category,
@@ -1173,20 +1230,22 @@ export default function App() {
               )}
 
               {activeTab === 'roadmap' && (
-                <ClassHome
-                  focus="roadmap"
-                  projectId={activeProject?.id}
-                  onPrepChange={setClassPrepComplete}
-                  onOpenWebsite={() => handleNavigate('website', 'order')}
+                <RoadmapView
+                  steps={roadmapSteps}
+                  taskWorkLogs={taskWorkLogs}
+                  onToggleChecklistItem={handleToggleChecklistItem}
+                  onSaveTaskLog={handleSaveTaskLog}
+                  onUploadScreenshot={handleUploadTaskScreenshot}
+                  onNavigate={handleNavigate}
+                  onOpenOnboarding={() => setIsOnboardingWizardOpen(true)}
                 />
               )}
 
               {activeTab === 'missions' && (
-                <ClassHome
-                  focus="mission"
-                  projectId={activeProject?.id}
-                  onPrepChange={setClassPrepComplete}
-                  onOpenWebsite={() => handleNavigate('website', 'order')}
+                <MissionsView
+                  missions={missions}
+                  onToggleMission={handleToggleMission}
+                  onNavigate={handleNavigate}
                 />
               )}
 
@@ -1254,6 +1313,10 @@ export default function App() {
               {activeTab === 'help' && <HelpView />}
 
               {activeTab === 'account' && <AccountView />}
+
+              {activeTab === 'contract' && (
+                <ContractPage subTab={contractSubTab} />
+              )}
               </React.Suspense>
             </main>
 
@@ -1295,6 +1358,11 @@ export default function App() {
         onRequestMoreInfo={
           selectedCardForModal
             ? (payload) => void handleAdminRequestMoreInfo(Number(selectedCardForModal.id), payload)
+            : undefined
+        }
+        onSaveChecklist={
+          selectedCardForModal
+            ? (checklist) => handleAdminSaveChecklist(Number(selectedCardForModal.id), checklist)
             : undefined
         }
       />

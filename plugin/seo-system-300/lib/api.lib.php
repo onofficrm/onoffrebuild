@@ -199,16 +199,6 @@ if (!function_exists('seosys300_get_current_member')) {
     }
 }
 
-if (!function_exists('seosys300_require_login')) {
-    function seosys300_require_login()
-    {
-        if (!seosys300_is_member()) {
-            seosys300_json_error(401, 'unauthorized', '로그인이 필요합니다.');
-        }
-        seosys300_require_launch_access();
-    }
-}
-
 if (!function_exists('seosys300_require_admin')) {
     function seosys300_require_admin()
     {
@@ -216,6 +206,86 @@ if (!function_exists('seosys300_require_admin')) {
         if (!seosys300_is_admin()) {
             seosys300_json_error(403, 'forbidden', '관리자 권한이 필요합니다.');
         }
+    }
+}
+
+if (!function_exists('seosys300_contract_access_payload')) {
+    /**
+     * @return array<string,mixed>
+     */
+    function seosys300_contract_access_payload()
+    {
+        $empty = array(
+            'applies' => false,
+            'signed' => true,
+            'blocked' => false,
+            'graceActive' => false,
+            'requires' => false,
+            'hasSignedHistory' => false,
+            'viewable' => false,
+            'status' => '',
+            'courseId' => '',
+            'path' => '/seo-system-300/contract',
+            'version' => '',
+            'rejectionReason' => '',
+        );
+        if (!seosys300_is_member()) {
+            return $empty;
+        }
+        if (seosys300_is_admin()) {
+            return $empty;
+        }
+        $lib = dirname(__FILE__) . '/../../../lib/onoff-service-contract.lib.php';
+        if (is_file($lib)) {
+            include_once $lib;
+        }
+        if (!function_exists('onoff_service_contract_access')) {
+            return $empty;
+        }
+        $mbId = seosys300_current_mb_id();
+        if ($mbId === '') {
+            $mbId = seosys300_launch_mb_id();
+        }
+        $access = onoff_service_contract_access($mbId);
+        return is_array($access) ? $access : $empty;
+    }
+}
+
+if (!function_exists('seosys300_require_contract_clear')) {
+    /**
+     * When marketing contract is blocked, only allowlisted APIs may proceed.
+     * Call after seosys300_require_login() on non-allowlisted endpoints.
+     */
+    function seosys300_require_contract_clear()
+    {
+        if (seosys300_is_admin()) {
+            return;
+        }
+        $contract = seosys300_contract_access_payload();
+        if (empty($contract['applies']) || empty($contract['blocked'])) {
+            return;
+        }
+        $script = isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : '';
+        $allow = (
+            strpos($script, '/api/session') !== false
+            || strpos($script, '/api/contract/') !== false
+            || strpos($script, '/api/notifications/') !== false
+        );
+        if ($allow) {
+            return;
+        }
+        seosys300_json_error(403, 'contract_required', '서비스 계약 체결(또는 승인) 후 이용할 수 있습니다.');
+    }
+}
+
+if (!function_exists('seosys300_require_login')) {
+    function seosys300_require_login()
+    {
+        if (!seosys300_is_member()) {
+            seosys300_json_error(401, 'unauthorized', '로그인이 필요합니다.');
+        }
+        seosys300_require_launch_access();
+        seosys300_require_contract_clear();
     }
 }
 
@@ -314,9 +384,34 @@ if (!function_exists('seosys300_enrollment_state')) {
                 $resolvedCourse = (string) ($latest['course_id'] ?? $resolvedCourse);
             }
         }
+
+        $access = (bool) $active;
+        $scLib = dirname(__FILE__) . '/../../../lib/onoff-service-contract.lib.php';
+        if (is_file($scLib)) {
+            include_once $scLib;
+        }
+        // Marketing / combined: allow platform entry while contract is pending/review so the contract menu works.
+        if (
+            !$access
+            && in_array($status, array('pending_contract', 'pending_deposit'), true)
+            && function_exists('onoff_service_contract_applies_course')
+            && onoff_service_contract_applies_course($resolvedCourse)
+        ) {
+            $access = ($status === 'pending_contract');
+        }
+        if (!$access && function_exists('onoff_service_contract_access')) {
+            $scAccess = onoff_service_contract_access($mbId);
+            if (!empty($scAccess['applies']) && in_array((string) ($scAccess['status'] ?? ''), array('pending', 'in_progress', 'review_pending', 'rejected', 'renewal'), true)) {
+                $access = true;
+                if ($resolvedCourse === 'any' || $resolvedCourse === '') {
+                    $resolvedCourse = (string) ($scAccess['courseId'] ?? $resolvedCourse);
+                }
+            }
+        }
+
         return array(
             'required' => true,
-            'access' => (bool) $active,
+            'access' => $access,
             'status' => $status,
             'courseId' => $resolvedCourse,
         );
@@ -356,6 +451,7 @@ if (!function_exists('seosys300_session_payload')) {
             'launchMode' => $launch['launchMode'],
             'launchAllowed' => $launch['launchAllowed'],
             'enrollment' => $enrollment,
+            'contract' => seosys300_contract_access_payload(),
         );
     }
 }

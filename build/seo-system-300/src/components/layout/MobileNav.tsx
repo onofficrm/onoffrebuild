@@ -7,11 +7,14 @@ import {
   X,
   Globe2,
   User,
-  Presentation
+  Presentation,
+  ScrollText
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { NavigationTab, Project } from '../../types';
 import { useAuth } from '../../auth/AuthContext';
 import { memberDisplayName } from '../../services/authService';
+import { contractPathFor } from '../../config/routes';
 
 export interface MobileNavProps {
   isOpen: boolean;
@@ -32,8 +35,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   pendingMissionsCount,
   allowedTabs
 }) => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, contract } = useAuth();
   if (!isOpen) return null;
+
+  const showContract = contract.applies && (!allowedTabs || allowedTabs.includes('contract'));
 
   const navItems = [
     { id: 'dashboard' as NavigationTab, label: '오늘 미션', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -76,6 +82,25 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 
         {/* Nav list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+          {showContract ? (
+            <button
+              type="button"
+              onClick={() => {
+                navigate(contractPathFor(contract));
+                onClose();
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition-colors ${
+                activeTab === 'contract'
+                  ? 'bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-500/20'
+                  : 'text-[#94A3B8] hover:text-white hover:bg-[#1E293B] font-medium'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <ScrollText className="w-5 h-5" />
+                <span>계약</span>
+              </div>
+            </button>
+          ) : null}
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (

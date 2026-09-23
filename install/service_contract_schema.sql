@@ -1,0 +1,110 @@
+-- ONOFF service contracts (marketing / education+marketing)
+-- Auto-created via onoff_service_contract_ensure_tables() on first API use.
+-- Prefix default: g5_
+
+SET NAMES utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `g5_onoff_service_contracts` (
+  `sc_id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `sc_mb_id` varchar(50) NOT NULL DEFAULT '',
+  `sc_en_id` int unsigned NOT NULL DEFAULT 0,
+  `sc_course_id` varchar(50) NOT NULL DEFAULT '',
+  `sc_inquiry_bo_table` varchar(50) NOT NULL DEFAULT '',
+  `sc_inquiry_wr_id` int unsigned NOT NULL DEFAULT 0,
+  `sc_contract_version` varchar(50) NOT NULL DEFAULT '',
+  `sc_contract_code` varchar(50) NOT NULL DEFAULT '',
+  `sc_status` varchar(20) NOT NULL DEFAULT 'pending',
+  `sc_company_name` varchar(200) NOT NULL DEFAULT '',
+  `sc_representative_name` varchar(100) NOT NULL DEFAULT '',
+  `sc_business_number` varchar(20) NOT NULL DEFAULT '',
+  `sc_company_address` varchar(500) NOT NULL DEFAULT '',
+  `sc_company_phone` varchar(30) NOT NULL DEFAULT '',
+  `sc_signer_name` varchar(100) NOT NULL DEFAULT '',
+  `sc_signer_position` varchar(100) NOT NULL DEFAULT '',
+  `sc_signer_phone` varchar(30) NOT NULL DEFAULT '',
+  `sc_signer_email` varchar(200) NOT NULL DEFAULT '',
+  `sc_service_scope` mediumtext,
+  `sc_amount` varchar(100) NOT NULL DEFAULT '',
+  `sc_start_date` varchar(30) NOT NULL DEFAULT '',
+  `sc_end_date` varchar(30) NOT NULL DEFAULT '',
+  `sc_negotiated_terms` mediumtext,
+  `sc_special_clauses` mediumtext,
+  `sc_signature_file_path` varchar(500) NOT NULL DEFAULT '',
+  `sc_signed_at` datetime DEFAULT NULL,
+  `sc_signed_ip` varchar(45) NOT NULL DEFAULT '',
+  `sc_user_agent` varchar(500) NOT NULL DEFAULT '',
+  `sc_contract_pdf_path` varchar(500) NOT NULL DEFAULT '',
+  `sc_contract_file_hash` varchar(128) NOT NULL DEFAULT '',
+  `sc_company_snapshot` longtext,
+  `sc_contract_snapshot` longtext,
+  `sc_agreement_snapshot` longtext,
+  `sc_reviewed_by` varchar(50) NOT NULL DEFAULT '',
+  `sc_reviewed_at` datetime DEFAULT NULL,
+  `sc_reject_reason` varchar(1000) NOT NULL DEFAULT '',
+  `sc_created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `sc_updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`sc_id`),
+  UNIQUE KEY `uk_sc_en_version` (`sc_en_id`, `sc_contract_version`),
+  KEY `idx_sc_mb_id` (`sc_mb_id`),
+  KEY `idx_sc_status` (`sc_status`),
+  KEY `idx_sc_course` (`sc_course_id`),
+  KEY `idx_sc_code` (`sc_contract_code`),
+  KEY `idx_sc_signed_at` (`sc_signed_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `g5_onoff_service_contract_logs` (
+  `scl_id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `sc_id` bigint unsigned NOT NULL DEFAULT 0,
+  `sc_mb_id` varchar(50) NOT NULL DEFAULT '',
+  `scl_contract_code` varchar(50) NOT NULL DEFAULT '',
+  `scl_contract_version` varchar(50) NOT NULL DEFAULT '',
+  `scl_signed_at` datetime DEFAULT NULL,
+  `scl_ip` varchar(45) NOT NULL DEFAULT '',
+  `scl_user_agent` varchar(500) NOT NULL DEFAULT '',
+  `scl_pdf_path` varchar(500) NOT NULL DEFAULT '',
+  `scl_pdf_hash` varchar(128) NOT NULL DEFAULT '',
+  `scl_result` varchar(20) NOT NULL DEFAULT 'success',
+  `scl_message` varchar(500) NOT NULL DEFAULT '',
+  `scl_created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`scl_id`),
+  KEY `idx_scl_sc_id` (`sc_id`),
+  KEY `idx_scl_mb_id` (`sc_mb_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `g5_onoff_service_contract_status_logs` (
+  `scsl_id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `sc_id` bigint unsigned NOT NULL DEFAULT 0,
+  `sc_mb_id` varchar(50) NOT NULL DEFAULT '',
+  `admin_mb_id` varchar(50) NOT NULL DEFAULT '',
+  `actor_type` varchar(20) NOT NULL DEFAULT 'admin',
+  `scsl_old_status` varchar(20) NOT NULL DEFAULT '',
+  `scsl_new_status` varchar(20) NOT NULL DEFAULT '',
+  `scsl_reason` varchar(1000) NOT NULL DEFAULT '',
+  `scsl_ip` varchar(45) NOT NULL DEFAULT '',
+  `scsl_user_agent` varchar(500) NOT NULL DEFAULT '',
+  `scsl_created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`scsl_id`),
+  KEY `idx_scsl_sc_id` (`sc_id`),
+  KEY `idx_scsl_mb_id` (`sc_mb_id`),
+  KEY `idx_scsl_admin` (`admin_mb_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `g5_onoff_service_contract_addenda` (
+  `sca_id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `sc_id` bigint unsigned NOT NULL DEFAULT 0,
+  `sc_mb_id` varchar(50) NOT NULL DEFAULT '',
+  `sca_seq` int unsigned NOT NULL DEFAULT 1,
+  `sca_title` varchar(200) NOT NULL DEFAULT '특약사항',
+  `sca_body` mediumtext NOT NULL,
+  `sca_status` varchar(20) NOT NULL DEFAULT 'active',
+  `sca_created_by_type` varchar(20) NOT NULL DEFAULT 'admin',
+  `sca_created_by` varchar(100) NOT NULL DEFAULT '',
+  `sca_voided_at` datetime DEFAULT NULL,
+  `sca_void_reason` varchar(500) NOT NULL DEFAULT '',
+  `sca_created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `sca_updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`sca_id`),
+  KEY `idx_sca_sc_id` (`sc_id`),
+  KEY `idx_sca_mb_id` (`sc_mb_id`),
+  KEY `idx_sca_status` (`sca_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -253,6 +253,22 @@ if ($action === 'contract') {
     }
 
     $sub = isset($body['action']) ? (string) $body['action'] : 'draft';
+
+    // Marketing / combined contracts are signed inside the education platform (CPA flow).
+    $is_service_contract = in_array($course_id, array('marketing-service', 'education-marketing', 'marketing'), true);
+    if ($is_service_contract && ($sub === 'draft' || $sub === 'sign')) {
+        onoff_education_api_json(array(
+            'ok' => true,
+            'success' => true,
+            'data' => array(
+                'redirect' => '/seo-system-300/contract',
+                'message' => '마케팅 계약은 강의 플랫폼의 계약 관리에서 작성·서명합니다.',
+                'contractPath' => '/seo-system-300/contract',
+                'contract' => onoff_education_contract_state_for_member($mb_id, $course_id),
+            ),
+        ));
+    }
+
     $pending = onoff_education_get_pending_contract_enrollment($mb_id, $course_id);
     if (!$pending) {
         onoff_education_api_error('CONTRACT_NOT_REQUIRED', '작성할 수강 계약이 없습니다. 입금 확인(권한 부여) 후 작성할 수 있습니다.', 403);

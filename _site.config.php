@@ -20,7 +20,7 @@ $site_config = array(
     'primary_color'       => '#2563eb',
     'secondary_color'     => '#64748b',
     'logo_path'           => '/img/logo/logo.png',
-    'logo_white_path'     => '/img/logo/logo-white.png',
+    'logo_white_path'     => '/img/logo/logo-pc-white.png',
     'og_image'            => '/img/common/og-image.jpg',
     /* 파비콘 — /data/seo/favicon (3boon 동일 경로 패턴) */
     'favicon_path'        => '/data/seo/favicon',
@@ -251,3 +251,11 @@ if (!function_exists('g5site_tel_link')) {
         return $digits !== '' ? 'tel:' . $digits : '#';
     }
 }
+
+/*
+ * CRM 계약 관리자 API Bearer 토큰
+ * 운영 서버에서만 아래 define 주석을 해제하고 값을 넣으세요. 저장소에 실토큰을 커밋하지 마세요.
+ * if (!defined('ONOFF_CRM_CONTRACT_API_TOKEN')) {
+ *     define('ONOFF_CRM_CONTRACT_API_TOKEN', '');
+ * }
+ */

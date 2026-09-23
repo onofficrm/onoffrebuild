@@ -10,5 +10,8 @@ $menu['menu200'] = array(
     array('200200', '포인트관리', G5_ADMIN_URL . '/point_list.php', 'mb_point'),
     array('200950', 'ONOFF Auth/Point 헬스체크', G5_ADMIN_URL . '/onoff_auth_health.php', 'mb_point'),
     array('200960', 'ONOFF 교육 수강권 관리', G5_ADMIN_URL . '/onoff_education_enrollments.php', 'mb_point'),
+    array('200966', 'ONOFF 서비스 계약 관리', G5_ADMIN_URL . '/onoff_service_contracts.php', 'mb_point'),
+    array('200965', '강의 표준계약서', G5_ADMIN_URL . '/onoff_edu_contract.php', 'mb_point'),
+    array('200970', 'ONOFF 홈페이지 제작사례', G5_ADMIN_URL . '/onoff_portfolio_cases.php', 'mb_point'),
     array('200900', '투표관리', G5_ADMIN_URL . '/poll_list.php', 'mb_poll')
 );

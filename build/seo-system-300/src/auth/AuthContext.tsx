@@ -18,6 +18,7 @@ type AuthContextValue = {
   launchMode: SessionPayload['launchMode'];
   launchAllowed: boolean;
   enrollment: SessionPayload['enrollment'];
+  contract: SessionPayload['contract'];
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -56,6 +57,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       launchMode: session?.launchMode || 'off',
       launchAllowed: session ? session.launchAllowed : false,
       enrollment: session?.enrollment || { required: false, access: true, status: '', courseId: '' },
+      contract: session?.contract || {
+        applies: false,
+        signed: true,
+        blocked: false,
+        graceActive: false,
+        requires: false,
+        hasSignedHistory: false,
+        viewable: false,
+        status: '',
+        courseId: '',
+        path: '/seo-system-300/contract',
+        version: '',
+        rejectionReason: '',
+      },
     };
   }, [status, session]);
 

@@ -12,7 +12,8 @@ export type NavigationTab =
   | 'ai_coach'
   | 'notifications'
   | 'help'
-  | 'account';
+  | 'account'
+  | 'contract';
 
 export type WebsiteSubTab = 'order' | 'status' | 'revision';
 
@@ -29,6 +30,7 @@ export interface Project {
   overallProgress: number; // 0-100
   currentStep: string;
   currentStepNumber?: number;
+  currentStepTitle?: string;
   nextGoal: string;
   moduleProgress: {
     website: number;
@@ -93,6 +95,19 @@ export interface RevisionTicket {
   updatedAt: string;
   devReply?: string;
 }
+
+/** @deprecated Prefer ApiRevisionTicket from revisionService */
+export type LegacyRevisionTicket = RevisionTicket;
+
+export type AdminTab =
+  | 'dashboard'
+  | 'inbox'
+  | 'kanban'
+  | 'students'
+  | 'classes'
+  | 'revisions'
+  | 'geo'
+  | 'integrations';
 
 export interface RoadmapStep {
   id: number;
@@ -266,8 +281,6 @@ export interface NotificationItem {
   actionSubTab?: string;
 }
 
-export type AdminTab = 'dashboard' | 'inbox' | 'kanban' | 'students' | 'classes' | 'integrations';
-
 export type WebsiteKanbanStage =
   | 'new_order'
   | 'awaiting_materials'
@@ -289,8 +302,10 @@ export interface AdminPriorityItem {
   urgentLevel: 'urgent' | 'warning' | 'normal' | 'success';
   ctaText: string;
   relatedProjectId: string;
-  actionType: 'open_materials' | 'open_student' | 'open_review' | 'open_seo' | 'send_guide';
+  actionType: 'open_materials' | 'open_student' | 'open_review' | 'open_seo' | 'send_guide' | 'open_geo';
 }
+
+export type RequestChecklistStatus = 'pending' | 'included' | 'quote' | 'done' | 'skip';
 
 export interface WebsiteKanbanCard {
   id: string;
@@ -313,6 +328,16 @@ export interface WebsiteKanbanCard {
     referenceUrls: string[];
     features: string[];
     keywords: string[];
+    businessDescription?: string;
+    businessInfoNote?: string;
+    extraRequest?: string;
+    boardRequests?: string[];
+    programRequests?: string[];
+    requestChecklist?: {
+      board: Record<string, RequestChecklistStatus | string>;
+      program: Record<string, RequestChecklistStatus | string>;
+    };
+    contacts?: Record<string, string>;
   };
   notes: { id: string; author: string; date: string; content: string }[];
   files?: Array<{ id: number; originalName: string; downloadUrl: string; category: string; memo: string }>;
