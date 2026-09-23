@@ -14,7 +14,7 @@ export const Slide15PlatformEcosystem: React.FC = () => {
   ];
 
   return (
-    <div className="w-full h-full p-8 md:p-12 flex flex-col justify-between relative overflow-hidden select-none bg-[#07111F]">
+    <div className="w-full h-full p-12 flex flex-col justify-between relative overflow-hidden select-none bg-[#07111F]">
       {/* Background Accent Glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-cyan-900/15 rounded-full blur-[120px]" />
@@ -23,30 +23,30 @@ export const Slide15PlatformEcosystem: React.FC = () => {
       {/* Top Tag & Title */}
       <div className="relative z-10">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-semibold mb-2">
-          <Cpu className="w-3.5 h-3.5" />
+          <Cpu className="w-5 h-5" />
           <span>INTEGRATED TECH SUITE · 통합 기술 생태계</span>
         </div>
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+        <h2 className="text-5xl font-black text-white tracking-tight">
           온오프마케팅 플랫폼은 이 과정을 연결합니다
         </h2>
-        <p className="text-base sm:text-lg lg:text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-purple-400 mt-1">
+        <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-purple-400 mt-1">
           “말뿐인 이론이 아닌, 교육 내내 직접 다루는 8대 실습 워크벤치”
         </p>
       </div>
 
       {/* Main Content: Layout E (Integrated Lab Command Center Grid) */}
       <div className="relative z-10 my-auto py-2">
-        <div className="p-4 sm:p-5 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-2xl">
+        <div className="p-6 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-2xl">
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 text-xs font-mono">
             <div className="flex items-center gap-2 text-slate-300 font-bold">
-              <Terminal className="w-4 h-4 text-cyan-400" />
+              <Terminal className="w-5 h-5 text-cyan-400" />
               <span>ONOFF MARKETING INTEGRATED LABORATORY COMMAND CENTER</span>
             </div>
-            <span className="text-cyan-400 font-bold text-[11px]">8 CONNECTED TOOLS ACTIVE</span>
+            <span className="text-cyan-400 font-bold text-sm">8 CONNECTED TOOLS ACTIVE</span>
           </div>
 
           {/* 8-Tool Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono">
+          <div className="grid grid-cols-4 gap-2.5 font-mono">
             {tools.map((tool) => (
               <div
                 key={tool.num}
@@ -55,16 +55,16 @@ export const Slide15PlatformEcosystem: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className={`text-base font-black ${tool.color}`}>{tool.num}</span>
-                    <span className="text-[10px] text-slate-400 font-bold tracking-wider">{tool.name}</span>
+                    <span className="text-sm text-slate-400 font-bold tracking-wider">{tool.name}</span>
                   </div>
-                  <span className="text-xs font-bold text-white block truncate">{tool.sub}</span>
-                  <span className="text-[10px] text-slate-400 font-sans block mt-1 line-clamp-2">
+                  <span className="text-base font-bold text-white block truncate">{tool.sub}</span>
+                  <span className="text-sm text-slate-400 font-sans block mt-1 line-clamp-2">
                     {tool.role}
                   </span>
                 </div>
-                <div className="mt-2.5 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[9px] text-slate-500">
+                <div className="mt-2.5 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-sm text-slate-500">
                   <span>PRACTICE LAB</span>
-                  <ExternalLink className="w-3 h-3 text-cyan-400" />
+                  <ExternalLink className="w-5 h-5 text-cyan-400" />
                 </div>
               </div>
             ))}
@@ -77,7 +77,7 @@ export const Slide15PlatformEcosystem: React.FC = () => {
         <span className="text-slate-300">
           <strong className="text-cyan-300">실습 일체화:</strong> 교육 화면 옆에 실습 도구를 띄우고 매 강의마다 실제 데이터를 구축합니다.
         </span>
-        <span className="text-[10px] text-cyan-400 font-bold hidden sm:block">PROJECT-BASED PRACTICE</span>
+        <span className="text-sm text-cyan-400 font-bold block">PROJECT-BASED PRACTICE</span>
       </div>
     </div>
   );

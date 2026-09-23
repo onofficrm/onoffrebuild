@@ -36,7 +36,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   if (!isOpen) return null;
 
   const navItems = [
-    { id: 'dashboard' as NavigationTab, label: '다음 수업', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'dashboard' as NavigationTab, label: '오늘 미션', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'tools' as NavigationTab, label: '오늘 열 화면', icon: <Wrench className="w-5 h-5" /> },
     { id: 'website' as NavigationTab, label: '홈페이지 주문', icon: <LayoutTemplate className="w-5 h-5" /> },
     { id: 'slides' as NavigationTab, label: '교육 슬라이드', icon: <Presentation className="w-5 h-5" /> },
@@ -50,27 +50,27 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       <div className="fixed inset-0 bg-[#0F172A]/40 backdrop-blur-xs" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="relative w-4/5 max-w-xs bg-white text-[#1E293B] h-full flex flex-col shadow-2xl z-10 animate-in slide-in-from-left duration-200 border-r border-[#E2E8F0]">
+      <div className="relative w-4/5 max-w-xs bg-[#0F172A] text-white h-full flex flex-col shadow-2xl z-10 animate-in slide-in-from-left duration-200 border-r border-[#1E293B]">
         {/* Header */}
-        <div className="h-16 px-5 flex items-center justify-between border-b border-[#E2E8F0]">
+        <div className="h-16 px-5 flex items-center justify-between border-b border-[#1E293B]">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#2563EB] flex items-center justify-center text-white font-bold text-lg shadow-xs">
               S
             </div>
-            <span className="font-bold text-[#0F172A] text-sm">SEO SYSTEM 300</span>
+            <span className="font-bold text-white text-sm">SEO SYSTEM 300</span>
           </div>
-          <button onClick={onClose} className="p-1.5 text-[#64748B] hover:text-[#0F172A] rounded-xl hover:bg-[#F8FAFC]">
+          <button onClick={onClose} className="p-1.5 text-[#64748B] hover:text-white rounded-xl hover:bg-[#1E293B]">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Project Card */}
-        <div className="p-4 border-b border-[#E2E8F0] bg-[#F8FAFC]">
-          <div className="text-[11px] text-[#64748B] mb-1 flex items-center gap-1">
-            <Globe2 className="w-3 h-3 text-[#2563EB]" />
+        <div className="p-4 border-b border-[#1E293B] bg-[#1E293B]/50">
+          <div className="text-[11px] text-[#94A3B8] mb-1 flex items-center gap-1">
+            <Globe2 className="w-3 h-3 text-[#3B82F6]" />
             <span className="font-bold">내 사업</span>
           </div>
-          <p className="text-xs font-bold text-[#0F172A] truncate">{activeProject?.name || '아직 없음'}</p>
+          <p className="text-xs font-bold text-white truncate">{activeProject?.name || '아직 없음'}</p>
           <p className="text-[11px] text-[#64748B] font-mono">{activeProject?.domain || '-'}</p>
         </div>
 
@@ -87,12 +87,12 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                 }}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition-colors ${
                   isActive
-                    ? 'bg-[#EFF6FF] text-[#2563EB] font-bold shadow-2xs'
-                    : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] font-medium'
+                    ? 'bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-500/20'
+                    : 'text-[#94A3B8] hover:text-white hover:bg-[#1E293B] font-medium'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <span className={isActive ? 'text-[#2563EB]' : 'text-[#64748B]'}>{item.icon}</span>
+                  <span className={isActive ? 'text-white' : 'text-[#64748B]'}>{item.icon}</span>
                   <span>{item.label}</span>
                 </div>
               </button>
@@ -101,8 +101,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[#E2E8F0] bg-white text-xs text-[#64748B]">
-          <p className="font-bold text-[#0F172A]">{memberDisplayName(user)}</p>
+        <div className="p-4 border-t border-[#1E293B] bg-[#0F172A] text-xs text-[#94A3B8]">
+          <p className="font-bold text-white">{memberDisplayName(user)}</p>
           <p className="text-[11px] mt-0.5">교육 플랫폼</p>
         </div>
       </div>

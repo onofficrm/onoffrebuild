@@ -67,28 +67,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     {
       id: 'dashboard' as NavigationTab,
-      label: '다음 수업',
+      label: '대시보드',
+      group: '핵심 학습 & 실행',
       icon: <LayoutDashboard className="w-4 h-4" />
     },
     {
       id: 'projects' as NavigationTab,
       label: '내 프로젝트',
+      group: '프로젝트 & 제작',
       icon: <FolderKanban className="w-4 h-4" />,
       badge: projectCount > 0 ? `${projectCount}` : undefined
     },
     {
       id: 'website' as NavigationTab,
       label: '홈페이지 주문',
+      group: '프로젝트 & 제작',
       icon: <LayoutTemplate className="w-4 h-4" />
     },
     {
       id: 'roadmap' as NavigationTab,
       label: 'SEO 로드맵',
+      group: '핵심 학습 & 실행',
       icon: <Compass className="w-4 h-4" />
     },
     {
       id: 'missions' as NavigationTab,
       label: '오늘의 미션',
+      group: '핵심 학습 & 실행',
       icon: <CheckSquare2 className="w-4 h-4" />,
       badge: pendingMissionsCount > 0 ? `${pendingMissionsCount}` : undefined,
       badgeColor: 'blue'
@@ -96,31 +101,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       id: 'tools' as NavigationTab,
       label: '오늘 열 화면',
+      group: 'SEO 실무 인프라',
       icon: <Wrench className="w-4 h-4" />
     },
     {
       id: 'reports' as NavigationTab,
       label: '성과 리포트',
+      group: 'SEO 실무 인프라',
       icon: <BarChart3 className="w-4 h-4" />
     },
     {
       id: 'integrations' as NavigationTab,
       label: '데이터 연결',
+      group: 'SEO 실무 인프라',
       icon: <Link2 className="w-4 h-4" />
     },
     {
       id: 'curriculum' as NavigationTab,
       label: '강의실',
+      group: '핵심 학습 & 실행',
       icon: <GraduationCap className="w-4 h-4" />
     },
     {
       id: 'slides' as NavigationTab,
       label: '교육 슬라이드',
+      group: '핵심 학습 & 실행',
       icon: <Presentation className="w-4 h-4" />
     },
     {
       id: 'ai_coach' as NavigationTab,
       label: 'AI SEO Coach',
+      group: 'SEO 실무 인프라',
       icon: <Sparkles className="w-4 h-4" />
     }
   ];
@@ -147,19 +158,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`fixed top-0 left-0 bottom-0 z-40 bg-white text-[#1E293B] hidden lg:flex flex-col transition-all duration-300 ease-in-out border-r border-[#E2E8F0] ${
+      className={`fixed top-0 left-0 bottom-0 z-40 bg-[#0F172A] text-white hidden lg:flex flex-col transition-all duration-300 ease-in-out border-r border-[#1E293B] ${
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
       {/* Brand Header — min-height + padding so the mark is never clipped at the top */}
-      <div className="min-h-16 px-5 py-3.5 flex items-center justify-between border-b border-[#E2E8F0] shrink-0">
+      <div className="min-h-16 px-5 py-3.5 flex items-center justify-between border-b border-[#1E293B] shrink-0">
         {!isCollapsed ? (
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 shrink-0 bg-[#2563EB] rounded-xl flex items-center justify-center text-white font-bold text-xl leading-none shadow-xs">
               S
             </div>
             <div className="min-w-0 leading-tight">
-              <span className="block text-lg font-bold tracking-tight text-[#0F172A]">
+              <span className="block text-lg font-bold tracking-tight text-white">
                 ONOFF 교육
               </span>
               <p className="text-[10px] text-[#64748B] font-medium tracking-wide leading-none mt-0.5">
@@ -176,62 +187,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Active Project Ribbon */}
       {!isCollapsed && (
-        <div className="mx-3 mt-3 px-3.5 py-2.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]">
-          <div className="flex items-center justify-between text-[11px] text-[#64748B] mb-1">
+        <div className="mx-3 mt-3 px-3.5 py-2.5 rounded-2xl bg-[#1E293B] border border-[#334155]">
+          <div className="flex items-center justify-between text-[11px] text-[#94A3B8] mb-1">
             <span className="flex items-center gap-1 font-medium">
-              <Globe2 className="w-3 h-3 text-[#2563EB]" />
+              <Globe2 className="w-3 h-3 text-[#3B82F6]" />
               <span>내 사업</span>
             </span>
           </div>
-          <p className="text-xs font-bold text-[#0F172A] truncate">{activeProject?.name || '아직 없음'}</p>
+          <p className="text-xs font-bold text-white truncate">{activeProject?.name || '아직 없음'}</p>
           <p className="text-[11px] text-[#64748B] font-mono truncate">{activeProject?.domain || '-'}</p>
         </div>
       )}
 
       {/* Navigation List */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 custom-scrollbar">
-        <div className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider px-3 mb-1.5">
-          {!isCollapsed ? '메뉴' : '•••'}
-        </div>
-
-        {navItems.filter((item) => !allowedTabs || allowedTabs.includes(item.id)).map((item) => {
-          const isActive = activeTab === item.id;
-
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4 custom-scrollbar">
+        {(['핵심 학습 & 실행', '프로젝트 & 제작', 'SEO 실무 인프라'] as const).map((group) => {
+          const groupItems = navItems.filter(
+            (item) => item.group === group && (!allowedTabs || allowedTabs.includes(item.id))
+          );
+          if (groupItems.length === 0) return null;
           return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-[#EFF6FF] text-[#2563EB] font-bold shadow-2xs'
-                  : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] font-medium'
-              }`}
-              title={isCollapsed ? item.label : undefined}
-            >
-              <div className="flex items-center gap-3">
-                <span className={isActive ? 'text-[#2563EB]' : 'text-[#64748B]'}>
-                  {item.icon}
-                </span>
-                {!isCollapsed && <span>{item.label}</span>}
+            <div key={group} className="space-y-1">
+              <div className="px-3 mb-1.5 text-[10px] font-bold text-[#475569] uppercase tracking-wider">
+                {!isCollapsed ? group : '•••'}
               </div>
-
-              {!isCollapsed && item.badge && (
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold leading-none ${
-                    isActive
-                      ? 'bg-[#2563EB] text-white'
-                      : 'bg-[#EFF6FF] text-[#2563EB] border border-[#DBEAFE]'
-                  }`}
-                >
-                  {item.badge}
-                </span>
-              )}
-            </button>
+              {groupItems.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveTab(item.id)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] ${
+                      isActive
+                        ? 'bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-500/20'
+                        : 'text-[#94A3B8] hover:text-white hover:bg-[#1E293B] font-medium'
+                    }`}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={isActive ? 'text-white' : 'text-[#64748B]'}>
+                        {item.icon}
+                      </span>
+                      {!isCollapsed && <span>{item.label}</span>}
+                    </div>
+                    {!isCollapsed && item.badge ? (
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold leading-none ${
+                          isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-[#1E293B] text-[#3B82F6] border border-[#334155]'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
 
-        <div className="pt-3 mt-2 border-t border-[#E2E8F0]">
-          <div className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider px-3 mb-1.5">
+        <div className="pt-3 border-t border-[#1E293B]">
+          <div className="text-[10px] font-bold text-[#475569] uppercase tracking-wider px-3 mb-1.5">
             {!isCollapsed ? '설정' : '•••'}
           </div>
           {bottomItems.map((item) => {
@@ -242,13 +262,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-[#EFF6FF] text-[#2563EB] font-bold'
-                    : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] font-medium'
+                    ? 'bg-[#2563EB] text-white font-bold'
+                    : 'text-[#94A3B8] hover:text-white hover:bg-[#1E293B] font-medium'
                 }`}
                 title={isCollapsed ? item.label : undefined}
               >
                 <div className="flex items-center gap-3">
-                  <span className={isActive ? 'text-[#2563EB]' : 'text-[#64748B]'}>
+                  <span className={isActive ? 'text-white' : 'text-[#64748B]'}>
                     {item.icon}
                   </span>
                   {!isCollapsed && <span>{item.label}</span>}
@@ -265,7 +285,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Student Profile Card Footer */}
-      <div className="p-3.5 border-t border-[#E2E8F0] bg-white shrink-0 space-y-2">
+      <div className="p-3.5 border-t border-[#1E293B] bg-[#0F172A] shrink-0 space-y-2">
         {!isCollapsed ? (
           <>
             <div className="flex items-center justify-between">
@@ -275,14 +295,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1">
-                    <p className="text-xs font-bold text-[#0F172A] truncate">{memberDisplayName(user)}</p>
+                    <p className="text-xs font-bold text-white truncate">{memberDisplayName(user)}</p>
                   </div>
                   <p className="text-[11px] text-[#64748B] truncate">{user?.mbId || ''}</p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveTab('account')}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-white hover:bg-[#1E293B] transition-colors"
                 title="내 계정 설정"
               >
                 <User className="w-4 h-4" />
@@ -292,7 +312,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {onSwitchToAdminMode && (
               <button
                 onClick={onSwitchToAdminMode}
-                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold transition-all cursor-pointer shadow-xs"
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-[#1E293B] hover:bg-[#334155] text-white text-[11px] font-bold transition-all cursor-pointer shadow-xs border border-[#334155]"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                 <span>관리자 Control Center 전환</span>
@@ -307,7 +327,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {onSwitchToAdminMode && (
               <button
                 onClick={onSwitchToAdminMode}
-                className="w-6 h-6 rounded-lg bg-slate-900 text-white text-[9px] font-bold flex items-center justify-center cursor-pointer"
+                className="w-6 h-6 rounded-lg bg-[#1E293B] text-white text-[9px] font-bold flex items-center justify-center cursor-pointer border border-[#334155]"
                 title="관리자 Control Center 전환"
               >
                 AD

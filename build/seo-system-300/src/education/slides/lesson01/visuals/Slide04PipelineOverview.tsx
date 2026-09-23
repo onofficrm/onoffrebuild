@@ -130,31 +130,31 @@ export const Slide04PipelineOverview: React.FC = () => {
   ];
 
   return (
-    <div className="w-full h-full p-6 sm:p-8 md:p-10 flex flex-col justify-between relative overflow-hidden select-none bg-[#07111F]">
+    <div className="w-full h-full p-12 flex flex-col justify-between relative overflow-hidden select-none bg-[#07111F]">
       {/* Background Pipeline Glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-0 right-0 h-32 bg-cyan-500/5 blur-3xl -translate-y-1/2" />
       </div>
 
       {/* Top Header */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-800/80 pb-3">
+      <div className="relative z-10 flex flex-row items-end justify-between gap-2 border-b border-slate-800/80 pb-3">
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-semibold mb-1">
-            <GitCommit className="w-3.5 h-3.5" />
+            <GitCommit className="w-5 h-5" />
             <span>MASTER PIPELINE ARCHITECTURE</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h2 className="text-4xl font-black text-white tracking-tight">
             8개의 미션이 하나의 성과를 만듭니다
           </h2>
         </div>
-        <div className="text-right hidden sm:block">
+        <div className="text-right block">
           <span className="text-xs font-mono text-slate-400 block">4 PHASES · 8 SEQUENTIAL STEPS</span>
-          <span className="text-xs text-cyan-400 font-semibold">도메인 인프라부터 GEO-UP까지</span>
+          <span className="text-sm text-cyan-400 font-semibold">도메인 인프라부터 GEO-UP까지</span>
         </div>
       </div>
 
       {/* 8-Step Master Pipeline Visual Grid (Layout D) */}
-      <div className="relative z-10 my-auto py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="relative z-10 my-auto py-2 grid grid-cols-4 gap-3.5">
         {phases.map((phaseGroup, pIdx) => (
           <div
             key={pIdx}
@@ -187,13 +187,13 @@ export const Slide04PipelineOverview: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         {/* Big Step Number as Graphic Feature */}
-                        <span className={`text-xl sm:text-2xl font-black font-mono tracking-tight ${step.textColor}`}>
+                        <span className={`text-3xl font-black font-mono tracking-tight ${step.textColor}`}>
                           {step.num}
                         </span>
                         <div>
                           <div className="text-lg font-bold text-white flex items-center gap-1.5">
                             <span>{step.name}</span>
-                            <span className={`hidden font-mono px-1.5 py-0.5 rounded ${step.badgeBg}`}>
+                            <span className={`inline-block font-mono px-1.5 py-0.5 rounded ${step.badgeBg}`}>
                               {step.eng}
                             </span>
                           </div>
@@ -202,7 +202,7 @@ export const Slide04PipelineOverview: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <IconComponent className={`w-4 h-4 ${step.textColor} shrink-0 mt-1`} />
+                      <IconComponent className={`w-5 h-5 ${step.textColor} shrink-0 mt-1`} />
                     </div>
 
                     <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-sm font-mono">
@@ -218,18 +218,18 @@ export const Slide04PipelineOverview: React.FC = () => {
       </div>
 
       {/* Bottom Process Link Ribbon */}
-      <div className="relative z-10 pt-2.5 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-base font-mono">
+      <div className="relative z-10 pt-2.5 border-t border-slate-800/80 flex flex-row items-center justify-between gap-2 text-base font-mono">
         <div className="flex items-center gap-2 text-slate-300">
-          <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+          <Sparkles className="w-5 h-5 text-cyan-400 shrink-0" />
           <span>
             <strong>파이프라인 연속성:</strong> 01에서 시작해 08까지 완료될 때 비로소 지속적으로 개선하는 마케팅 자산이 됩니다.
           </span>
         </div>
         <div className="flex items-center gap-1 text-sm text-cyan-400 font-bold">
           <span>01</span>
-          <ArrowRight className="w-3 h-3" />
+          <ArrowRight className="w-5 h-5" />
           <span>04</span>
-          <ArrowRight className="w-3 h-3" />
+          <ArrowRight className="w-5 h-5" />
           <span>08</span>
         </div>
       </div>
