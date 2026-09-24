@@ -253,9 +253,24 @@ if (!function_exists('g5site_tel_link')) {
 }
 
 /*
- * CRM 계약 관리자 API Bearer 토큰
- * 운영 서버에서만 아래 define 주석을 해제하고 값을 넣으세요. 저장소에 실토큰을 커밋하지 마세요.
+ * CRM 계약·강의승인 API 토큰 (동일 토큰)
+ * - api/crm/contracts.php  (계약 목록/서명 관리)
+ * - api/crm/education.php  (강의 신청 목록 / pending 폴링 / approve)
+ * Auth: Bearer ONOFF_CRM_CONTRACT_API_TOKEN
+ *       또는 X-ONOFF-Contract-Token / X-Api-Token (Cafe24 등 Authorization 제거 환경)
+ *       또는 GNUBoard super-admin 세션
+ * 토큰 미설정 시 CRM API는 503 not_configured.
+ *
+ * 운영: 아래 인라인 define 대신 data/onoff-crm-contract.local.php 에만 두고
+ * 저장소에는 실토큰을 커밋하지 마세요.
  * if (!defined('ONOFF_CRM_CONTRACT_API_TOKEN')) {
  *     define('ONOFF_CRM_CONTRACT_API_TOKEN', '');
  * }
  */
+
+// OnOff CRM contract/education API token (server-local; do not commit)
+$__onoff_crm_local = __DIR__ . '/data/onoff-crm-contract.local.php';
+if (is_file($__onoff_crm_local)) {
+    require_once $__onoff_crm_local;
+}
+unset($__onoff_crm_local);
