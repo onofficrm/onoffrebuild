@@ -1,10 +1,16 @@
 import type { NavigationTab } from '../../../types';
 
+export interface SlideDetailBlock {
+  heading: string;
+  body: string[];
+}
+
 export interface SlideExplanationSections {
   summary: string;
   why?: string[];
   onoffUse?: string[];
   action?: string[];
+  details?: SlideDetailBlock[];
 }
 
 export type DomainSearchTarget = 'naver' | 'google' | 'both';

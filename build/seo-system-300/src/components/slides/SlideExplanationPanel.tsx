@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
+  BookOpenText,
   Building2,
   ChevronDown,
   CircleHelp,
@@ -9,7 +10,7 @@ import {
 import type { SlideLearningContent } from './content';
 import { ExpiredDomainTipsPanel } from './ExpiredDomainTipsPanel';
 
-type SectionId = 'summary' | 'why' | 'onoffUse' | 'action';
+type SectionId = 'details' | 'summary' | 'why' | 'onoffUse' | 'action';
 
 interface SlideExplanationPanelProps {
   content: SlideLearningContent;
@@ -27,10 +28,11 @@ export function SlideExplanationPanel({
   content,
   onRelated,
 }: SlideExplanationPanelProps) {
-  const [openSection, setOpenSection] = useState<SectionId>('summary');
+  const hasDetails = (content.explanation.details?.length ?? 0) > 0;
+  const [openSection, setOpenSection] = useState<SectionId>(hasDetails ? 'details' : 'summary');
 
   useEffect(() => {
-    setOpenSection('summary');
+    setOpenSection((content.explanation.details?.length ?? 0) > 0 ? 'details' : 'summary');
   }, [content.id]);
 
   const allSections: Section[] = [
@@ -87,6 +89,45 @@ export function SlideExplanationPanel({
         </div>
 
         <div className="w-full space-y-2">
+          {hasDetails ? (
+            <div
+              className={`overflow-hidden rounded-2xl border transition ${
+                openSection === 'details' ? 'border-[#BFDBFE] bg-[#F8FBFF]' : 'border-[#E2E8F0] bg-white'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setOpenSection('details')}
+                aria-expanded={openSection === 'details'}
+                className="flex min-h-12 w-full items-center justify-between gap-3 px-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2563EB]"
+              >
+                <span className={`flex items-center gap-2 text-sm font-black ${
+                  openSection === 'details' ? 'text-[#1D4ED8]' : 'text-[#334155]'
+                }`}>
+                  <BookOpenText className="h-4 w-4" />
+                  슬라이드 상세 설명
+                </span>
+                <ChevronDown className={`h-4 w-4 text-[#94A3B8] transition ${openSection === 'details' ? 'rotate-180' : ''}`} />
+              </button>
+              {openSection === 'details' ? (
+                <div className="space-y-4 border-t border-[#DBEAFE] px-4 py-4">
+                  {content.explanation.details?.map((block) => (
+                    <div key={block.heading}>
+                      <h3 className="text-sm font-black text-[#1E293B]">{block.heading}</h3>
+                      <ul className="mt-2 space-y-2">
+                        {block.body.map((item) => (
+                          <li key={item} className="flex items-start gap-2 text-sm leading-6 text-[#475569]">
+                            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2563EB]" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {sections.map((section) => {
             const isOpen = openSection === section.id;
             return (
