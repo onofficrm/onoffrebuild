@@ -45,6 +45,8 @@ export const ContractWizardView: React.FC<ContractWizardViewProps> = ({ onSigned
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
   const [payload, setPayload] = useState<ContractViewPayload | null>(null);
+  const [sealFileName, setSealFileName] = useState('');
+  const [sealDataUrl, setSealDataUrl] = useState('');
   const [form, setForm] = useState<ContractFormFields>({
     companyName: '',
     representativeName: '',
@@ -61,6 +63,7 @@ export const ContractWizardView: React.FC<ContractWizardViewProps> = ({ onSigned
     endDate: '',
     negotiatedTerms: '',
     specialClauses: '',
+    bodyHtml: '',
     agreements: { ...emptyAgreements },
   });
 
@@ -85,6 +88,7 @@ export const ContractWizardView: React.FC<ContractWizardViewProps> = ({ onSigned
       endDate: f.endDate || prev.endDate,
       negotiatedTerms: f.negotiatedTerms || prev.negotiatedTerms,
       specialClauses: f.specialClauses || prev.specialClauses,
+      bodyHtml: f.bodyHtml || prev.bodyHtml,
       agreements: {
         readAll: Boolean(f.agreements?.readAll),
         personalUse: Boolean(f.agreements?.personalUse),
@@ -168,9 +172,9 @@ export const ContractWizardView: React.FC<ContractWizardViewProps> = ({ onSigned
       setError('서명자 이름과 연락처를 입력해 주세요.');
       return;
     }
-    const signatureData = signatureRef.current?.getDataURL();
+    const signatureData = sealDataUrl || signatureRef.current?.getDataURL();
     if (!signatureData) {
-      setError('서명을 입력해 주세요.');
+      setError('화면에 서명하거나 도장·서명 파일을 첨부해 주세요.');
       return;
     }
     setSaving(true);
@@ -194,6 +198,14 @@ export const ContractWizardView: React.FC<ContractWizardViewProps> = ({ onSigned
     );
   }
 
+  if (payload?.isApprovalPending) {
+    return (
+      <div className="rounded-2xl border border-cyan-500/30 bg-slate-900/80 p-8 text-center text-sm text-slate-200">
+        서명 또는 도장을 제출했습니다. 담당자가 CRM에서 수락하면 계약이 완료됩니다.
+      </div>
+    );
+  }
+
   if (payload && payload.canWrite === false && !payload.access?.requires) {
     return (
       <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8 text-center text-sm text-slate-400">
@@ -210,7 +222,7 @@ export const ContractWizardView: React.FC<ContractWizardViewProps> = ({ onSigned
         <p className="text-[10px] font-bold tracking-widest text-cyan-400 uppercase">Service Contract</p>
         <h1 className="mt-1 text-xl sm:text-2xl font-bold text-white">서비스 계약서 체결</h1>
         <p className="mt-2 text-sm text-slate-400 [word-break:keep-all]">
-          입금 확인 후 아래 정보를 입력하고 전자서명을 완료해 주세요.
+          CRM에서 보낸 계약서를 확인하고 고친 뒤, 화면에서 서명하거나 도장·서명 파일을 첨부해 주세요.
         </p>
       </div>
 
@@ -289,6 +301,15 @@ export const ContractWizardView: React.FC<ContractWizardViewProps> = ({ onSigned
               <label className={labelClass()}>특약 사항</label>
               <textarea className={`${fieldClass()} min-h-[80px]`} value={form.specialClauses} onChange={(e) => patch({ specialClauses: e.target.value })} />
             </div>
+            <div>
+              <label className={labelClass()}>계약 본문</label>
+              <textarea
+                className={`${fieldClass()} min-h-[220px] font-mono text-xs`}
+                value={form.bodyHtml || ''}
+                onChange={(e) => patch({ bodyHtml: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-slate-500">고객도 이 본문을 고칠 수 있습니다. 서명을 제출하기 전까지 저장됩니다.</p>
+            </div>
           </div>
         )}
 
@@ -339,7 +360,57 @@ export const ContractWizardView: React.FC<ContractWizardViewProps> = ({ onSigned
               <input type="email" className={fieldClass()} value={form.signerEmail} onChange={(e) => patch({ signerEmail: e.target.value })} />
             </div>
             <div className="sm:col-span-2">
-              <SignatureCanvas ref={signatureRef} disabled={saving} />
+              <label className={labelClass()}>도장 또는 서명 파일</label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                className="block w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-500/20 file:px-3 file:py-2 file:text-xs file:font-bold file:text-cyan-100"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    setSealFileName('');
+                    setSealDataUrl('');
+                    return;
+                  }
+                  if (file.size > 500 * 1024) {
+                    setError('도장·서명 파일은 500KB 이하만 첨부할 수 있습니다.');
+                    event.target.value = '';
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+                    if (!dataUrl.startsWith('data:image/png') && !dataUrl.startsWith('data:image/jpeg')) {
+                      setError('PNG 또는 JPG 파일만 첨부할 수 있습니다.');
+                      return;
+                    }
+                    const image = new Image();
+                    image.onload = () => {
+                      const canvas = document.createElement('canvas');
+                      canvas.width = image.width;
+                      canvas.height = image.height;
+                      const context = canvas.getContext('2d');
+                      if (!context) return;
+                      context.drawImage(image, 0, 0);
+                      const png = canvas.toDataURL('image/png');
+                      if (png.length > 700000) {
+                        setError('변환한 서명 파일이 너무 큽니다. 더 작은 이미지를 첨부해 주세요.');
+                        return;
+                      }
+                      setSealDataUrl(png);
+                      setSealFileName(file.name);
+                      setError('');
+                    };
+                    image.src = dataUrl;
+                  };
+                  reader.readAsDataURL(file);
+                }}
+              />
+              {sealFileName ? <p className="mt-1 text-[11px] text-cyan-200">첨부됨: {sealFileName}</p> : null}
+              <p className="mt-2 text-[11px] text-slate-500">파일이 없으면 아래 칸에 직접 서명합니다.</p>
+            </div>
+            <div className="sm:col-span-2">
+              <SignatureCanvas ref={signatureRef} disabled={saving || Boolean(sealDataUrl)} />
             </div>
           </div>
         )}

@@ -217,6 +217,10 @@ if (!function_exists('onoff_service_contract_ensure_tables')) {
         sql_query($sql_logs, false);
         sql_query($sql_status, false);
         sql_query($sql_addenda, false);
+        $body_col = sql_fetch(" show columns from `{$contracts}` like 'sc_body_html' ");
+        if (empty($body_col['Field'])) {
+            sql_query(" alter table `{$contracts}` add `sc_body_html` mediumtext null ", false);
+        }
         $done = true;
         return true;
     }
@@ -453,6 +457,22 @@ if (!function_exists('onoff_service_contract_sanitize_text')) {
     }
 }
 
+if (!function_exists('onoff_service_contract_sanitize_html')) {
+    function onoff_service_contract_sanitize_html($html, $max = 60000)
+    {
+        $html = (string) $html;
+        $html = preg_replace('#<script\b[^>]*>.*?</script>#is', '', $html);
+        $html = preg_replace('#<iframe\b[^>]*>.*?</iframe>#is', '', $html);
+        $html = preg_replace('#\s+on[a-z]+\s*=\s*(\'[^\']*\'|"[^"]*"|[^\s>]+)#i', '', $html);
+        $html = trim((string) $html);
+        $max = max(1, (int) $max);
+        if (function_exists('mb_substr')) {
+            return mb_substr($html, 0, $max, 'UTF-8');
+        }
+        return substr($html, 0, $max);
+    }
+}
+
 if (!function_exists('onoff_service_contract_log_status')) {
     function onoff_service_contract_log_status($sc_id, $mb_id, $old_status, $new_status, $reason, $actor_mb_id, $actor_type = 'admin')
     {
@@ -631,6 +651,20 @@ if (!function_exists('onoff_service_contract_get_for_member')) {
     function onoff_service_contract_get_for_member($mb_id)
     {
         onoff_service_contract_bootstrap();
+        onoff_service_contract_ensure_tables();
+        $mb_id = preg_replace('/[^a-z0-9_@\.\-]/i', '', (string) $mb_id);
+        if ($mb_id !== '') {
+            $table = onoff_service_contract_table();
+            $open = sql_fetch(" select * from {$table}
+                where sc_mb_id = '" . sql_real_escape_string($mb_id) . "'
+                  and sc_contract_version like 'CRM-%'
+                  and sc_status in ('pending', 'in_progress', 'rejected', 'review_pending')
+                order by sc_id desc
+                limit 1 ");
+            if ($open) {
+                return $open;
+            }
+        }
         $enrollment = onoff_service_contract_find_marketing_enrollment($mb_id);
         if ($enrollment) {
             $package_course = onoff_service_contract_resolve_package_course($enrollment);
@@ -694,6 +728,70 @@ if (!function_exists('onoff_service_contract_create_pending')) {
             sc_updated_at = '" . sql_real_escape_string($now) . "' ";
         sql_query($sql, false);
         return (int) sql_insert_id();
+    }
+}
+
+if (!function_exists('onoff_service_contract_create_from_crm')) {
+    /**
+     * Staff-sent contract. No enrollment row is created or updated.
+     *
+     * @return array{ok:bool,message:string,contract:?array}
+     */
+    function onoff_service_contract_create_from_crm($mb_id, $contract_type, array $fields)
+    {
+        onoff_service_contract_ensure_tables();
+        $mb_id = preg_replace('/[^a-z0-9_@\.\-]/i', '', (string) $mb_id);
+        $contract_type = preg_replace('/[^a-z0-9_\-]/i', '', (string) $contract_type);
+        $courses = array(
+            'marketing' => array('course' => 'marketing-service', 'prefix' => 'CRM-MKT'),
+            'education' => array('course' => 'crm-education', 'prefix' => 'CRM-EDU'),
+            'education_marketing' => array('course' => 'education-marketing', 'prefix' => 'CRM-BOTH'),
+        );
+        if ($mb_id === '' || !isset($courses[$contract_type])) {
+            return array('ok' => false, 'message' => '고객 또는 계약 종류가 올바르지 않습니다.', 'contract' => null);
+        }
+        $member = function_exists('get_member') ? get_member($mb_id) : null;
+        if (!$member || empty($member['mb_id'])) {
+            return array('ok' => false, 'message' => 'ONOFF 회원을 찾을 수 없습니다.', 'contract' => null);
+        }
+
+        $spec = $courses[$contract_type];
+        $version = $spec['prefix'] . '-' . date('YmdHis') . '-' . substr(md5($mb_id . microtime(true)), 0, 6);
+        $code = $spec['prefix'] . '-' . date('Ymd') . '-' . strtoupper(substr(md5($version), 0, 6));
+        $now = onoff_service_contract_now();
+        $table = onoff_service_contract_table();
+        $sql = " insert into {$table} set
+            sc_mb_id = '" . sql_real_escape_string($mb_id) . "',
+            sc_en_id = '0',
+            sc_course_id = '" . sql_real_escape_string($spec['course']) . "',
+            sc_inquiry_bo_table = '',
+            sc_inquiry_wr_id = '0',
+            sc_contract_version = '" . sql_real_escape_string($version) . "',
+            sc_contract_code = '" . sql_real_escape_string($code) . "',
+            sc_status = '" . sql_real_escape_string(ONOFF_SC_STATUS_PENDING) . "',
+            sc_company_name = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['companyName'] ?? '', 200)) . "',
+            sc_representative_name = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['representativeName'] ?? '', 100)) . "',
+            sc_signer_name = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['signerName'] ?? '', 100)) . "',
+            sc_signer_phone = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['signerPhone'] ?? '', 30)) . "',
+            sc_signer_email = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['signerEmail'] ?? '', 200)) . "',
+            sc_service_scope = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['serviceScope'] ?? '', 5000)) . "',
+            sc_amount = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['amount'] ?? '', 100)) . "',
+            sc_start_date = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['startDate'] ?? '', 30)) . "',
+            sc_end_date = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['endDate'] ?? '', 30)) . "',
+            sc_special_clauses = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($fields['specialClauses'] ?? '', 5000)) . "',
+            sc_body_html = '" . sql_real_escape_string(onoff_service_contract_sanitize_html($fields['bodyHtml'] ?? '')) . "',
+            sc_created_at = '" . sql_real_escape_string($now) . "',
+            sc_updated_at = '" . sql_real_escape_string($now) . "' ";
+        if (!sql_query($sql, false)) {
+            return array('ok' => false, 'message' => '계약서를 보내지 못했습니다.', 'contract' => null);
+        }
+        $sc_id = (int) sql_insert_id();
+        onoff_service_contract_log_status($sc_id, $mb_id, '', ONOFF_SC_STATUS_PENDING, 'crm send', '', 'crm');
+        return array(
+            'ok' => true,
+            'message' => '계약서를 고객에게 보냈습니다.',
+            'contract' => onoff_service_contract_get_by_id($sc_id),
+        );
     }
 }
 
@@ -818,6 +916,7 @@ if (!function_exists('onoff_service_contract_form_from_row')) {
             'endDate' => (string) ($row['sc_end_date'] ?? ''),
             'negotiatedTerms' => (string) ($row['sc_negotiated_terms'] ?? ''),
             'specialClauses' => (string) ($row['sc_special_clauses'] ?? ''),
+            'bodyHtml' => (string) ($row['sc_body_html'] ?? ''),
             'agreements' => array(
                 'readAll' => !empty($agreements['readAll']),
                 'personalUse' => !empty($agreements['personalUse']),
@@ -865,6 +964,9 @@ if (!function_exists('onoff_service_contract_save_draft')) {
         if ($new_status === ONOFF_SC_STATUS_PENDING || $new_status === ONOFF_SC_STATUS_REJECTED) {
             $new_status = ONOFF_SC_STATUS_IN_PROGRESS;
         }
+        $body_html = array_key_exists('bodyHtml', $form)
+            ? onoff_service_contract_sanitize_html($form['bodyHtml'])
+            : (string) ($row['sc_body_html'] ?? '');
 
         $sc_id = (int) $row['sc_id'];
         $table = onoff_service_contract_table();
@@ -886,6 +988,7 @@ if (!function_exists('onoff_service_contract_save_draft')) {
             sc_end_date = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($form['endDate'] ?? '', 30)) . "',
             sc_negotiated_terms = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($form['negotiatedTerms'] ?? '', 5000)) . "',
             sc_special_clauses = '" . sql_real_escape_string(onoff_service_contract_sanitize_text($form['specialClauses'] ?? '', 5000)) . "',
+            sc_body_html = '" . sql_real_escape_string($body_html) . "',
             sc_company_snapshot = '" . sql_real_escape_string(json_encode($company_snapshot, JSON_UNESCAPED_UNICODE)) . "',
             sc_agreement_snapshot = '" . sql_real_escape_string(json_encode($agreement_snapshot, JSON_UNESCAPED_UNICODE)) . "',
             sc_updated_at = '" . sql_real_escape_string($now) . "'
@@ -951,6 +1054,10 @@ if (!function_exists('onoff_service_contract_render_html')) {
                 $body = (string) ($pub['html'] ?? '');
                 $subject = (string) ($pub['subject'] ?? $subject);
             }
+        }
+        $custom_body = trim((string) ($extras['bodyHtml'] ?? ''));
+        if ($custom_body !== '') {
+            $body = $custom_body;
         }
         if ($body === '' && function_exists('onoff_marketing_contract_default_html')) {
             if ($contract_type === 'education-marketing' && function_exists('onoff_edu_marketing_contract_default_html')) {
@@ -1157,6 +1264,7 @@ if (!function_exists('onoff_service_contract_sign')) {
             'serviceScope' => $party_a['serviceScope'] ?? '',
             'negotiatedTerms' => $party_a['negotiatedTerms'] ?? '',
             'specialClauses' => $party_a['specialClauses'] ?? '',
+            'bodyHtml' => (string) ($row['sc_body_html'] ?? ''),
             'addenda' => $addenda,
         ));
 
@@ -1269,8 +1377,9 @@ if (!function_exists('onoff_service_contract_is_fully_signed')) {
         if (!$row) {
             return false;
         }
+        $stored_version = (string) ($row['sc_contract_version'] ?? '');
         $version = onoff_service_contract_version_for_course((string) ($row['sc_course_id'] ?? ''));
-        if ((string) ($row['sc_contract_version'] ?? '') !== $version) {
+        if (strpos($stored_version, 'CRM-') !== 0 && $stored_version !== $version) {
             return false;
         }
         if ((string) ($row['sc_status'] ?? '') !== ONOFF_SC_STATUS_SIGNED) {
@@ -1322,6 +1431,75 @@ if (!function_exists('onoff_service_contract_has_signed_history')) {
     }
 }
 
+if (!function_exists('onoff_service_contract_find_education_enrollment')) {
+    function onoff_service_contract_find_education_enrollment($mb_id)
+    {
+        onoff_service_contract_bootstrap();
+        if (!function_exists('onoff_education_enrollment_table')) {
+            return null;
+        }
+        onoff_education_ensure_table();
+        $etable = onoff_education_enrollment_table();
+        $mb_id = preg_replace('/[^a-z0-9_@\.\-]/i', '', (string) $mb_id);
+        if ($mb_id === '') {
+            return null;
+        }
+        $order = array('pending_contract', 'active', 'pending_deposit', 'expired');
+        foreach ($order as $status) {
+            $row = sql_fetch(" select * from {$etable}
+                where mb_id = '" . sql_real_escape_string($mb_id) . "'
+                  and course_id = 'seo-geo-master'
+                  and status = '" . sql_real_escape_string($status) . "'
+                order by en_id desc
+                limit 1 ");
+            if ($row) {
+                return $row;
+            }
+        }
+        return null;
+    }
+}
+
+if (!function_exists('onoff_service_contract_education_access')) {
+    /**
+     * Education-only enrollments use /education/contract, not the marketing CPA flow.
+     * Show the platform contract menu without locking the classroom.
+     *
+     * @param array<string,mixed> $enrollment
+     * @return array<string,mixed>
+     */
+    function onoff_service_contract_education_access($mb_id, array $enrollment, $grace_active)
+    {
+        $status = function_exists('onoff_education_normalize_status')
+            ? onoff_education_normalize_status($enrollment['status'] ?? '')
+            : (string) ($enrollment['status'] ?? '');
+        $signed_at = trim((string) ($enrollment['contract_signed_at'] ?? ''));
+        $signed = $status === 'active' && $signed_at !== '';
+        $requires = $status === 'pending_contract';
+        $version = function_exists('onoff_education_contract_version')
+            ? onoff_education_contract_version()
+            : 'EDU-CONTRACT-2026-09';
+        $path = function_exists('onoff_education_contract_path_for_course')
+            ? onoff_education_contract_path_for_course('seo-geo-master')
+            : '/education/contract';
+
+        return array(
+            'applies' => true,
+            'signed' => $signed,
+            'blocked' => false,
+            'graceActive' => (bool) $grace_active,
+            'requires' => $requires,
+            'hasSignedHistory' => $signed,
+            'viewable' => $signed,
+            'status' => $signed ? 'signed' : ($requires ? 'pending' : $status),
+            'courseId' => 'seo-geo-master',
+            'path' => $path,
+            'version' => $version,
+            'rejectionReason' => '',
+        );
+    }
+}
+
 if (!function_exists('onoff_service_contract_access')) {
     function onoff_service_contract_access($mb_id)
     {
@@ -1348,6 +1526,10 @@ if (!function_exists('onoff_service_contract_access')) {
         );
 
         if (!$applies) {
+            $education = onoff_service_contract_find_education_enrollment($mb_id);
+            if ($education) {
+                return onoff_service_contract_education_access($mb_id, $education, $grace_active);
+            }
             return $default;
         }
 
@@ -1463,9 +1645,10 @@ if (!function_exists('onoff_service_contract_view_to_api')) {
                 'endDate' => $form['endDate'] ?? '',
                 'serviceScope' => $form['serviceScope'] ?? '',
                 'negotiatedTerms' => $form['negotiatedTerms'] ?? '',
-                'specialClauses' => $form['specialClauses'] ?? '',
-                'addenda' => $addenda,
-            ));
+            'specialClauses' => $form['specialClauses'] ?? '',
+            'bodyHtml' => (string) ($row['sc_body_html'] ?? ($form['bodyHtml'] ?? '')),
+            'addenda' => $addenda,
+        ));
         }
 
         $sc_id = $row ? (int) $row['sc_id'] : 0;
@@ -1650,6 +1833,9 @@ if (!function_exists('onoff_service_contract_activate_enrollments_on_approve')) 
     function onoff_service_contract_activate_enrollments_on_approve(array $row)
     {
         onoff_service_contract_bootstrap();
+        if (strpos((string) ($row['sc_contract_version'] ?? ''), 'CRM-') === 0) {
+            return false;
+        }
         if (!function_exists('onoff_education_update_enrollment')) {
             return false;
         }

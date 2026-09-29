@@ -24,6 +24,7 @@ export type ContractFormFields = {
   endDate: string;
   negotiatedTerms: string;
   specialClauses: string;
+  bodyHtml?: string;
   agreements: ContractAgreements;
   step?: number;
 };

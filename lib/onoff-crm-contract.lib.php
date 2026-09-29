@@ -38,7 +38,7 @@ function onoff_crm_contract_statuses()
 function onoff_crm_contract_service_course_ids($type)
 {
     if ($type === 'education') {
-        return array('seo-geo-master');
+        return array('seo-geo-master', 'crm-education');
     }
     if ($type === 'marketing') {
         return array('marketing-service', 'marketing');
@@ -293,14 +293,32 @@ function onoff_crm_contract_education_list(array $filters)
 /** Education platform contracts keep the enrollment id in their key so the key is the same before and after the move. */
 function onoff_crm_contract_service_key_id($type, array $row)
 {
-    return $type === 'education' ? (int) ($row['sc_en_id'] ?? 0) : (int) $row['sc_id'];
+    $version = (string) ($row['sc_contract_version'] ?? '');
+    if ($type === 'education' && (int) ($row['sc_en_id'] ?? 0) > 0 && strpos($version, 'CRM-') !== 0) {
+        return (int) $row['sc_en_id'];
+    }
+    return (int) $row['sc_id'];
 }
 
 function onoff_crm_contract_service_get($type, $id)
 {
-    $row = $type === 'education'
-        ? onoff_service_contract_education_row((int) $id)
-        : onoff_service_contract_get_by_id((int) $id);
+    $id = (int) $id;
+    if ($id < 1) {
+        return null;
+    }
+    $by_id = onoff_service_contract_get_by_id($id);
+    if ($by_id && strpos((string) ($by_id['sc_contract_version'] ?? ''), 'CRM-') === 0) {
+        if (onoff_crm_contract_type_for_service_course((string) ($by_id['sc_course_id'] ?? '')) === $type) {
+            return $by_id;
+        }
+    }
+    if ($type === 'education') {
+        $row = function_exists('onoff_service_contract_education_row')
+            ? onoff_service_contract_education_row($id)
+            : onoff_service_contract_get($id);
+    } else {
+        $row = $by_id;
+    }
     if (!$row || onoff_crm_contract_type_for_service_course((string) ($row['sc_course_id'] ?? '')) !== $type) {
         return null;
     }
@@ -327,7 +345,10 @@ function onoff_crm_contract_service_to_api($row)
         'representativeName' => onoff_crm_contract_nullable($row['sc_representative_name'] ?? ''),
         'signerName' => onoff_crm_contract_nullable($row['sc_signer_name'] ?? ''),
         'serviceScope' => onoff_crm_contract_nullable($row['sc_service_scope'] ?? ''),
+        'specialClauses' => onoff_crm_contract_nullable($row['sc_special_clauses'] ?? ''),
+        'bodyHtml' => (string) ($row['sc_body_html'] ?? ''),
         'amount' => onoff_crm_contract_parse_amount($row['sc_amount'] ?? ''),
+        'amountText' => (string) ($row['sc_amount'] ?? ''),
         'startDate' => onoff_crm_contract_nullable_date($row['sc_start_date'] ?? ''),
         'endDate' => onoff_crm_contract_nullable_date($row['sc_end_date'] ?? ''),
         'status' => $status,
@@ -930,14 +951,83 @@ function onoff_crm_contract_row_to_api(array $loaded, $row)
 }
 
 /**
+ * CRM staff writes a contract and sends it to the customer. Does not write enrollments.
+ *
+ * @return array{status:int,body:array}
+ */
+function onoff_crm_contract_send(array $body, $actor_id)
+{
+    $payload = isset($body['payload']) && is_array($body['payload']) ? $body['payload'] : $body;
+    $type = isset($payload['contractType']) ? (string) $payload['contractType'] : '';
+    if ($type === 'education_marketing' || $type === 'education-marketing') {
+        $type = 'education_marketing';
+    } elseif ($type === 'education' || $type === 'crm-education') {
+        $type = 'education';
+    } elseif ($type === 'marketing' || $type === 'marketing-service') {
+        $type = 'marketing';
+    }
+    if (!isset(onoff_crm_contract_types()[$type])) {
+        return onoff_crm_contract_error_response(422, 'invalid_payload', '계약 종류는 마케팅, 강의, 마케팅+강의 중 하나여야 합니다.');
+    }
+    $mb_id = preg_replace('/[^a-z0-9_@\.\-]/i', '', (string) ($payload['memberId'] ?? ''));
+    if ($mb_id === '') {
+        return onoff_crm_contract_error_response(422, 'invalid_payload', '고객 회원 아이디가 없습니다.');
+    }
+    $created = onoff_service_contract_create_from_crm($mb_id, $type, array(
+        'companyName' => $payload['companyName'] ?? '',
+        'representativeName' => $payload['representativeName'] ?? '',
+        'signerName' => $payload['representativeName'] ?? '',
+        'signerPhone' => $payload['phone'] ?? '',
+        'signerEmail' => $payload['email'] ?? '',
+        'serviceScope' => $payload['serviceScope'] ?? '',
+        'amount' => $payload['amount'] ?? '',
+        'startDate' => $payload['startDate'] ?? '',
+        'endDate' => $payload['endDate'] ?? '',
+        'specialClauses' => $payload['specialClauses'] ?? '',
+        'bodyHtml' => $payload['bodyHtml'] ?? '',
+    ));
+    if (empty($created['ok']) || empty($created['contract'])) {
+        $message = (string) ($created['message'] ?? '계약서를 보내지 못했습니다.');
+        $code = strpos($message, '회원') !== false ? 'member_not_found' : 'send_failed';
+        $status = $code === 'member_not_found' ? 404 : 500;
+        return onoff_crm_contract_error_response($status, $code, $message);
+    }
+    $api = onoff_crm_contract_service_to_api($created['contract']);
+    onoff_crm_contract_audit_write(array(
+        'idempotency_key' => '',
+        'contract_key' => $api['contractKey'],
+        'contract_type' => $type,
+        'source_id' => $api['sourceId'],
+        'mb_id' => $mb_id,
+        'action' => 'send',
+        'actor_id' => $actor_id,
+        'result' => 'success',
+        'error_code' => '',
+        'old_status' => '',
+        'new_status' => 'pending',
+        'reason' => '',
+        'changed_fields' => array('bodyHtml', 'amount', 'startDate', 'endDate'),
+        'detail' => array(),
+    ));
+    return array('status' => 200, 'body' => array('ok' => true, 'data' => array(
+        'message' => (string) $created['message'],
+        'contract' => $api,
+        'allowedActions' => onoff_crm_contract_allowed_actions($type, 'pending'),
+    )));
+}
+
+/**
  * @return array{status:int,body:array}
  */
 function onoff_crm_contract_mutate(array $body, $actor_id)
 {
-    $actions = array('update_draft', 'request_revision', 'approve', 'reject', 'cancel');
+    $actions = array('send', 'update_draft', 'request_revision', 'approve', 'reject', 'cancel');
     $action = isset($body['action']) && is_string($body['action']) ? $body['action'] : '';
     if (!in_array($action, $actions, true)) {
         return onoff_crm_contract_error_response(400, 'invalid_action', 'action 값이 올바르지 않습니다.');
+    }
+    if ($action === 'send') {
+        return onoff_crm_contract_send($body, $actor_id);
     }
     $key = isset($body['contractKey']) ? $body['contractKey'] : null;
     $resolve_params = array(
