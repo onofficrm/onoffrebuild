@@ -17,10 +17,11 @@ import { FixedSlideCanvas } from './FixedSlideCanvas';
 import { SlideExplanationPanel } from './SlideExplanationPanel';
 import { SlideLibrarySidebar } from './SlideLibrarySidebar';
 import {
-  DEFAULT_DECK,
   EDUCATION_DECKS,
   TOTAL_EDUCATION_SLIDES,
   getEducationDeck,
+  getNextDeck,
+  getPreviousDeck,
   type EducationDeck,
 } from './slideDeckRegistry';
 
@@ -81,16 +82,16 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
       goTo(currentIndex - 1);
       return;
     }
-    const previousDeck = EDUCATION_DECKS[deck.lessonNumber - 2];
+    const previousDeck = getPreviousDeck(deck);
     if (previousDeck) goTo(previousDeck.slides.length - 1, previousDeck);
-  }, [currentIndex, deck.lessonNumber, goTo]);
+  }, [currentIndex, deck, goTo]);
 
   const next = useCallback(() => {
     if (currentIndex < deck.slides.length - 1) {
       goTo(currentIndex + 1);
       return;
     }
-    const nextDeck = EDUCATION_DECKS[deck.lessonNumber];
+    const nextDeck = getNextDeck(deck);
     if (nextDeck) goTo(0, nextDeck);
   }, [currentIndex, deck, goTo]);
 
@@ -171,9 +172,8 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
     else previous();
   };
 
-  const hasPrevious = currentIndex > 0 || deck !== DEFAULT_DECK;
-  const hasNext =
-    currentIndex < deck.slides.length - 1 || deck.lessonNumber < EDUCATION_DECKS.length;
+  const hasPrevious = currentIndex > 0 || Boolean(getPreviousDeck(deck));
+  const hasNext = currentIndex < deck.slides.length - 1 || Boolean(getNextDeck(deck));
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -204,7 +204,7 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
           </div>
         </div>
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+        <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {EDUCATION_DECKS.map((item) => (
             <button
               key={item.id}
@@ -352,8 +352,9 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
         onRelated={
           currentSlide.learningContent.relatedLabel
             ? () => {
-                if (currentSlide.slug === 'next-preview') {
-                  goTo(0, EDUCATION_DECKS[1]);
+                const nextDeck = getNextDeck(deck);
+                if (!currentSlide.learningContent.relatedTab && nextDeck) {
+                  goTo(0, nextDeck);
                 } else if (currentSlide.learningContent.relatedTab) {
                   onNavigate(
                     currentSlide.learningContent.relatedTab,

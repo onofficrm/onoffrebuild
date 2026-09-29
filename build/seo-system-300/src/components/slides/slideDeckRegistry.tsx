@@ -1,51 +1,8 @@
 import type { ComponentType } from 'react';
-import { SLIDES as AUTHORING_SLIDES } from '../../education/slides/slideCatalog';
-import {
-  Slide01Cover,
-  Slide02WhyProcess,
-  Slide03Philosophy,
-  Slide04PipelineOverview,
-  Slide05Step01Domain,
-  Slide06Step02Website,
-  Slide07Step03Content,
-  Slide08Step04Indexing,
-  Slide09Step05Backlink,
-  Slide10Step06Traffic,
-  Slide11Step07Analytics,
-  Slide12Step08GEO,
-  Slide13SEOAndGEO,
-  Slide14FlywheelLoop,
-  Slide15PlatformEcosystem,
-  Slide16StudentJourney,
-  Slide17ProjectOutcomes,
-  Slide18Lesson1Mission,
-  Slide19CompletionCriteria,
-  Slide20NextPreview,
-} from '../../education/slides/lesson01';
-import {
-  Slide21Cover,
-  Slide22WhatIsExpiredDomain,
-  Slide23WhyAnalyze,
-  Slide24HolisticEvaluation,
-  Slide25Check01Relevance,
-  Slide26Check02History,
-  Slide27Check03Backlinks,
-  Slide28Check04AnchorText,
-  Slide29Check05SpamSignals,
-  Slide30ExpiredDomainAbuse,
-  Slide31ToolDashboard,
-  Slide32AnalysisPipeline,
-  Slide33CompareThreeCandidates,
-  Slide34PassIsAlsoGood,
-  Slide35Lesson2Mission,
-  Slide36MissionOutcomes,
-  Slide37CompletionCriteria,
-  Slide38NextPreview,
-} from '../../education/slides/lesson02';
-import {
-  SLIDE_LEARNING_CONTENT,
-  type SlideLearningContent,
-} from './content';
+import { LESSONS } from '../../education/slides/lessons';
+import { SlideRenderer } from '../../education/slides/shared/SlideRenderer';
+import type { LessonDefinition, SlideSpec } from '../../education/slides/shared/slideSpec';
+import type { SlideLearningContent } from './content';
 
 export interface EducationSlide {
   id: number;
@@ -54,12 +11,13 @@ export interface EducationSlide {
   category: string;
   title: string;
   subtitle?: string;
+  spec: SlideSpec;
   component: ComponentType;
   learningContent: SlideLearningContent;
 }
 
 export interface EducationDeck {
-  id: 'lesson-1' | 'lesson-2';
+  id: string;
   lessonNumber: number;
   title: string;
   shortTitle: string;
@@ -68,100 +26,78 @@ export interface EducationDeck {
   slides: EducationSlide[];
 }
 
-const SLIDE_COMPONENTS: ComponentType[] = [
-  Slide01Cover,
-  Slide02WhyProcess,
-  Slide03Philosophy,
-  Slide04PipelineOverview,
-  Slide05Step01Domain,
-  Slide06Step02Website,
-  Slide07Step03Content,
-  Slide08Step04Indexing,
-  Slide09Step05Backlink,
-  Slide10Step06Traffic,
-  Slide11Step07Analytics,
-  Slide12Step08GEO,
-  Slide13SEOAndGEO,
-  Slide14FlywheelLoop,
-  Slide15PlatformEcosystem,
-  Slide16StudentJourney,
-  Slide17ProjectOutcomes,
-  Slide18Lesson1Mission,
-  Slide19CompletionCriteria,
-  Slide20NextPreview,
-  Slide21Cover,
-  Slide22WhatIsExpiredDomain,
-  Slide23WhyAnalyze,
-  Slide24HolisticEvaluation,
-  Slide25Check01Relevance,
-  Slide26Check02History,
-  Slide27Check03Backlinks,
-  Slide28Check04AnchorText,
-  Slide29Check05SpamSignals,
-  Slide30ExpiredDomainAbuse,
-  Slide31ToolDashboard,
-  Slide32AnalysisPipeline,
-  Slide33CompareThreeCandidates,
-  Slide34PassIsAlsoGood,
-  Slide35Lesson2Mission,
-  Slide36MissionOutcomes,
-  Slide37CompletionCriteria,
-  Slide38NextPreview,
-];
+const TOTAL = LESSONS.reduce((total, lesson) => total + lesson.slides.length, 0);
 
-function buildSlides(
-  start: number,
-  end: number,
-  lessonId: EducationDeck['id'],
-): EducationSlide[] {
-  return AUTHORING_SLIDES.slice(start, end).map((slide, localIndex) => ({
-    ...slide,
-    id: localIndex + 1,
-    globalId: slide.id,
-    component: SLIDE_COMPONENTS[start + localIndex],
-    learningContent: SLIDE_LEARNING_CONTENT[slide.slug] ?? {
-      id: `${lessonId}-slide-${String(localIndex + 1).padStart(2, '0')}`,
-      lessonId,
-      order: localIndex + 1,
-      shortTitle: slide.title,
-      visualKeywords: [],
-      explanation: {
-        summary: slide.subtitle ?? slide.title,
-        why: [],
-        onoffUse: [],
-        action: [],
-      },
-    },
+function learningContentFor(lesson: LessonDefinition, spec: SlideSpec, order: number): SlideLearningContent {
+  const authored = lesson.explanations[spec.slug];
+  const base = authored ?? {
+    shortTitle: spec.title,
+    visualKeywords: [],
+    explanation: { summary: spec.subtitle ?? spec.title },
+  };
+  return {
+    ...base,
+    id: `${lesson.id}-slide-${String(order).padStart(2, '0')}`,
+    lessonId: lesson.id,
+    lessonNumber: lesson.number,
+    order,
+  };
+}
+
+function buildDecks(): EducationDeck[] {
+  const seen = new Set<string>();
+  let globalId = 0;
+
+  return LESSONS.map((lesson) => ({
+    id: lesson.id,
+    lessonNumber: lesson.number,
+    title: lesson.title,
+    shortTitle: lesson.shortTitle,
+    description: lesson.description,
+    duration: lesson.duration,
+    slides: lesson.slides.map((spec, index) => {
+      if (seen.has(spec.slug)) {
+        throw new Error(`Duplicate education slide slug: ${spec.slug}`);
+      }
+      seen.add(spec.slug);
+      if (import.meta.env.DEV && !lesson.explanations[spec.slug]) {
+        console.warn(`[slides] ${lesson.id}/${spec.slug} has no explanation entry`);
+      }
+
+      globalId += 1;
+      const page = globalId;
+      const Slide = () => <SlideRenderer spec={spec} page={page} total={TOTAL} lesson={lesson.number} />;
+      Slide.displayName = `Slide(${spec.slug})`;
+
+      return {
+        id: index + 1,
+        globalId: page,
+        slug: spec.slug,
+        category: spec.category,
+        title: spec.menuTitle,
+        subtitle: spec.menuSubtitle,
+        spec,
+        component: Slide,
+        learningContent: learningContentFor(lesson, spec, index + 1),
+      };
+    }),
   }));
 }
 
-export const EDUCATION_DECKS: EducationDeck[] = [
-  {
-    id: 'lesson-1',
-    lessonNumber: 1,
-    title: 'SEO·GEO 성과를 만드는 8단계 실전 프로세스',
-    shortTitle: '전체 프로세스 이해',
-    description: '도메인부터 GEO까지 연결되는 전체 실행 구조를 이해합니다.',
-    duration: '약 35분',
-    slides: buildSlides(0, 20, 'lesson-1'),
-  },
-  {
-    id: 'lesson-2',
-    lessonNumber: 2,
-    title: '좋은 출발점을 고르는 낙장도메인 실전 분석',
-    shortTitle: '낙장도메인 실전 분석',
-    description: '좋은 도메인과 위험한 도메인을 근거로 구분하는 방법을 익힙니다.',
-    duration: '약 40분',
-    slides: buildSlides(20, 38, 'lesson-2'),
-  },
-];
+export const EDUCATION_DECKS: EducationDeck[] = buildDecks();
 
 export const DEFAULT_DECK = EDUCATION_DECKS[0];
-export const TOTAL_EDUCATION_SLIDES = EDUCATION_DECKS.reduce(
-  (total, deck) => total + deck.slides.length,
-  0,
-);
+export const TOTAL_EDUCATION_SLIDES = TOTAL;
 
 export function getEducationDeck(deckId?: string): EducationDeck {
   return EDUCATION_DECKS.find((deck) => deck.id === deckId) ?? DEFAULT_DECK;
+}
+
+export function getNextDeck(deck: EducationDeck): EducationDeck | undefined {
+  return EDUCATION_DECKS[EDUCATION_DECKS.indexOf(deck) + 1];
+}
+
+export function getPreviousDeck(deck: EducationDeck): EducationDeck | undefined {
+  const index = EDUCATION_DECKS.indexOf(deck);
+  return index > 0 ? EDUCATION_DECKS[index - 1] : undefined;
 }

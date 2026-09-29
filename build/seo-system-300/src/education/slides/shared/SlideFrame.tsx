@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 interface SlideFrameProps {
   page: number;
   total?: number;
-  lesson?: 1 | 2;
+  lesson?: number;
   kicker: string;
   title: string;
   subtitle?: string;

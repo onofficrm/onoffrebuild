@@ -76,7 +76,7 @@ export function SlideExplanationPanel({
                 Knowledge
               </span>
               <span className="text-xs font-semibold text-[#94A3B8]">
-                {content.lessonId === 'lesson-1' ? '1강' : '2강'} · Slide {String(content.order).padStart(2, '0')}
+                {content.lessonNumber ?? content.lessonId.replace(/\D/g, '')}강 · Slide {String(content.order).padStart(2, '0')}
               </span>
             </div>
             <h2 id="slide-explanation-title" className="mt-2 text-base font-black text-[#334155]">

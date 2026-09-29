@@ -73,7 +73,8 @@ export interface ExpiredDomainTips {
 
 export interface SlideLearningContent {
   id: string;
-  lessonId: 'lesson-1' | 'lesson-2';
+  lessonId: string;
+  lessonNumber?: number;
   order: number;
   shortTitle: string;
   visualKeywords: string[];
