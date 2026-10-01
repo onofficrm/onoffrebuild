@@ -955,6 +955,16 @@ function seosys300_revision_admin_save($input, $actor_mb_id = null)
         seosys300_revision_add_comment($ticket_id, $admin_id, 'admin', $feedback . ($url !== '' ? "\n" . $url : ''));
         $fresh = seosys300_revision_get_row($ticket_id);
         seosys300_revision_notify('REVISION_FEEDBACK', $fresh);
+    } elseif ($action === 'complete') {
+        if ((string) $row['status'] !== 'feedback') {
+            seosys300_json_error(409, 'invalid_status', '고객 확인 단계에서만 완료할 수 있습니다.');
+        }
+        seosys300_query(
+            "UPDATE `{$table}` SET status = 'completed', updated_at = '{$now}' WHERE id = {$ticket_id}"
+        );
+        seosys300_revision_add_comment($ticket_id, $admin_id, 'admin', $note !== '' ? $note : '담당자가 수정 작업을 완료 처리했습니다.');
+        $fresh = seosys300_revision_get_row($ticket_id);
+        seosys300_revision_notify('REVISION_COMPLETED', $fresh);
     } elseif ($action === 'cancel') {
         seosys300_query(
             "UPDATE `{$table}` SET status = 'cancelled', updated_at = '{$now}' WHERE id = {$ticket_id}"

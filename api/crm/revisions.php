@@ -177,7 +177,7 @@ if (!is_array($input)) {
 }
 $op = isset($input['action']) ? (string) $input['action'] : (isset($input['op']) ? (string) $input['op'] : '');
 $op = strtolower(preg_replace('/[^a-z0-9_\-]/', '', $op));
-$allowed = array('review', 'need_info', 'need-info', 'free', 'free_progress', 'quote', 'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'cancel');
+$allowed = array('review', 'need_info', 'need-info', 'free', 'free_progress', 'quote', 'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'complete', 'cancel');
 if (!in_array($op, $allowed, true)) {
     onoff_crm_revision_fail('unknown_action', 'Unsupported feedback action.', 400);
 }
