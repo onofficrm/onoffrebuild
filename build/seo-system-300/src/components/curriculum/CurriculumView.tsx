@@ -1,33 +1,38 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   GraduationCap,
   PlayCircle,
-  Download,
   CheckCircle2,
   Circle,
-  FileText,
   Clock,
-  ExternalLink,
-  BookOpen,
-  Award,
-  Video,
   Presentation
 } from 'lucide-react';
 import { CurriculumLesson } from '../../types';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
-import { Modal } from '../common/Modal';
-import { MOCK_CURRICULUM } from '../../mocks/studentFixtures';
+import { EDUCATION_DECKS } from '../slides/slideDeckRegistry';
 
 export interface CurriculumViewProps {
   lessons?: CurriculumLesson[];
-  onOpenSlides?: () => void;
+  onOpenSlides?: (lessonId?: string) => void;
 }
 
-export const CurriculumView: React.FC<CurriculumViewProps> = ({ onOpenSlides }) => {
-  const [lessons, setLessons] = useState<CurriculumLesson[]>(MOCK_CURRICULUM);
-  const [activeVideoLesson, setActiveVideoLesson] = useState<CurriculumLesson | null>(null);
+export const CurriculumView: React.FC<CurriculumViewProps> = ({ lessons: lessonOverrides, onOpenSlides }) => {
+  const registeredLessons = useMemo<CurriculumLesson[]>(
+    () =>
+      EDUCATION_DECKS.map((deck, index) => ({
+        id: index + 1,
+        stepNumber: deck.lessonNumber,
+        moduleTitle: `${deck.lessonNumber}강 · ${deck.shortTitle}`,
+        title: deck.title,
+        duration: deck.duration,
+        completed: false,
+        resources: [],
+      })),
+    []
+  );
+  const [lessons, setLessons] = useState<CurriculumLesson[]>(lessonOverrides || registeredLessons);
 
   const completedCount = lessons.filter((l) => l.completed).length;
   const totalCount = lessons.length;
@@ -52,8 +57,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({ onOpenSlides }) 
             수강생 전용 커리큘럼 & 실전 SOP
           </h1>
           <p className="text-xs sm:text-sm text-blue-100/80 leading-relaxed">
-            10단계 실행 프로세스별 핵심 강의 영상과 즉시 다운로드하여 사용할 수 있는
-            엑셀/스프레드시트 템플릿을 제공합니다.
+            현재 등록된 강의를 순서대로 학습하고, 강의별 슬라이드와 실전 설명을 확인할 수 있습니다.
           </p>
         </div>
 
@@ -70,13 +74,13 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({ onOpenSlides }) 
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
             >
               <Presentation className="h-4 w-4" />
-              1·2강 교육 슬라이드 보기
+              첫 강의 시작하기
             </button>
           ) : null}
         </div>
       </div>
 
-      {/* 10 Modules List */}
+      {/* Registered lessons */}
       <div className="space-y-4">
         {lessons.map((lesson) => (
           <Card
@@ -111,19 +115,9 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({ onOpenSlides }) 
                   </div>
                   <h3 className="text-sm sm:text-base font-bold text-slate-900">{lesson.title}</h3>
 
-                  {/* Resource Badges */}
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    {lesson.resources.map((res, i) => (
-                      <button
-                        key={i}
-                        onClick={() => alert(`[다운로드] ${res.title} 파일이 저장되었습니다.`)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
-                      >
-                        <Download className="w-3 h-3 text-blue-600" />
-                        <span>{res.title}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {EDUCATION_DECKS[lesson.id - 1]?.description}
+                  </p>
                 </div>
               </div>
 
@@ -132,9 +126,9 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({ onOpenSlides }) 
                   variant="primary"
                   size="sm"
                   leftIcon={<PlayCircle className="w-4 h-4" />}
-                  onClick={() => setActiveVideoLesson(lesson)}
+                  onClick={() => onOpenSlides?.(EDUCATION_DECKS[lesson.id - 1]?.id)}
                 >
-                  강의 영상 시청
+                  강의 보기
                 </Button>
               </div>
             </div>
@@ -142,52 +136,6 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({ onOpenSlides }) 
         ))}
       </div>
 
-      {/* Video Player Modal */}
-      {activeVideoLesson && (
-        <Modal
-          isOpen={true}
-          onClose={() => setActiveVideoLesson(null)}
-          title={activeVideoLesson.title}
-          subtitle={`${activeVideoLesson.moduleTitle} (재생시간: ${activeVideoLesson.duration})`}
-          maxWidth="2xl"
-        >
-          <div className="space-y-4">
-            <div className="w-full aspect-video bg-slate-900 rounded-xl flex flex-col items-center justify-center text-white relative overflow-hidden shadow-inner">
-              <div className="w-16 h-16 rounded-full bg-blue-600/80 hover:bg-blue-600 flex items-center justify-center cursor-pointer shadow-lg transition-transform hover:scale-105">
-                <PlayCircle className="w-10 h-10 text-white" />
-              </div>
-              <p className="text-xs text-slate-400 mt-3 font-mono">
-                [SEO SYSTEM 300] 마스터클래스 HD 스트리밍 플레이어
-              </p>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl space-y-2 text-xs">
-              <h4 className="font-bold text-slate-900">핵심 학습 포인트</h4>
-              <p className="text-slate-600 leading-relaxed">
-                해당 챕터에서는 구글 알고리즘 기준에 부합하는 실전 세팅 프로세스를 다룹니다.
-                영상 시청 후 첨부된 엑셀 SOP를 다운로드하여 자신의 프로젝트에 즉시 적용하세요.
-              </p>
-            </div>
-
-            <div className="flex justify-between items-center pt-2">
-              <Button
-                variant={activeVideoLesson.completed ? 'secondary' : 'success'}
-                size="sm"
-                leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                onClick={() => {
-                  toggleComplete(activeVideoLesson.id);
-                  setActiveVideoLesson(null);
-                }}
-              >
-                {activeVideoLesson.completed ? '수강 취소' : '수강 완료로 체크'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setActiveVideoLesson(null)}>
-                닫기
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 };

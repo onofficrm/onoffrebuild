@@ -17,23 +17,26 @@ import {
 import {useLocation, useNavigate, Navigate} from 'react-router-dom';
 import { loadStudentDemoState } from './services/studentDemoService';
 import {
+  archiveProject,
   createProject,
   listProjects,
   mapApiProjectToUi,
+  updateProject,
   type ProjectCreateInput,
 } from './services/projectService';
 import { pickCurrentProjectId, writeStoredProjectId } from './services/currentProject';
 import {
   ensureWebsiteDraft,
-  getCurrentWebsiteOrder,
+  getWebsiteOrderBundle,
   saveWebsiteOrder,
   submitWebsiteOrder,
   appendWebsiteMaterials,
   type ApiWebsiteOrder,
   type WebsiteOrderSaveInput,
+  websiteImagePreviewUrl,
 } from './services/websiteOrderService';
 import { deleteWebsiteFile, formatFileSize, replaceWebsiteFile, updateWebsiteFile, uploadWebsiteFile } from './services/websiteFileService';
-import { addTaskResult, completeRoadmapTask, getRoadmap, mapRoadmapToUi, reopenRoadmapTask, uploadTaskScreenshot, type ApiRoadmap } from './services/roadmapService';
+import { addTaskResult, completeRoadmapTask, getRoadmap, listTaskResults, mapRoadmapToUi, reopenRoadmapTask, uploadTaskScreenshot, type ApiRoadmap, type ApiTaskResult } from './services/roadmapService';
 import { completeMission, getTodayMissions, mapMissionsToUi, reopenMission } from './services/missionService';
 import { listActivities, mapActivitiesToUi } from './services/activityService';
 import {
@@ -64,8 +67,9 @@ import {
   type MetricsSummary,
 } from './services/metricsService';
 import { getUnifiedSummary } from './services/toolsService';
-import { ADMIN_PATH, contractPathFor, parsePortalPath, projectPath, studentPath } from './config/routes';
+import { ADMIN_PATH, openContractPath, parsePortalPath, projectPath, studentPath } from './config/routes';
 import { API_ENDPOINTS } from './config/api';
+import { isDraftOrderStatus } from './constants/seoSystem300';
 import { MockDataBanner } from './components/common/MockDataBanner';
 import { useAuth } from './auth/AuthContext';
 import { AuthLoadingScreen } from './components/auth/AuthLoadingScreen';
@@ -251,7 +255,8 @@ export default function App() {
   useEffect(() => {
     if (parsed.mode !== 'student' || classPrepComplete === null) return;
     if (!studentNavTabs.includes(activeTab)) {
-      navigate(contract.blocked ? contractPathFor(contract) : studentPath('dashboard'));
+      if (contract.blocked) openContractPath(navigate, contract);
+      else navigate(studentPath('dashboard'));
     }
   }, [classPrepComplete, parsed.mode, activeTab, navigate, studentNavTabs, contract]);
 
@@ -259,7 +264,7 @@ export default function App() {
     if (!authenticated || parsed.mode !== 'student' || !contract.blocked) return;
     const allowed: NavigationTab[] = ['contract', 'notifications', 'help', 'account'];
     if (!allowed.includes(activeTab)) {
-      navigate(contractPathFor(contract));
+      openContractPath(navigate, contract);
     }
   }, [authenticated, parsed.mode, contract, activeTab, navigate]);
 
@@ -277,7 +282,7 @@ export default function App() {
   };
   const setActiveTab = (tab: NavigationTab) => {
     if (tab === 'contract') {
-      navigate(contractPathFor(contract));
+      openContractPath(navigate, contract);
       return;
     }
     if (tab === 'tools') {
@@ -339,6 +344,8 @@ export default function App() {
   const [projectsError, setProjectsError] = useState('');
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [liveOrder, setLiveOrder] = useState<ApiWebsiteOrder | null>(null);
+  const [websiteOrders, setWebsiteOrders] = useState<ApiWebsiteOrder[]>([]);
+  const [draftOrder, setDraftOrder] = useState<ApiWebsiteOrder | null>(null);
   const [liveOrderError, setLiveOrderError] = useState('');
   const [orderSaveError, setOrderSaveError] = useState('');
   const [orderSaveStatus, setOrderSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -392,6 +399,27 @@ export default function App() {
     );
   };
 
+  const applyTaskResults = (results: ApiTaskResult[], roadmap: ApiRoadmap) => {
+    const titleByTask = new Map(
+      roadmap.steps.flatMap((step) => step.tasks.map((task) => [task.id, task.title] as const))
+    );
+    setTaskWorkLogs(
+      results.map((item) => ({
+        id: String(item.id),
+        taskId: item.roadmapTaskId,
+        taskTitle: titleByTask.get(item.roadmapTaskId) || '로드맵 작업',
+        url: item.resultUrl,
+        targetKeyword: item.keyword,
+        publishDate: item.resultDate,
+        notes: item.memo,
+        screenshotFileId: item.screenshotFileId || undefined,
+        relatedTool: (item.relatedTool || 'other') as TaskWorkLog['relatedTool'],
+        status: 'completed' as const,
+        createdAt: item.createdAt,
+      }))
+    );
+  };
+
   const handleSaveTaskLog = async (newLog: Omit<TaskWorkLog, 'id' | 'createdAt' | 'status'>) => {
     if (!activeProject) return;
     const taskId = typeof newLog.taskId === 'number' ? newLog.taskId : parseInt(String(newLog.taskId), 10);
@@ -407,6 +435,7 @@ export default function App() {
       });
       const res = await completeRoadmapTask(Number(activeProject.id), taskId);
       applyRoadmap(res.roadmap);
+      applyTaskResults(await listTaskResults(activeProject.id), res.roadmap);
       const acts = await listActivities(activeProject.id, 20);
       setActivities(mapActivitiesToUi(acts));
     } catch (err) {
@@ -473,22 +502,127 @@ export default function App() {
     setWebsiteOrder(updated);
   };
 
+  const registerProject = async (projData: Partial<Project>) => {
+    const created = await createProject({
+      name: projData.name || '새 SEO 프로젝트',
+      domain: projData.domain,
+      description: projData.niche,
+    });
+    const mapped = mapApiProjectToUi(created);
+    setProjects((prev) => [mapped, ...prev]);
+    setActiveProject(mapped);
+    writeStoredProjectId(mapped.id);
+    return mapped;
+  };
+
   const handleAddNewProject = async (projData: Partial<Project>) => {
     setProjectsError('');
     try {
-      const created = await createProject({
-        name: projData.name || '새 SEO 프로젝트',
-        domain: projData.domain,
-        description: projData.niche,
-      });
-      const mapped = mapApiProjectToUi(created);
-      setProjects((prev) => [mapped, ...prev]);
-      setActiveProject(mapped);
-      writeStoredProjectId(mapped.id);
+      const mapped = await registerProject(projData);
       navigate(projectPath(mapped.id));
     } catch (err) {
       setProjectsError(err instanceof ApiRequestError ? err.message : '저장 중 문제가 발생했습니다. 다시 시도해주세요.');
     }
+  };
+
+  const handleSaveProjectKeywords = async (project: Project, keywords: string[]) => {
+    setProjectsError('');
+    try {
+      const saved = await updateProject(project.id, { keywords });
+      const mapped = mapApiProjectToUi(saved);
+      setProjects((prev) =>
+        prev.map((item) =>
+          item.id === mapped.id
+            ? {
+                ...item,
+                targetKeywords: mapped.targetKeywords,
+                metrics: { ...item.metrics, registeredKeywords: mapped.targetKeywords?.length || 0 },
+              }
+            : item
+        )
+      );
+      if (activeProject?.id === mapped.id) {
+        setActiveProject((current) =>
+          current
+            ? {
+                ...current,
+                targetKeywords: mapped.targetKeywords,
+                metrics: { ...current.metrics, registeredKeywords: mapped.targetKeywords?.length || 0 },
+              }
+            : mapped
+        );
+        const roadmap = await getRoadmap(mapped.id);
+        applyRoadmap(roadmap);
+      }
+    } catch (err) {
+      const message = err instanceof ApiRequestError ? err.message : '키워드를 저장하지 못했습니다.';
+      setProjectsError(message);
+      throw err instanceof Error ? err : new Error(message);
+    }
+  };
+
+  const handleSaveProjectSettings = async (project: Project, input: Partial<Project>) => {
+    setProjectsError('');
+    try {
+      const saved = await updateProject(project.id, {
+        name: input.name,
+        domain: input.domain,
+        description: input.niche,
+        businessType: input.businessType,
+        primaryRegion: input.primaryRegion,
+        impressionsGoal: input.impressionsGoal,
+        trafficGoal: input.trafficGoal,
+        contentGoal: input.contentGoal,
+        referringDomainGoal: input.referringDomainGoal,
+      });
+      const mapped = mapApiProjectToUi(saved);
+      const mergeSettings = (current: Project): Project => ({
+        ...current,
+        name: mapped.name,
+        domain: mapped.domain,
+        niche: mapped.niche,
+        businessType: mapped.businessType,
+        primaryRegion: mapped.primaryRegion,
+        impressionsGoal: mapped.impressionsGoal,
+        trafficGoal: mapped.trafficGoal,
+        contentGoal: mapped.contentGoal,
+        referringDomainGoal: mapped.referringDomainGoal,
+      });
+      setProjects((prev) => prev.map((item) => (item.id === mapped.id ? mergeSettings(item) : item)));
+      if (activeProject?.id === mapped.id) {
+        setActiveProject((current) => (current ? mergeSettings(current) : mapped));
+        applyRoadmap(await getRoadmap(mapped.id));
+      }
+    } catch (err) {
+      const message = err instanceof ApiRequestError ? err.message : '프로젝트 설정을 저장하지 못했습니다.';
+      setProjectsError(message);
+      throw err instanceof Error ? err : new Error(message);
+    }
+  };
+
+  const handleDeleteProject = async (project: Project) => {
+    setProjectsError('');
+    try {
+      await archiveProject(project.id);
+      const remaining = projects.filter((item) => item.id !== project.id);
+      setProjects(remaining);
+
+      if (activeProject?.id === project.id) {
+        const nextProject = remaining[0] || null;
+        setActiveProject(nextProject);
+        writeStoredProjectId(nextProject?.id || '');
+        navigate(nextProject ? projectPath(nextProject.id) : '/projects', { replace: true });
+      }
+    } catch (err) {
+      const message = err instanceof ApiRequestError ? err.message : '프로젝트를 삭제하지 못했습니다.';
+      setProjectsError(message);
+      throw err instanceof Error ? err : new Error(message);
+    }
+  };
+
+  const handleCreateProjectForHomepage = async (projData: { name: string; domain: string; niche: string }) => {
+    await registerProject(projData);
+    navigate(studentPath('website', 'order'));
   };
 
   const handleWizardComplete = async (payload: ProjectCreateInput) => {
@@ -540,20 +674,29 @@ export default function App() {
     void loadProjects();
   }, [authenticated, loadProjects]);
 
+  const applyWebsiteBundle = React.useCallback((bundle: { order: ApiWebsiteOrder | null; orders: ApiWebsiteOrder[] }) => {
+    setWebsiteOrders(bundle.orders);
+    setLiveOrder(bundle.order);
+    setDraftOrder(bundle.orders.find((item) => isDraftOrderStatus(item.status)) || null);
+  }, []);
+
   const loadWebsiteOrder = React.useCallback(async () => {
     if (!activeProject) {
       setLiveOrder(null);
+      setWebsiteOrders([]);
+      setDraftOrder(null);
       return;
     }
     setLiveOrderError('');
     try {
-      const order = await getCurrentWebsiteOrder(activeProject.id);
-      setLiveOrder(order);
+      applyWebsiteBundle(await getWebsiteOrderBundle(activeProject.id));
     } catch (err) {
       setLiveOrder(null);
+      setWebsiteOrders([]);
+      setDraftOrder(null);
       setLiveOrderError(err instanceof ApiRequestError ? err.message : '불러오기 실패. 다시 시도해주세요.');
     }
-  }, [activeProject]);
+  }, [activeProject, applyWebsiteBundle]);
 
   React.useEffect(() => {
     if (!authenticated || !launchAllowed) return;
@@ -575,8 +718,10 @@ export default function App() {
       const rm = await getRoadmap(pid);
       if (pid !== activeProject.id) return;
       applyRoadmap(rm);
+      applyTaskResults(await listTaskResults(pid), rm);
     } catch (err) {
       setRoadmapSteps([]);
+      setTaskWorkLogs([]);
       setRoadmapError(err instanceof ApiRequestError ? err.message : '불러오기 실패. 다시 시도해주세요.');
     }
     try {
@@ -740,7 +885,12 @@ export default function App() {
     setOrderSaveError('');
     setOrderSaveStatus('saving');
     try {
-      let current = liveOrder;
+      let current =
+        draftOrder && isDraftOrderStatus(draftOrder.status)
+          ? draftOrder
+          : liveOrder && isDraftOrderStatus(liveOrder.status)
+            ? liveOrder
+            : null;
       while (orderSavePendingRef.current) {
         const next = orderSavePendingRef.current;
         orderSavePendingRef.current = null;
@@ -751,7 +901,9 @@ export default function App() {
           ...(next as WebsiteOrderSaveInput),
         });
         current = saved;
-        setLiveOrder(saved);
+        setDraftOrder(saved);
+        setWebsiteOrders((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
+        if (!liveOrder || isDraftOrderStatus(liveOrder.status)) setLiveOrder(saved);
       }
       setOrderSaveStatus('saved');
     } catch (err) {
@@ -766,16 +918,41 @@ export default function App() {
   };
 
   const handleSubmitWebsiteLive = async (payload: Record<string, unknown>) => {
-    if (!activeProject) return;
     setOrderSaveError('');
     try {
-      const draft = liveOrder || (await ensureWebsiteDraft(activeProject.id));
+      let project = activeProject;
+      if (!project) {
+        const created = await createProject({
+          name: String(payload.siteName || payload.brandName || '홈페이지 제작'),
+          domain: String(payload.domain || ''),
+          businessType: String(payload.industry || payload.siteType || ''),
+          description: String(payload.businessDescription || ''),
+          primaryRegion: String(payload.region || ''),
+        });
+        project = mapApiProjectToUi(created);
+        setProjects((prev) => [project!, ...prev.filter((item) => item.id !== project!.id)]);
+        setActiveProject(project);
+        writeStoredProjectId(project.id);
+      }
+      const editable =
+        draftOrder && isDraftOrderStatus(draftOrder.status)
+          ? draftOrder
+          : liveOrder && isDraftOrderStatus(liveOrder.status)
+            ? liveOrder
+            : null;
+      const draft = editable || (await ensureWebsiteDraft(project.id));
       const saved = await submitWebsiteOrder({
-        projectId: Number(activeProject.id),
+        projectId: Number(project.id),
         orderId: draft.id,
         ...(payload as WebsiteOrderSaveInput),
       });
+      const orderNo = saved.orderNo || '';
+      if (saved.status !== 'submitted' || !/^WEB-\d{4}-\d{6}$/.test(orderNo)) {
+        throw new Error('주문이 저장되지 않았습니다. 다시 제출해주세요.');
+      }
+      setDraftOrder(null);
       setLiveOrder(saved);
+      setWebsiteOrders((prev) => [saved, ...prev.filter((item) => item.id !== saved.id && item.id !== draft.id)]);
       setWebsiteOrder((prev) => ({
         ...prev,
         id: String(saved.id),
@@ -783,23 +960,56 @@ export default function App() {
         currentStageName: '접수완료',
         progress: saved.progress,
       }));
-      navigate(studentPath('website', 'status'));
+      return { id: saved.id, orderNo, status: saved.status };
     } catch (err) {
-      setOrderSaveError(err instanceof ApiRequestError ? err.message : '저장 중 문제가 발생했습니다. 다시 시도해주세요.');
+      const message = err instanceof ApiRequestError ? err.message : '저장 중 문제가 발생했습니다. 다시 시도해주세요.';
+      setOrderSaveError(message);
+      throw err instanceof Error ? err : new Error(message);
     }
   };
 
-  const handleUploadWebsiteFiles = async (categoryId: string, list: FileList) => {
+  const handleStartNewWebsiteOrder = async () => {
     if (!activeProject) return;
+    setOrderSaveError('');
+    const draft = await ensureWebsiteDraft(activeProject.id);
+    setDraftOrder(draft);
+    setWebsiteOrders((prev) => [draft, ...prev.filter((item) => item.id !== draft.id)]);
+    if (!liveOrder || isDraftOrderStatus(liveOrder.status)) setLiveOrder(draft);
+  };
+
+  const refreshWebsiteBundle = async (projectId: string | number) => {
+    applyWebsiteBundle(await getWebsiteOrderBundle(projectId));
+  };
+
+  const handleUploadWebsiteFiles = async (categoryId: string, list: FileList, orderId?: number) => {
+    const files = Array.from(list);
+    if (files.length === 0) return;
     setUploadError('');
+    setUploading(true);
+    setUploadProgress(0);
     try {
-      const draft = liveOrder || (await ensureWebsiteDraft(activeProject.id));
-      setUploading(true);
-      for (const file of Array.from(list)) {
+      let project = activeProject || projects[0] || null;
+      if (!project) {
+        const created = await createProject({ name: '홈페이지 제작' });
+        project = mapApiProjectToUi(created);
+        setProjects((prev) => [project!, ...prev.filter((item) => item.id !== project!.id)]);
+      }
+      const editable =
+        draftOrder && isDraftOrderStatus(draftOrder.status)
+          ? draftOrder
+          : liveOrder && isDraftOrderStatus(liveOrder.status)
+            ? liveOrder
+            : null;
+      const targetId = orderId || editable?.id;
+      const draft = targetId ? { id: targetId } : await ensureWebsiteDraft(project.id);
+      for (const file of files) {
         await uploadWebsiteFile(draft.id, API_CATEGORY_FROM_UI[categoryId] || categoryId, file, '', setUploadProgress);
       }
-      const fresh = await getCurrentWebsiteOrder(activeProject.id);
-      setLiveOrder(fresh);
+      await refreshWebsiteBundle(project.id);
+      if (!activeProject || activeProject.id !== project.id) {
+        setActiveProject(project);
+        writeStoredProjectId(project.id);
+      }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : '파일 업로드에 실패했습니다. 다시 시도해주세요.');
     } finally {
@@ -812,10 +1022,7 @@ export default function App() {
     setUploadError('');
     try {
       await deleteWebsiteFile(id);
-      if (activeProject) {
-        const fresh = await getCurrentWebsiteOrder(activeProject.id);
-        setLiveOrder(fresh);
-      }
+      if (activeProject) await refreshWebsiteBundle(activeProject.id);
     } catch (err) {
       setUploadError(err instanceof ApiRequestError ? err.message : '삭제 중 문제가 발생했습니다. 다시 시도해주세요.');
     }
@@ -825,10 +1032,7 @@ export default function App() {
     setUploadError('');
     try {
       await updateWebsiteFile(id, { memo });
-      if (activeProject) {
-        const fresh = await getCurrentWebsiteOrder(activeProject.id);
-        setLiveOrder(fresh);
-      }
+      if (activeProject) await refreshWebsiteBundle(activeProject.id);
     } catch (err) {
       setUploadError(err instanceof ApiRequestError ? err.message : '메모 저장에 실패했습니다. 다시 시도해주세요.');
     }
@@ -839,10 +1043,7 @@ export default function App() {
     try {
       setUploading(true);
       await replaceWebsiteFile(id, file, '', setUploadProgress);
-      if (activeProject) {
-        const fresh = await getCurrentWebsiteOrder(activeProject.id);
-        setLiveOrder(fresh);
-      }
+      if (activeProject) await refreshWebsiteBundle(activeProject.id);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : '파일 교체에 실패했습니다. 다시 시도해주세요.');
     } finally {
@@ -875,21 +1076,24 @@ export default function App() {
   };
 
   const handleAppendWebsiteMaterials = async (payload: {
+    orderId?: number;
     businessInfoNote?: string;
     extraRequest?: string;
     boardRequests?: string[];
     programRequests?: string[];
     references?: Array<string | { url: string; memo?: string }>;
   }) => {
-    if (!activeProject || !liveOrder) return;
+    const targetId = payload.orderId || liveOrder?.id;
+    if (!activeProject || !targetId) return;
     setOrderSaveError('');
     try {
       const saved = await appendWebsiteMaterials({
-        orderId: liveOrder.id,
+        orderId: targetId,
         projectId: Number(activeProject.id),
         ...payload,
       });
-      setLiveOrder(saved);
+      setWebsiteOrders((prev) => prev.map((item) => (item.id === saved.id ? saved : item)));
+      if (!liveOrder || liveOrder.id === saved.id) setLiveOrder(saved);
     } catch (err) {
       setOrderSaveError(err instanceof ApiRequestError ? err.message : '자료 추가에 실패했습니다. 다시 시도해주세요.');
       throw err;
@@ -1192,6 +1396,9 @@ export default function App() {
                   activeProject={activeProject}
                   onSelectProject={handleSelectProject}
                   onAddNewProject={handleAddNewProject}
+                  onSaveKeywords={handleSaveProjectKeywords}
+                  onSaveSettings={handleSaveProjectSettings}
+                  onDeleteProject={handleDeleteProject}
                   onNavigate={handleNavigate}
                 />
               )}
@@ -1202,25 +1409,32 @@ export default function App() {
                   setActiveSubTab={setActiveWebsiteSubTab}
                   order={websiteOrder}
                   project={activeProject}
+                  projects={projects}
+                  onSelectProject={handleSelectProject}
+                  onCreateProject={handleCreateProjectForHomepage}
                   onSubmitNewOrder={handleSubmitNewOrder}
                   liveOrder={liveOrder}
+                  orders={websiteOrders}
+                  draftOrder={draftOrder}
                   liveError={liveOrderError}
                   onRetryLive={() => void loadWebsiteOrder()}
                   onSaveDraft={handleSaveWebsiteDraft}
                   onSubmitLive={handleSubmitWebsiteLive}
+                  onStartNewOrder={handleStartNewWebsiteOrder}
                   onAppendMaterials={handleAppendWebsiteMaterials}
-                  wizardFiles={(liveOrder?.files || []).map((f) => ({
+                  wizardFiles={((draftOrder && isDraftOrderStatus(draftOrder.status) ? draftOrder : liveOrder && isDraftOrderStatus(liveOrder.status) ? liveOrder : null)?.files || []).map((f) => ({
                     id: String(f.id),
                     categoryId: UI_CATEGORY_FROM_API[f.category] || f.category,
                     fileName: f.originalName,
                     fileSize: formatFileSize(f.fileSize),
                     uploadedAt: f.createdAt,
                     memo: f.memo,
+                    previewUrl: websiteImagePreviewUrl(f),
                   }))}
                   uploading={uploading}
                   uploadProgress={uploadProgress}
                   uploadError={uploadError}
-                  onUploadFiles={handleUploadWebsiteFiles}
+                  onUploadFiles={(categoryId, files, orderId) => void handleUploadWebsiteFiles(categoryId, files, orderId)}
                   onDeleteFile={handleDeleteWebsiteFile}
                   onUpdateFileMemo={handleUpdateWebsiteFileMemo}
                   onReplaceFile={handleReplaceWebsiteFile}
@@ -1251,7 +1465,6 @@ export default function App() {
 
               {activeTab === 'tools' && activeProject && (
                 <ToolsView
-                  studentFocus
                   onBack={() => handleNavigate('dashboard')}
                   activeSubTab={activeToolSubTab}
                   setActiveSubTab={setActiveToolSubTab}
@@ -1293,7 +1506,11 @@ export default function App() {
               )}
 
               {activeTab === 'curriculum' && (
-                <CurriculumView onOpenSlides={() => handleNavigate('slides')} />
+                <CurriculumView
+                  onOpenSlides={(lessonId) =>
+                    lessonId ? navigate(`/slides/${encodeURIComponent(lessonId)}/1`) : handleNavigate('slides')
+                  }
+                />
               )}
 
               {activeTab === 'slides' && <EducationSlideLibraryView onNavigate={handleNavigate} />}
@@ -1425,13 +1642,13 @@ export default function App() {
               value={newProjDomain}
               onChange={(e) => setNewProjDomain(e.target.value)}
               placeholder="jejustay365.com"
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">타겟 니치</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">업종</label>
             <input
               type="text"
               value={newProjNiche}
