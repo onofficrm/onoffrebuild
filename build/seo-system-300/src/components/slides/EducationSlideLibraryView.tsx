@@ -3,13 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
-  Compass,
+  List,
   Maximize2,
   Minimize2,
   PanelLeftClose,
-  PanelLeftOpen,
-  Presentation,
 } from 'lucide-react';
 import type { NavigationTab } from '../../types';
 import { Button } from '../common/Button';
@@ -18,7 +15,6 @@ import { SlideExplanationPanel } from './SlideExplanationPanel';
 import { SlideLibrarySidebar } from './SlideLibrarySidebar';
 import {
   EDUCATION_DECKS,
-  TOTAL_EDUCATION_SLIDES,
   getEducationDeck,
   getNextDeck,
   getPreviousDeck,
@@ -65,9 +61,6 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
   const currentSlide = deck.slides[currentIndex] ?? deck.slides[0];
   const CurrentSlide = currentSlide.component;
   const progress = Math.round(((currentIndex + 1) / deck.slides.length) * 100);
-  const overallProgress = Math.round(
-    (currentSlide.globalId / TOTAL_EDUCATION_SLIDES) * 100,
-  );
 
   const goTo = useCallback(
     (index: number, targetDeck = deck) => {
@@ -149,12 +142,6 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
     setSidebarOpen(false);
   };
 
-  const getDeckIndex = useCallback(
-    (targetDeck: EducationDeck) =>
-      targetDeck.id === deck.id ? currentIndex : storedSlideIndex(targetDeck),
-    [currentIndex, deck.id],
-  );
-
   const selectSlide = useCallback(
     (targetDeck: EducationDeck, slideIndex: number) => {
       goTo(slideIndex, targetDeck);
@@ -176,68 +163,42 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
   const hasNext = currentIndex < deck.slides.length - 1 || Boolean(getNextDeck(deck));
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
-      <section className="rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-2xs sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#DBEAFE] bg-[#EFF6FF] px-3 py-1 text-xs font-bold text-[#2563EB]">
-              <Presentation className="h-3.5 w-3.5" />
-              교육 슬라이드
-            </div>
-            <h1 className="mt-3 text-xl font-black tracking-tight text-[#0F172A] sm:text-2xl">
-              {deck.lessonNumber}강 · {deck.title}
-            </h1>
-            <p className="mt-1 text-xs leading-relaxed text-[#64748B] sm:text-sm">{deck.description}</p>
-            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-[#64748B]">
-              <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1">{deck.slides.length}장</span>
-              <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1">{deck.duration}</span>
-              <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1">진행률 {progress}%</span>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" leftIcon={<BookOpen className="h-4 w-4" />} onClick={() => onNavigate('curriculum')}>
-              강의실
-            </Button>
-            <Button variant="outline" size="sm" leftIcon={<Compass className="h-4 w-4" />} onClick={() => onNavigate('roadmap')}>
-              로드맵
-            </Button>
-          </div>
+    <div className="space-y-4 animate-in fade-in duration-200">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">
+            {deck.lessonNumber}강 · {deck.shortTitle}
+          </h1>
+          <p className="mt-0.5 text-xs text-[#64748B]">{currentIndex + 1}/{deck.slides.length} · {deck.duration}</p>
         </div>
-
-        <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-wrap items-center gap-2">
           {EDUCATION_DECKS.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => selectDeck(item)}
               aria-current={item.id === deck.id ? 'page' : undefined}
-              className={`rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] ${
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] ${
                 item.id === deck.id
-                  ? 'border-[#93C5FD] bg-[#EFF6FF]'
-                  : 'border-[#E2E8F0] bg-[#F8FAFC] hover:border-[#BFDBFE] hover:bg-white'
+                  ? 'bg-[#2563EB] text-white'
+                  : 'bg-white text-[#475569] ring-1 ring-[#E2E8F0] hover:bg-[#F8FAFC]'
               }`}
             >
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#2563EB]">
-                Lesson {String(item.lessonNumber).padStart(2, '0')}
-              </span>
-              <span className="mt-1 block text-sm font-black text-[#0F172A]">{item.shortTitle}</span>
-              <span className="mt-1 block text-[11px] text-[#64748B]">{item.slides.length}장 · {item.duration}</span>
+              {item.lessonNumber}강
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-bold text-[#334155] ring-1 ring-[#E2E8F0] hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+          >
+            <List className="h-3.5 w-3.5" />
+            목차
+          </button>
         </div>
-      </section>
+      </div>
 
-      <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)] xl:items-start">
-        <aside className="hidden xl:sticky xl:top-5 xl:block xl:h-[calc(100vh-2.5rem)] xl:min-h-[640px] xl:max-h-[900px]">
-          <SlideLibrarySidebar
-            currentDeckId={deck.id}
-            currentIndex={currentIndex}
-            getDeckIndex={getDeckIndex}
-            onSelect={selectSlide}
-          />
-        </aside>
-
-        <div className="min-w-0 space-y-5">
+      <div className="min-w-0 space-y-4">
           <div
             ref={viewerRef}
             className={`relative overflow-hidden border border-slate-800 bg-[#03070E] shadow-xl ${
@@ -264,7 +225,6 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
               <SlideLibrarySidebar
                 currentDeckId={deck.id}
                 currentIndex={currentIndex}
-                getDeckIndex={getDeckIndex}
                 onSelect={selectSlide}
               />
             </aside>
@@ -272,22 +232,7 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
         ) : null}
 
         <div className="flex items-center justify-between border-b border-slate-800 bg-[#07111F] px-3 py-2.5 text-white sm:px-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen((open) => !open)}
-              className="rounded-lg p-2 text-slate-300 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-              aria-label={sidebarOpen ? '슬라이드 목록 닫기' : '슬라이드 목록 열기'}
-            >
-              {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-            </button>
-            <div className="min-w-0">
-              <p className="truncate text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-                {deck.lessonNumber}강 · {currentSlide.category}
-              </p>
-              <p className="truncate text-xs font-bold text-white">{currentSlide.title}</p>
-            </div>
-          </div>
+          <p className="min-w-0 truncate text-xs font-bold text-white">{currentSlide.title}</p>
           <button
             type="button"
             onClick={() => void toggleFullscreen()}
@@ -314,7 +259,7 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
 
         <div className="border-t border-slate-800 bg-[#07111F] px-3 py-3 text-white sm:px-4">
           <div className="mb-3 h-1 overflow-hidden rounded-full bg-slate-800">
-            <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${overallProgress}%` }} />
+            <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${progress}%` }} />
           </div>
           <div className="flex items-center justify-between gap-3">
             <Button
@@ -327,12 +272,10 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
             >
               이전
             </Button>
-            <div className="text-center">
-              <span className="font-mono text-sm font-black text-white">{currentSlide.globalId}</span>
-              <span className="font-mono text-xs text-slate-500"> / {TOTAL_EDUCATION_SLIDES}</span>
-              <p className="text-[10px] font-bold text-cyan-400">{deck.lessonNumber}강 {currentIndex + 1}/{deck.slides.length}</p>
-              <p className="hidden text-[10px] text-slate-500 sm:block">← → 이동 · F 전체화면 · 모바일 스와이프</p>
-            </div>
+            <p className="font-mono text-sm font-black text-white">
+              {currentIndex + 1}
+              <span className="text-xs font-bold text-slate-500"> / {deck.slides.length}</span>
+            </p>
             <Button
               variant="ghost"
               size="sm"
@@ -365,7 +308,6 @@ export function EducationSlideLibraryView({ onNavigate }: EducationSlideLibraryV
             : undefined
         }
       />
-        </div>
       </div>
     </div>
   );
