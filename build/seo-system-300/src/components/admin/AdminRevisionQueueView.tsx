@@ -24,6 +24,7 @@ function tone(status: string): 'completed' | 'in_progress' | 'pending' | 'needs_
 export const AdminRevisionQueueView: React.FC = () => {
   const [items, setItems] = useState<ApiRevisionTicket[]>([]);
   const [selected, setSelected] = useState<ApiRevisionTicket | null>(null);
+  const [quoteEnabled, setQuoteEnabled] = useState(false);
   const [filter, setFilter] = useState('open');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,6 +48,7 @@ export const AdminRevisionQueueView: React.FC = () => {
     try {
       const data = await adminListRevisions(filter);
       setItems(data.items || []);
+      setQuoteEnabled(Boolean(data.quoteEnabled));
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : '목록을 불러오지 못했습니다.');
     } finally {
@@ -118,7 +120,12 @@ export const AdminRevisionQueueView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-black text-slate-900">홈페이지 수정 요청</h2>
-          <p className="text-xs text-slate-500">표시를 보고 에이전트 지시를 적은 뒤 무료·견적으로 넘깁니다.</p>
+          <p className="text-xs text-slate-500">
+            표시를 보고 에이전트 지시를 적은 뒤 무료로 넘깁니다.
+            {quoteEnabled
+              ? ' Core 포인트 결제가 연결되어 있어 견적을 보낼 수 있습니다.'
+              : ' 포인트 결제가 연결되지 않아 견적은 숨겼습니다.'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -195,6 +202,9 @@ export const AdminRevisionQueueView: React.FC = () => {
                 {selected.quota ? (
                   <p className="text-[11px] text-slate-500 mt-1">
                     이번 달 무료 {selected.quota.used}/{selected.quota.limit} 사용
+                    {selected.quota.remaining < 1 && !selected.freeUsed
+                      ? ' · 한도 소진'
+                      : ` · ${selected.quota.remaining}회 남음`}
                   </p>
                 ) : null}
               </div>
@@ -369,7 +379,12 @@ export const AdminRevisionQueueView: React.FC = () => {
                 <Button
                   size="sm"
                   variant="primary"
-                  disabled={busy || !agentBrief.trim() || !selected.workPackage?.readyForAgent}
+                  disabled={
+                    busy ||
+                    !agentBrief.trim() ||
+                    !selected.workPackage?.readyForAgent ||
+                    Boolean(selected.quota && selected.quota.remaining < 1 && !selected.freeUsed)
+                  }
                   onClick={() => void run('free')}
                 >
                   무료 진행
@@ -377,18 +392,23 @@ export const AdminRevisionQueueView: React.FC = () => {
                 {!selected.workPackage?.readyForAgent ? (
                   <p className="w-full text-[11px] text-slate-500">무료·견적은 정리 완료 뒤에만 할 수 있습니다.</p>
                 ) : null}
+                {selected.quota && selected.quota.remaining < 1 && !selected.freeUsed ? (
+                  <p className="w-full text-[11px] text-rose-700">
+                    {quoteEnabled
+                      ? '이번 달 무료 한도를 모두 사용했습니다. 견적으로 진행하세요.'
+                      : '이번 달 무료 한도를 모두 사용했습니다. 다음 달에 다시 무료로 진행하거나 결제를 설정하세요.'}
+                  </p>
+                ) : null}
                 <Button size="sm" variant="outline" disabled={busy || !note.trim()} onClick={() => void run('comment')}>
                   <Send className="w-3.5 h-3.5 mr-1" />
                   댓글
-                </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => void run('mark_paid')}>
-                  결제 확인(수동)
                 </Button>
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => void run('cancel')}>
                   취소
                 </Button>
               </div>
 
+              {quoteEnabled || selected.quoteEnabled ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
                 <p className="text-xs font-bold text-amber-900">견적 보내기</p>
                 <div className="flex flex-wrap gap-2">
@@ -421,6 +441,7 @@ export const AdminRevisionQueueView: React.FC = () => {
                   </Button>
                 </div>
               </div>
+              ) : null}
 
               {selected.resultPreview?.url || selected.feedbackUrl || selected.status === 'feedback' ? (
                 <RevisionResultCompare

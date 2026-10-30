@@ -155,6 +155,8 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
     listedOrders.find((item) => isSubmittedOrderStatus(item.status)) || liveOrder || null;
   const previewUrl = websitePreviewUrl({
     previewUrl: previewSource?.previewUrl || liveOrder?.previewUrl,
+    liveUrl: order.liveUrl,
+    currentUrl: previewSource?.currentUrl || liveOrder?.currentUrl,
   });
   const hasSubmittedOrder = listedOrders.some((item) => isSubmittedOrderStatus(item.status));
   const presence = useMemo(
@@ -171,6 +173,7 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
     }
     if (presence === 'building') {
       return [
+        { id: 'revision' as WebsiteSubTab, label: '수정하기' },
         { id: 'status' as WebsiteSubTab, label: '제작현황' },
         { id: 'order' as WebsiteSubTab, label: '추가 주문' },
       ];
@@ -197,11 +200,7 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
       setActiveSubTab('order');
       return;
     }
-    if (presence === 'building' && activeSubTab === 'revision') {
-      setActiveSubTab('status');
-      return;
-    }
-    if (presence === 'present' && activeSubTab === 'order' && !placingNew && !userPickedOrder.current) {
+    if (presence !== 'absent' && activeSubTab === 'order' && !placingNew && !userPickedOrder.current) {
       setActiveSubTab('revision');
     }
   }, [presence, activeSubTab, placingNew, setActiveSubTab]);
@@ -519,7 +518,7 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 )}
-                {presence === 'present' ? (
+                {presence !== 'absent' ? (
                   <Button
                     variant="white"
                     size="sm"
@@ -527,8 +526,6 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
                   >
                     수정하기
                   </Button>
-                ) : presence === 'building' ? (
-                  <p className="text-xs text-slate-300">초안이 올라오면 여기서 화면을 보고 수정할 수 있습니다.</p>
                 ) : null}
               </div>
             </div>
@@ -853,7 +850,7 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
         </div>
       )}
 
-      {activeSubTab === 'revision' && presence === 'present' ? (
+      {activeSubTab === 'revision' && presence !== 'absent' ? (
         <WebsiteRevisionPanel
           projectId={project ? Number(project.id) : null}
           orderId={liveOrder?.id || previewSource?.id || null}

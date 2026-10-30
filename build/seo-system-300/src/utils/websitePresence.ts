@@ -10,8 +10,13 @@ export function normalizeSiteUrl(raw?: string | null): string {
 export function websitePreviewUrl(input: {
   previewUrl?: string | null;
   liveUrl?: string | null;
+  currentUrl?: string | null;
 }): string {
-  return normalizeSiteUrl(input.previewUrl) || normalizeSiteUrl(input.liveUrl);
+  return (
+    normalizeSiteUrl(input.previewUrl) ||
+    normalizeSiteUrl(input.liveUrl) ||
+    normalizeSiteUrl(input.currentUrl)
+  );
 }
 
 export function websitePresence(input: {

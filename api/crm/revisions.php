@@ -183,6 +183,16 @@ function onoff_crm_revision_enrich($item)
     if (function_exists('seosys300_revision_build_cursor_prompt')) {
         $item['cursorPrompt'] = seosys300_revision_build_cursor_prompt($item);
     }
+    if ($mbId !== '' && function_exists('seosys300_revision_free_quota') && empty($item['quota'])) {
+        static $quotaCache = array();
+        if (!isset($quotaCache[$mbId])) {
+            $quotaCache[$mbId] = seosys300_revision_free_quota($mbId);
+        }
+        $item['quota'] = $quotaCache[$mbId];
+    }
+    $item['quoteEnabled'] = function_exists('seosys300_revision_quote_enabled')
+        ? seosys300_revision_quote_enabled()
+        : false;
     return $item;
 }
 
@@ -281,12 +291,34 @@ if ($method === 'GET') {
         'status' => $status,
         'total' => count($items),
         'items' => $items,
+        'quoteEnabled' => function_exists('seosys300_revision_quote_enabled')
+            ? seosys300_revision_quote_enabled()
+            : false,
+        'quotaDefault' => function_exists('seosys300_revision_free_per_month')
+            ? seosys300_revision_free_per_month()
+            : 3,
     ), JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 if ($method !== 'POST') {
     onoff_crm_revision_fail('method_not_allowed', 'GET or POST only.', 405);
+}
+
+$contentType = isset($_SERVER['CONTENT_TYPE']) ? (string) $_SERVER['CONTENT_TYPE'] : '';
+if (stripos($contentType, 'multipart/form-data') !== false) {
+    $ticketId = isset($_POST['ticketId']) ? (int) $_POST['ticketId'] : 0;
+    if ($ticketId < 1) {
+        onoff_crm_revision_fail('validation_error', 'ticketId가 필요합니다.', 422);
+    }
+    $file = seosys300_revision_upload_file($ticketId, onoff_crm_revision_actor(), true);
+    $detail = seosys300_revision_admin_detail($ticketId);
+    echo json_encode(array(
+        'ok' => true,
+        'item' => onoff_crm_revision_enrich($detail),
+        'file' => $file,
+    ), JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 $raw = file_get_contents('php://input');
@@ -296,7 +328,7 @@ if (!is_array($input)) {
 }
 $op = isset($input['action']) ? (string) $input['action'] : (isset($input['op']) ? (string) $input['op'] : '');
 $op = strtolower(preg_replace('/[^a-z0-9_\-]/', '', $op));
-$allowed = array('review', 'need_info', 'need-info', 'free', 'free_progress', 'quote', 'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'complete', 'cancel', 'brief', 'triage', 'package', 'ready');
+$allowed = array('review', 'need_info', 'need-info', 'free', 'free_progress', 'quote', 'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'cancel', 'brief', 'triage', 'package', 'ready');
 if (!in_array($op, $allowed, true)) {
     onoff_crm_revision_fail('unknown_action', 'Unsupported feedback action.', 400);
 }

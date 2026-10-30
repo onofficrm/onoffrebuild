@@ -11,6 +11,38 @@ function seosys300_notifications_tables_ready()
     }
     $table = seosys300_esc($g5['seosys300_notifications_table']);
     $row = seosys300_fetch("SHOW TABLES LIKE '{$table}'");
+    if (!empty($row)) {
+        return true;
+    }
+    static $creating = false;
+    if ($creating) {
+        return false;
+    }
+    $creating = true;
+    $rawTable = $g5['seosys300_notifications_table'];
+    seosys300_query("CREATE TABLE IF NOT EXISTS `{$rawTable}` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `mb_id` varchar(20) NOT NULL DEFAULT '',
+        `project_id` int(11) NOT NULL DEFAULT 0,
+        `order_id` int(11) NOT NULL DEFAULT 0,
+        `event_type` varchar(60) NOT NULL DEFAULT '',
+        `title` varchar(191) NOT NULL DEFAULT '',
+        `body` varchar(500) NOT NULL DEFAULT '',
+        `action_tab` varchar(40) NOT NULL DEFAULT '',
+        `action_sub_tab` varchar(40) NOT NULL DEFAULT '',
+        `severity` varchar(20) NOT NULL DEFAULT 'info',
+        `is_read` tinyint(1) NOT NULL DEFAULT 0,
+        `email_sent` tinyint(1) NOT NULL DEFAULT 0,
+        `created_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+        `read_at` datetime DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `mb_created` (`mb_id`,`created_at`),
+        KEY `mb_unread` (`mb_id`,`is_read`),
+        KEY `project_id` (`project_id`),
+        KEY `order_id` (`order_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+    $creating = false;
+    $row = seosys300_fetch("SHOW TABLES LIKE '{$table}'");
     return !empty($row);
 }
 
@@ -206,9 +238,11 @@ function seosys300_notify_build_message($event, $payload, $order)
             'action_tab' => 'website',
             'action_sub_tab' => 'revision',
             'severity' => 'info',
-            'send_email' => false,
-            'email_subject' => '',
-            'email_body' => '',
+            'send_email' => true,
+            'email_subject' => '[ONOFF] 홈페이지 수정 요청을 접수했습니다',
+            'email_body' => '<p>안녕하세요.</p><p>수정 요청 「' . htmlspecialchars($ticketTitle, ENT_QUOTES, 'UTF-8')
+                . '」을 접수했습니다. 운영자가 정리한 뒤 진행 상황을 알려 드립니다.</p><p><a href="'
+                . $revLink . '">수정 요청 확인</a></p>',
         );
     }
     if ($event === 'REVISION_NEED_INFO') {

@@ -34,6 +34,12 @@ export type RevisionResultPreview = {
   at?: string;
 };
 
+export type RevisionCustomerProgress = {
+  id: string;
+  label: string;
+  hint: string;
+};
+
 export const INFO_REQUEST_PRESETS: { label: string; hint: string }[] = [
   { label: '로고 SVG', hint: '가능하면 투명 배경 SVG. PNG도 됩니다.' },
   { label: '새 문구', hint: '교체할 제목·본문을 그대로 적어 주세요.' },

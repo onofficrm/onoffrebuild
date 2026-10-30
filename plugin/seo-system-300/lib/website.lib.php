@@ -228,7 +228,15 @@ function seosys300_order_preview_url($row, $extra = null)
     if ($fromExtra !== '') {
         return $fromExtra;
     }
-    return isset($row['preview_url']) ? trim((string) $row['preview_url']) : '';
+    $col = isset($row['preview_url']) ? trim((string) $row['preview_url']) : '';
+    if ($col !== '') {
+        return $col;
+    }
+    $current = isset($row['current_url']) ? trim((string) $row['current_url']) : '';
+    if ($current === '' || $current === '도메인 미정' || $current === '아직 없음') {
+        return '';
+    }
+    return $current;
 }
 
 function seosys300_student_customer_updates($items)

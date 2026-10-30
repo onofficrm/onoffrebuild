@@ -27,6 +27,8 @@ import { RevisionResultCompare } from './RevisionResultCompare';
 import type { WebsitePresence } from '../../utils/websitePresence';
 import {
   ApiRevisionTicket,
+  RevisionQuota,
+  RevisionWallet,
   commentRevision,
   confirmRevision,
   createRevision,
@@ -139,6 +141,9 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
   previewUrl = '',
 }) => {
   const [tickets, setTickets] = useState<ApiRevisionTicket[]>([]);
+  const [quota, setQuota] = useState<RevisionQuota | null>(null);
+  const [quoteEnabled, setQuoteEnabled] = useState(false);
+  const [wallet, setWallet] = useState<RevisionWallet | null>(null);
   const [eligible, setEligible] = useState(false);
   const [resolvedOrderId, setResolvedOrderId] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -168,6 +173,9 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
     try {
       const data = await listRevisions(projectId);
       setTickets(data.tickets || []);
+      setQuota(data.quota || null);
+      setQuoteEnabled(Boolean(data.quoteEnabled));
+      setWallet(data.wallet || null);
       setEligible(Boolean(data.eligible));
       setResolvedOrderId(data.orderId || orderId || 0);
     } catch (err) {
@@ -186,7 +194,10 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
     let cancelled = false;
     void getRevision(focusTicketId)
       .then((data) => {
-        if (!cancelled) setSelected(data.ticket);
+        if (!cancelled) {
+          setSelected(data.ticket);
+          if (data.wallet) setWallet(data.wallet);
+        }
       })
       .catch(() => {
         if (!cancelled) setError('수정 요청 상세를 불러오지 못했습니다.');
@@ -202,6 +213,7 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
     try {
       const data = await getRevision(ticket.id);
       setSelected(data.ticket);
+      if (data.wallet) setWallet(data.wallet);
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : '상세를 불러오지 못했습니다.');
     }
@@ -280,8 +292,15 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
     }
   };
 
+  const POINT_CHARGE_URL =
+    '/api/auth.php?action=icrm-continue&to=' + encodeURIComponent('/point_center.php?tab=charge');
+
   const handlePay = async () => {
     if (!selected) return;
+    const amount = selected.quotePoints;
+    if (!window.confirm(`${amount.toLocaleString()}P를 결제할까요? 보유 포인트에서 바로 차감됩니다.`)) {
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -451,7 +470,13 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-xs text-[#64748B]">
-            수정 요청은 기본 무료입니다. 관리자가 비용을 정하면 이 화면에서 결제한 뒤에 작업이 진행됩니다.
+            수정 요청은 기본 무료입니다.
+            {quota
+              ? ` 이번 달 무료 ${quota.remaining}/${quota.limit}회 남았습니다.`
+              : ''}
+            {quoteEnabled
+              ? ' 관리자가 비용을 정하면 이 화면에서 결제한 뒤에 작업이 진행됩니다.'
+              : ''}
           </p>
         </div>
         <Button
@@ -593,9 +618,18 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
                 <span className="font-mono text-[10px] text-slate-400">#{rev.id}</span>
                 <span className="text-sm font-bold text-slate-900 truncate">{rev.title}</span>
                 <Badge status={statusTone(rev.status)} size="sm">
-                  {rev.statusLabel}
+                  {rev.customerProgress?.label || rev.statusLabel}
                 </Badge>
               </div>
+              {rev.customerProgress?.hint ? (
+                <p className="text-[11px] font-bold text-slate-600">{rev.customerProgress.hint}</p>
+              ) : null}
+              <RevisionStatusRail
+                status={rev.status}
+                quotePoints={rev.quotePoints}
+                paidAt={rev.paidAt}
+                progressId={rev.customerProgress?.id}
+              />
               <p className="text-xs text-slate-500 line-clamp-2">{rev.description}</p>
               {rev.status === 'need_info' ? (
                 <p className="text-[11px] font-bold text-amber-700">
@@ -621,7 +655,7 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-base font-black text-slate-900">{selected.title}</h3>
                     <Badge status={statusTone(selected.status)} size="sm">
-                      {selected.statusLabel}
+                      {selected.customerProgress?.label || selected.statusLabel}
                     </Badge>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">
@@ -630,7 +664,15 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
                   </p>
                 </div>
               </div>
-              <RevisionStatusRail status={selected.status} quotePoints={selected.quotePoints} paidAt={selected.paidAt} />
+              {selected.customerProgress?.hint ? (
+                <p className="text-xs font-bold text-slate-700">{selected.customerProgress.hint}</p>
+              ) : null}
+              <RevisionStatusRail
+                status={selected.status}
+                quotePoints={selected.quotePoints}
+                paidAt={selected.paidAt}
+                progressId={selected.customerProgress?.id}
+              />
 
               <RevisionMarkPreview annotation={selected.annotation} compact />
 
@@ -656,18 +698,38 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
                   <p className="text-sm font-bold text-amber-900">
                     관리자 과금 {selected.quotePoints.toLocaleString()}P
                   </p>
-                  <p className="text-xs text-amber-800">온오프에서 결제하면 관리자가 수정을 진행합니다.</p>
+                  <p className="text-xs text-amber-800">온오프 포인트에서 결제하면 관리자가 수정을 진행합니다.</p>
                   {selected.quoteNote ? (
                     <p className="text-xs text-amber-800 whitespace-pre-wrap">{selected.quoteNote}</p>
                   ) : null}
                   {selected.quoteExpiresAt ? (
                     <p className="text-[11px] text-amber-700">결제 기한: {selected.quoteExpiresAt}</p>
                   ) : null}
+                  {wallet?.ok ? (
+                    <p className={`text-xs font-bold ${wallet.balance < selected.quotePoints ? 'text-rose-700' : 'text-amber-900'}`}>
+                      보유 {wallet.balance.toLocaleString()}P
+                      {wallet.balance < selected.quotePoints
+                        ? ` · ${selected.quotePoints - wallet.balance}P 부족`
+                        : ' · 결제 가능'}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-800">
+                      {wallet?.message || '포인트 잔액을 확인하지 못했습니다. 다시 로그인한 뒤 결제해주세요.'}
+                    </p>
+                  )}
+                  {wallet?.ok && wallet.balance < selected.quotePoints ? (
+                    <a
+                      href={POINT_CHARGE_URL}
+                      className="inline-flex text-xs font-bold text-blue-700 underline"
+                    >
+                      포인트 충전하기
+                    </a>
+                  ) : null}
                   <Button
                     size="sm"
                     variant="primary"
                     leftIcon={<CreditCard className="w-4 h-4" />}
-                    disabled={busy}
+                    disabled={busy || Boolean(wallet?.ok && wallet.balance < selected.quotePoints)}
                     onClick={() => void handlePay()}
                   >
                     {selected.quotePoints.toLocaleString()}P 결제하기

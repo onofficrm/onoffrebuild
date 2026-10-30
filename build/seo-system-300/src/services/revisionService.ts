@@ -1,7 +1,7 @@
 import { API_ENDPOINTS } from '../config/api';
 import { apiJson, ensureCsrfToken } from './apiClient';
 import type { RevisionAnnotation } from '../types/revisionAnnotation';
-import type { RevisionInfoRequest, RevisionResultPreview, RevisionTriageState, RevisionWorkPackage } from '../types/revisionWork';
+import type { RevisionCustomerProgress, RevisionInfoRequest, RevisionResultPreview, RevisionTriageState, RevisionWorkPackage } from '../types/revisionWork';
 
 export type RevisionStatus =
   | 'requested'
@@ -68,6 +68,8 @@ export type ApiRevisionTicket = {
   resultPreview?: RevisionResultPreview;
   reopenCount?: number;
   reopenNote?: string;
+  customerProgress?: RevisionCustomerProgress;
+  quoteEnabled?: boolean;
   freeUsed: boolean;
   createdAt: string;
   updatedAt: string;
@@ -78,17 +80,26 @@ export type ApiRevisionTicket = {
 
 export type RevisionQuota = { limit: number; used: number; remaining: number };
 
+export type RevisionWallet = {
+  ok: boolean;
+  ready: boolean;
+  balance: number;
+  message?: string;
+};
+
 export async function listRevisions(projectId: number) {
   return apiJson<{
     tickets: ApiRevisionTicket[];
     quota: RevisionQuota;
+    quoteEnabled: boolean;
+    wallet: RevisionWallet;
     eligible: boolean;
     orderId: number;
   }>(`${API_ENDPOINTS.revision}?projectId=${encodeURIComponent(String(projectId))}`);
 }
 
 export async function getRevision(ticketId: number) {
-  return apiJson<{ ticket: ApiRevisionTicket; quota: RevisionQuota }>(
+  return apiJson<{ ticket: ApiRevisionTicket; quota: RevisionQuota; quoteEnabled: boolean; wallet: RevisionWallet }>(
     `${API_ENDPOINTS.revision}?action=detail&ticketId=${encodeURIComponent(String(ticketId))}`
   );
 }
@@ -198,7 +209,7 @@ export async function uploadRevisionFile(
 }
 
 export async function adminListRevisions(status = 'open') {
-  return apiJson<{ items: ApiRevisionTicket[]; quotaDefault: number }>(
+  return apiJson<{ items: ApiRevisionTicket[]; quotaDefault: number; quoteEnabled: boolean }>(
     `${API_ENDPOINTS.admin}?action=revisions&status=${encodeURIComponent(status)}`
   );
 }

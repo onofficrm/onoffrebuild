@@ -23,6 +23,8 @@ if ($method === 'GET') {
         seosys300_json_ok(array(
             'ticket' => seosys300_revision_ticket_to_api($fresh, true),
             'quota' => seosys300_revision_free_quota($mb_id),
+            'quoteEnabled' => seosys300_revision_quote_enabled(),
+            'wallet' => seosys300_revision_wallet_snapshot(),
         ));
     }
 

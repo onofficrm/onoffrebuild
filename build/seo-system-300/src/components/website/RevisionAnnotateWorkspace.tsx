@@ -70,6 +70,7 @@ export const RevisionAnnotateWorkspace: React.FC<Props> = ({
   const [error, setError] = useState('');
   const [snapshotFile, setSnapshotFile] = useState<File | null>(null);
   const [snapshotPreview, setSnapshotPreview] = useState('');
+  const [showIframe, setShowIframe] = useState(false);
   const snapshotInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -268,7 +269,7 @@ export const RevisionAnnotateWorkspace: React.FC<Props> = ({
                   alt="올린 화면"
                   className="pointer-events-none absolute inset-0 h-full w-full bg-white object-contain"
                 />
-              ) : previewUrl ? (
+              ) : showIframe && previewUrl ? (
                 <iframe
                   title="홈페이지 미리보기"
                   src={previewUrl}
@@ -276,8 +277,19 @@ export const RevisionAnnotateWorkspace: React.FC<Props> = ({
                   sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
                 />
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-[#F8FAFC] px-6 text-center text-sm text-[#64748B]">
-                  화면이 안 보이면 스크린샷을 올린 뒤 그 위에 표시하세요.
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#F8FAFC] px-6 text-center">
+                  <p className="text-sm font-bold text-[#0F172A]">고칠 자리를 캡처한 뒤 그 위에 표시하세요.</p>
+                  <p className="text-xs text-[#64748B]">
+                    많은 사이트가 미리보기를 막습니다. 새 창에서 해당 화면을 보고 캡처를 올리세요.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => snapshotInputRef.current?.click()}
+                    className="inline-flex items-center gap-1 rounded-full bg-[#2563EB] px-3 py-1.5 text-xs font-bold text-white"
+                  >
+                    <ImagePlus className="h-3.5 w-3.5" />
+                    이 화면 캡처 올리기
+                  </button>
                 </div>
               )}
               <div className="absolute inset-0">
@@ -336,7 +348,7 @@ export const RevisionAnnotateWorkspace: React.FC<Props> = ({
               className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F172A]"
             >
               <ImagePlus className="h-3 w-3" />
-              {snapshotFile ? '다른 화면 올리기' : '화면이 안 보이면 스크린샷 올리기'}
+              {snapshotFile ? '다른 캡처 올리기' : '캡처 올리기'}
             </button>
             {snapshotFile ? (
               <button
@@ -348,14 +360,23 @@ export const RevisionAnnotateWorkspace: React.FC<Props> = ({
                 올린 화면 빼기
               </button>
             ) : null}
+            {previewUrl && !snapshotFile ? (
+              <button
+                type="button"
+                onClick={() => setShowIframe((prev) => !prev)}
+                className="text-[11px] font-bold text-[#64748B]"
+              >
+                {showIframe ? '미리보기 닫기' : '사이트 미리보기 시도'}
+              </button>
+            ) : null}
           </div>
           {snapshotFile ? (
             <p className="mt-1 text-[11px] text-[#64748B]">올린 화면 위에 표시한 내용이 관리자에게 그대로 전달됩니다.</p>
-          ) : previewUrl ? (
+          ) : (
             <p className="mt-1 text-[11px] text-[#64748B]">
-              미리보기가 하얗게 보이면 새 창에서 연 뒤 스크린샷을 올려 그 위에 찍으세요.
+              캡처를 올린 뒤 블록·영역·펜으로 고칠 자리를 찍으세요. 미리보기는 막히는 경우가 많습니다.
             </p>
-          ) : null}
+          )}
         </div>
 
         <aside className="space-y-3 border-t border-[#E2E8F0] p-4 lg:border-l lg:border-t-0">

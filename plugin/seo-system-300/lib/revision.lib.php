@@ -28,6 +28,116 @@ function seosys300_revision_quote_days()
     return $n > 0 ? $n : 7;
 }
 
+function seosys300_revision_point_use_enabled()
+{
+    $raw = strtolower(trim(seosys300_revision_env('ONOFF_PLATFORM_POINT_USE_ENABLED', 'true')));
+    return !in_array($raw, array('off', '0', 'false', 'no'), true);
+}
+
+function seosys300_revision_auth_bootstrap()
+{
+    $bootstrap = dirname(__FILE__) . '/../../../lib/branded-auth/bootstrap.php';
+    if (!is_file($bootstrap)) {
+        return false;
+    }
+    require_once $bootstrap;
+    return class_exists('\\OnoffMarketing\\BrandedAuth\\BrandedAuthConfig');
+}
+
+function seosys300_revision_payment_configured()
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    if (!seosys300_revision_point_use_enabled()) {
+        $cached = false;
+        return false;
+    }
+    try {
+        if (!seosys300_revision_auth_bootstrap()) {
+            $cached = false;
+            return false;
+        }
+        $cached = \OnoffMarketing\BrandedAuth\BrandedAuthConfig::isConfigured()
+            && \OnoffMarketing\BrandedAuth\BrandedAuthConfig::isEnabled()
+            && \OnoffMarketing\BrandedAuth\BrandedAuthConfig::isPlatformAuthEnabled();
+    } catch (Exception $e) {
+        $cached = false;
+    }
+    return $cached;
+}
+
+function seosys300_revision_quote_enabled()
+{
+    $raw = strtolower(trim(seosys300_revision_env('SEOSYS300_REVISION_QUOTE_ENABLED', '')));
+    if (in_array($raw, array('off', '0', 'false', 'no'), true)) {
+        return false;
+    }
+    return seosys300_revision_payment_configured();
+}
+
+function seosys300_revision_wallet_snapshot()
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $empty = array(
+        'ok' => false,
+        'ready' => false,
+        'balance' => 0,
+        'message' => '포인트 잔액을 확인하지 못했습니다.',
+    );
+    if (!seosys300_revision_quote_enabled()) {
+        $empty['message'] = '포인트 결제가 준비되지 않았습니다.';
+        $cached = $empty;
+        return $cached;
+    }
+    $cookies = isset($_SERVER['HTTP_COOKIE']) ? (string) $_SERVER['HTTP_COOKIE'] : '';
+    if ($cookies === '') {
+        $empty['message'] = '로그인 세션이 없어 잔액을 확인하지 못했습니다.';
+        $cached = $empty;
+        return $cached;
+    }
+    try {
+        if (!seosys300_revision_auth_bootstrap()) {
+            $cached = $empty;
+            return $cached;
+        }
+        $points = \OnoffMarketing\BrandedAuth\PlatformAuthService::getPoints($cookies, 1);
+        if (class_exists('\\OnoffMarketing\\BrandedAuth\\CookieJar') && !empty($points['setCookies'])) {
+            \OnoffMarketing\BrandedAuth\CookieJar::forwardToBrowser($points['setCookies']);
+        }
+        $cached = array(
+            'ok' => true,
+            'ready' => true,
+            'balance' => (int) $points['balance'],
+            'message' => '',
+        );
+    } catch (Exception $e) {
+        $empty['message'] = '포인트 잔액을 확인하지 못했습니다. 다시 로그인한 뒤 결제해주세요.';
+        $cached = $empty;
+    }
+    return $cached;
+}
+
+function seosys300_revision_assert_free_quota($row)
+{
+    if (is_array($row) && (int) (isset($row['free_used']) ? $row['free_used'] : 0) === 1) {
+        return;
+    }
+    $mb_id = is_array($row) && isset($row['mb_id']) ? $row['mb_id'] : '';
+    $quota = seosys300_revision_free_quota($mb_id);
+    if ($quota['remaining'] < 1) {
+        seosys300_json_error(
+            409,
+            'quota_exceeded',
+            '이번 달 무료 수정 한도(' . (int) $quota['limit'] . '회)를 모두 사용했습니다.'
+        );
+    }
+}
+
 function seosys300_revision_tickets_table()
 {
     $prefix = defined('G5_TABLE_PREFIX') ? G5_TABLE_PREFIX : 'g5_';
@@ -820,6 +930,40 @@ function seosys300_revision_statuses()
     );
 }
 
+function seosys300_revision_customer_progress($row, $work)
+{
+    $status = is_array($row) ? (string) $row['status'] : '';
+    $triage = seosys300_revision_triage_state($row, $work);
+    if ($status === 'completed') {
+        return array('id' => 'done', 'label' => '완료', 'hint' => '확인이 끝났습니다.');
+    }
+    if ($status === 'cancelled') {
+        return array('id' => 'cancelled', 'label' => '취소', 'hint' => '이 요청은 취소되었습니다.');
+    }
+    if ($status === 'expired') {
+        return array('id' => 'expired', 'label' => '견적 만료', 'hint' => '결제 기한이 지나 다시 요청해 주세요.');
+    }
+    if ($status === 'feedback') {
+        return array('id' => 'feedback', 'label' => '확인 부탁', 'hint' => '반영된 결과를 보고 완료하거나 같은 자리를 다시 요청해 주세요.');
+    }
+    if ($status === 'need_info') {
+        return array('id' => 'need_info', 'label' => '자료 필요', 'hint' => '요청한 칸을 채우면 작업을 이어갑니다.');
+    }
+    if ($status === 'quote_pending') {
+        return array('id' => 'payment', 'label' => '결제 대기', 'hint' => '견적을 결제하면 작업을 시작합니다.');
+    }
+    if (in_array($status, array('in_progress', 'free_progress', 'paid'), true)) {
+        return array('id' => 'work', 'label' => '작업 중', 'hint' => '정리된 내용으로 수정하고 있습니다.');
+    }
+    if ($status === 'reviewing' && $triage === 'info_returned') {
+        return array('id' => 'reviewing', 'label' => '자료 확인 중', 'hint' => '보내 주신 자료를 보고 있습니다.');
+    }
+    if ($status === 'reviewing' || $triage === 'ready') {
+        return array('id' => 'reviewing', 'label' => '정리 중', 'hint' => '온오프가 요청을 정리하고 있습니다.');
+    }
+    return array('id' => 'requested', 'label' => '정리 대기', 'hint' => '온오프가 요청을 읽고 있습니다.');
+}
+
 function seosys300_revision_status_label($status)
 {
     $map = array(
@@ -981,6 +1125,8 @@ function seosys300_revision_ticket_to_api($row, $withDetail = false)
     $ticket['reopenNote'] = isset($work['reopenNote']) ? (string) $work['reopenNote'] : '';
     $ticket['resultPreview'] = seosys300_revision_result_preview($ticket, $work);
     $ticket['cursorPrompt'] = seosys300_revision_build_cursor_prompt($ticket);
+    $ticket['customerProgress'] = seosys300_revision_customer_progress($row, $work);
+    $ticket['quoteEnabled'] = seosys300_revision_quote_enabled();
     if ($withDetail) {
         $ticket['comments'] = seosys300_revision_list_comments((int) $row['id']);
         $ticket['files'] = seosys300_revision_list_files((int) $row['id']);
@@ -1242,6 +1388,8 @@ function seosys300_revision_list_for_student($project_id, $mb_id)
     return array(
         'tickets' => $out,
         'quota' => seosys300_revision_free_quota($mb_id),
+        'quoteEnabled' => seosys300_revision_quote_enabled(),
+        'wallet' => seosys300_revision_wallet_snapshot(),
         'eligible' => true,
     );
 }
@@ -1432,6 +1580,15 @@ function seosys300_revision_confirm_payment($ticket_id, $mb_id, $input)
         seosys300_json_error(422, 'invalid_request_id', '결제 요청 ID가 올바르지 않습니다.');
     }
 
+    $wallet = seosys300_revision_wallet_snapshot();
+    if (!empty($wallet['ok']) && (int) $wallet['balance'] < $points) {
+        seosys300_json_error(
+            409,
+            'insufficient_points',
+            '보유 포인트가 부족합니다. 현재 ' . number_format((int) $wallet['balance']) . 'P, 견적 ' . number_format($points) . 'P.'
+        );
+    }
+
     $pay = seosys300_revision_debit_points($mb_id, $points, $request_id, array(
         'ticket_id' => (int) $ticket_id,
         'quote_version' => $version,
@@ -1461,66 +1618,123 @@ function seosys300_revision_confirm_payment($ticket_id, $mb_id, $input)
     return seosys300_revision_ticket_to_api($fresh, true);
 }
 
+function seosys300_revision_points_usage_file()
+{
+    $dir = dirname(__FILE__) . '/../../../data/service_point_usage';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0750, true);
+    }
+    $ht = $dir . '/.htaccess';
+    $ht_contents = is_file($ht) ? (string) @file_get_contents($ht) : '';
+    if (strpos($ht_contents, 'Require all denied') === false) {
+        @file_put_contents($ht, "Options -Indexes\nRequire all denied\nDeny from all\n");
+    }
+    return $dir . '/onoff.jsonl';
+}
+
+function seosys300_revision_find_points_usage($request_id)
+{
+    $request_id = (string) $request_id;
+    if ($request_id === '') {
+        return null;
+    }
+    $file = seosys300_revision_points_usage_file();
+    if (!is_file($file) || !is_readable($file)) {
+        return null;
+    }
+    $lines = @file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (!is_array($lines)) {
+        return null;
+    }
+    for ($i = count($lines) - 1; $i >= 0; $i--) {
+        $row = json_decode((string) $lines[$i], true);
+        if (is_array($row) && (string) ($row['request_id'] ?? '') === $request_id) {
+            return $row;
+        }
+    }
+    return null;
+}
+
+function seosys300_revision_append_points_usage($row)
+{
+    $line = json_encode($row, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($line)) {
+        return false;
+    }
+    return @file_put_contents(seosys300_revision_points_usage_file(), $line . "\n", FILE_APPEND | LOCK_EX) !== false;
+}
+
+function seosys300_revision_pay_fail($code, $message, $http = 502)
+{
+    $upper = strtoupper((string) $code);
+    if (in_array($upper, array('INSUFFICIENT', 'INSUFFICIENT_POINTS', 'INSUFFICIENT_BALANCE', 'POINT_NOT_ENOUGH', 'BALANCE_NOT_ENOUGH'), true)) {
+        $message = '포인트가 부족합니다. 충전한 뒤 다시 결제해주세요.';
+        $code = 'insufficient_points';
+        $http = 409;
+    }
+    return array(
+        'ok' => false,
+        'http' => (int) $http,
+        'code' => (string) $code,
+        'message' => (string) $message,
+    );
+}
+
+function seosys300_revision_forward_core_cookies($result)
+{
+    if (!is_array($result) || empty($result['setCookies'])) {
+        return;
+    }
+    if (class_exists('\\OnoffMarketing\\BrandedAuth\\CookieJar')) {
+        \OnoffMarketing\BrandedAuth\CookieJar::forwardToBrowser($result['setCookies']);
+    }
+}
+
 /**
  * Charge the logged-in member on ONOFF through the same Core wallet
  * hold → capture contract used by /api/points.php?action=use.
  */
 function seosys300_revision_debit_points($mb_id, $points, $request_id, $metadata = array())
 {
-    $bootstrap = dirname(__FILE__) . '/../../../lib/branded-auth/bootstrap.php';
-    if (!is_file($bootstrap)) {
-        return array(
-            'ok' => false,
-            'http' => 503,
-            'code' => 'POINT_NOT_CONFIGURED',
-            'message' => '포인트 결제 설정을 찾을 수 없습니다.',
-        );
+    if (!seosys300_revision_quote_enabled()) {
+        return seosys300_revision_pay_fail('quote_disabled', '포인트 결제가 준비되지 않았습니다.', 409);
     }
-    require_once $bootstrap;
-    if (!\OnoffMarketing\BrandedAuth\BrandedAuthConfig::isConfigured()) {
+    if (!seosys300_revision_auth_bootstrap()) {
+        return seosys300_revision_pay_fail('POINT_NOT_CONFIGURED', '포인트 결제 설정을 찾을 수 없습니다.', 503);
+    }
+    $existing = seosys300_revision_find_points_usage($request_id);
+    if (is_array($existing)) {
         return array(
-            'ok' => false,
-            'http' => 503,
-            'code' => 'POINT_NOT_CONFIGURED',
-            'message' => '포인트 결제가 설정되어 있지 않습니다.',
+            'ok' => true,
+            'replay' => true,
+            'hold_transaction_id' => (string) ($existing['hold_transaction_id'] ?? ''),
         );
     }
     $cookies = isset($_SERVER['HTTP_COOKIE']) ? (string) $_SERVER['HTTP_COOKIE'] : '';
     if ($cookies === '') {
-        return array(
-            'ok' => false,
-            'http' => 401,
-            'code' => 'unauthorized',
-            'message' => '로그인 세션이 없어 결제할 수 없습니다. 다시 로그인한 뒤 시도해주세요.',
-        );
+        return seosys300_revision_pay_fail('unauthorized', '로그인 세션이 없어 결제할 수 없습니다. 다시 로그인한 뒤 시도해주세요.', 401);
     }
     $meta = is_array($metadata) ? $metadata : array();
     $meta['mb_id'] = (string) $mb_id;
     try {
         $session = \OnoffMarketing\BrandedAuth\PlatformAuthService::getSession($cookies);
+        seosys300_revision_forward_core_cookies($session);
         if (empty($session['authenticated'])) {
-            return array(
-                'ok' => false,
-                'http' => 401,
-                'code' => 'unauthorized',
-                'message' => '온오프 로그인 후 과금 결제를 진행해주세요.',
-            );
+            return seosys300_revision_pay_fail('unauthorized', '온오프 로그인 후 과금 결제를 진행해주세요.', 401);
         }
         $sessionData = is_array($session['data']) ? $session['data'] : array();
         $payer = (string) ($sessionData['member_id'] ?? $sessionData['mb_id'] ?? '');
         if ($payer === '' || $payer !== (string) $mb_id) {
-            return array(
-                'ok' => false,
-                'http' => 403,
-                'code' => 'payer_mismatch',
-                'message' => '결제는 수정 요청을 접수한 회원 계정으로만 할 수 있습니다.',
-            );
+            return seosys300_revision_pay_fail('payer_mismatch', '결제는 수정 요청을 접수한 회원 계정으로만 할 수 있습니다.', 403);
         }
+        $platform = method_exists('\\OnoffMarketing\\BrandedAuth\\BrandedAuthConfig', 'platformId')
+            ? (string) \OnoffMarketing\BrandedAuth\BrandedAuthConfig::platformId()
+            : 'ONOFF';
         $hold = \OnoffMarketing\BrandedAuth\CoreInternalClient::request('wallet/hold', array(
             'method' => 'POST',
             'cookies' => $cookies,
             'body' => array(
-                'service_code' => 'ONOFF',
+                'service_code' => strtoupper($platform !== '' ? $platform : 'ONOFF'),
                 'amount' => (int) $points,
                 'reference_type' => 'website_revision',
                 'reference_id' => (string) $request_id,
@@ -1528,24 +1742,19 @@ function seosys300_revision_debit_points($mb_id, $points, $request_id, $metadata
                 'metadata' => $meta,
             ),
         ));
+        seosys300_revision_forward_core_cookies($hold);
         if (empty($hold['ok'])) {
-            return array(
-                'ok' => false,
-                'http' => !empty($hold['status']) ? (int) $hold['status'] : 502,
-                'code' => !empty($hold['code']) ? (string) $hold['code'] : 'CORE_HOLD_FAILED',
-                'message' => !empty($hold['message']) ? (string) $hold['message'] : '포인트 결제 예약에 실패했습니다.',
+            return seosys300_revision_pay_fail(
+                !empty($hold['code']) ? $hold['code'] : 'CORE_HOLD_FAILED',
+                !empty($hold['message']) ? $hold['message'] : '포인트 결제 예약에 실패했습니다.',
+                !empty($hold['status']) ? (int) $hold['status'] : 502
             );
         }
         $hold_data = is_array($hold['data']) ? $hold['data'] : array();
         $hold_tx = is_array($hold_data['transaction'] ?? null) ? $hold_data['transaction'] : array();
         $hold_id = (string) ($hold_tx['transaction_id'] ?? $hold_tx['hold_transaction_id'] ?? $hold_data['hold_transaction_id'] ?? '');
         if ($hold_id === '') {
-            return array(
-                'ok' => false,
-                'http' => 502,
-                'code' => 'CORE_HOLD_INCOMPLETE',
-                'message' => '포인트 결제 응답이 불완전합니다. 잠시 후 다시 시도해주세요.',
-            );
+            return seosys300_revision_pay_fail('CORE_HOLD_INCOMPLETE', '포인트 결제 응답이 불완전합니다. 잠시 후 다시 시도해주세요.', 502);
         }
         $capture = \OnoffMarketing\BrandedAuth\CoreInternalClient::request('wallet/capture', array(
             'method' => 'POST',
@@ -1556,29 +1765,50 @@ function seosys300_revision_debit_points($mb_id, $points, $request_id, $metadata
                 'amount' => (int) $points,
             ),
         ));
+        seosys300_revision_forward_core_cookies($capture);
         if (empty($capture['ok'])) {
-            return array(
-                'ok' => false,
-                'http' => !empty($capture['status']) ? (int) $capture['status'] : 502,
-                'code' => !empty($capture['code']) ? (string) $capture['code'] : 'CORE_CAPTURE_FAILED',
-                'message' => !empty($capture['message']) ? (string) $capture['message'] : '포인트 결제에 실패했습니다.',
+            try {
+                $release = \OnoffMarketing\BrandedAuth\CoreInternalClient::request('wallet/release', array(
+                    'method' => 'POST',
+                    'cookies' => $cookies,
+                    'body' => array(
+                        'hold_transaction_id' => $hold_id,
+                        'idempotency_key' => $request_id . ':release',
+                    ),
+                ));
+                seosys300_revision_forward_core_cookies($release);
+            } catch (Exception $ignored) {
+            }
+            return seosys300_revision_pay_fail(
+                !empty($capture['code']) ? $capture['code'] : 'CORE_CAPTURE_FAILED',
+                !empty($capture['message']) ? $capture['message'] : '포인트 결제에 실패했습니다.',
+                !empty($capture['status']) ? (int) $capture['status'] : 502
             );
         }
-        return array('ok' => true, 'hold_transaction_id' => $hold_id);
+        $capture_data = is_array($capture['data']) ? $capture['data'] : array();
+        $capture_tx = is_array($capture_data['transaction'] ?? null) ? $capture_data['transaction'] : array();
+        $capture_id = (string) ($capture_tx['transaction_id'] ?? $capture_data['capture_transaction_id'] ?? '');
+        seosys300_revision_append_points_usage(array(
+            'mb_id' => (string) $mb_id,
+            'platform' => strtolower($platform !== '' ? $platform : 'onoff'),
+            'amount' => (int) $points,
+            'request_id' => (string) $request_id,
+            'reference_id' => (string) $request_id,
+            'hold_transaction_id' => $hold_id,
+            'capture_transaction_id' => $capture_id,
+            'sot' => 'wallet/hold->wallet/capture',
+            'kind' => 'website_revision',
+            'created_at' => date('c'),
+        ));
+        return array('ok' => true, 'hold_transaction_id' => $hold_id, 'capture_transaction_id' => $capture_id);
     } catch (\OnoffMarketing\BrandedAuth\BrandedAuthException $e) {
-        return array(
-            'ok' => false,
-            'http' => (int) $e->httpStatus,
-            'code' => (string) $e->errorCode,
-            'message' => $e->getMessage() !== '' ? $e->getMessage() : '포인트 결제에 실패했습니다.',
+        return seosys300_revision_pay_fail(
+            (string) $e->errorCode,
+            $e->getMessage() !== '' ? $e->getMessage() : '포인트 결제에 실패했습니다.',
+            (int) $e->httpStatus
         );
-    } catch (\Throwable $e) {
-        return array(
-            'ok' => false,
-            'http' => 502,
-            'code' => 'CORE_UNAVAILABLE',
-            'message' => '포인트 결제 서버에 연결하지 못했습니다.',
-        );
+    } catch (Exception $e) {
+        return seosys300_revision_pay_fail('CORE_UNAVAILABLE', '포인트 결제 서버에 연결하지 못했습니다.', 502);
     }
 }
 
@@ -1706,6 +1936,7 @@ function seosys300_revision_admin_queue($status_filter = '')
     return array(
         'items' => $out,
         'quotaDefault' => seosys300_revision_free_per_month(),
+        'quoteEnabled' => seosys300_revision_quote_enabled(),
     );
 }
 
@@ -1717,6 +1948,7 @@ function seosys300_revision_admin_detail($ticket_id)
     }
     $ticket = seosys300_revision_ticket_to_api($row, true);
     $ticket['quota'] = seosys300_revision_free_quota($row['mb_id']);
+    $ticket['quoteEnabled'] = seosys300_revision_quote_enabled();
     return $ticket;
 }
 
@@ -1804,6 +2036,7 @@ function seosys300_revision_admin_save($input, $actor_mb_id = null)
         $fresh = seosys300_revision_get_row($ticket_id);
         seosys300_revision_notify('REVISION_NEED_INFO', $fresh, array('memo' => $comment));
     } elseif ($action === 'free' || $action === 'free_progress') {
+        seosys300_revision_assert_free_quota($row);
         seosys300_query(
             "UPDATE `{$table}` SET
                 status = 'in_progress',
@@ -1817,6 +2050,9 @@ function seosys300_revision_admin_save($input, $actor_mb_id = null)
         $fresh = seosys300_revision_get_row($ticket_id);
         seosys300_revision_notify('REVISION_FREE', $fresh);
     } elseif ($action === 'quote') {
+        if (!seosys300_revision_quote_enabled()) {
+            seosys300_json_error(409, 'quote_disabled', '포인트 결제가 준비되지 않아 견적을 보낼 수 없습니다. 무료 한도를 사용하거나 결제를 설정해주세요.');
+        }
         if (in_array((string) $row['status'], array('in_progress', 'feedback', 'completed', 'paid'), true)) {
             seosys300_json_error(409, 'already_started', '이미 진행 중인 수정에는 새로 과금할 수 없습니다.');
         }
@@ -1845,18 +2081,7 @@ function seosys300_revision_admin_save($input, $actor_mb_id = null)
         $fresh = seosys300_revision_get_row($ticket_id);
         seosys300_revision_notify('REVISION_QUOTE', $fresh);
     } elseif ($action === 'mark_paid' || $action === 'mark-paid') {
-        $request_id = seosys300_revision_pay_request_id($ticket_id, max(1, (int) $row['quote_version']));
-        seosys300_query(
-            "UPDATE `{$table}` SET
-                status = 'in_progress',
-                paid_at = '{$now}',
-                paid_request_id = '" . seosys300_esc($request_id) . "',
-                updated_at = '{$now}'
-             WHERE id = {$ticket_id}"
-        );
-        seosys300_revision_add_comment($ticket_id, $admin_id, 'admin', $note !== '' ? $note : '운영자가 결제를 확인했습니다. 작업을 시작합니다.');
-        $fresh = seosys300_revision_get_row($ticket_id);
-        seosys300_revision_notify('REVISION_PAID', $fresh);
+        seosys300_json_error(409, 'payment_required', '결제는 고객이 온오프에서 포인트를 결제해야 합니다. 담당자가 결제 완료로 표시할 수 없습니다.');
     } elseif ($action === 'start' || $action === 'in_progress') {
         if (seosys300_revision_work_blocked_until_paid($row)) {
             seosys300_json_error(409, 'payment_required', '고객이 온오프에서 과금 결제를 완료한 뒤에 진행할 수 있습니다.');
@@ -1897,15 +2122,7 @@ function seosys300_revision_admin_save($input, $actor_mb_id = null)
         $fresh = seosys300_revision_get_row($ticket_id);
         seosys300_revision_notify('REVISION_FEEDBACK', $fresh);
     } elseif ($action === 'complete') {
-        if ((string) $row['status'] !== 'feedback') {
-            seosys300_json_error(409, 'invalid_status', '고객 확인 단계에서만 완료할 수 있습니다.');
-        }
-        seosys300_query(
-            "UPDATE `{$table}` SET status = 'completed', updated_at = '{$now}' WHERE id = {$ticket_id}"
-        );
-        seosys300_revision_add_comment($ticket_id, $admin_id, 'admin', $note !== '' ? $note : '담당자가 수정 작업을 완료 처리했습니다.');
-        $fresh = seosys300_revision_get_row($ticket_id);
-        seosys300_revision_notify('REVISION_COMPLETED', $fresh);
+        seosys300_json_error(409, 'customer_confirm_required', '완료는 고객이 온오프에서 확인해야 합니다.');
     } elseif ($action === 'cancel') {
         seosys300_query(
             "UPDATE `{$table}` SET status = 'cancelled', updated_at = '{$now}' WHERE id = {$ticket_id}"
