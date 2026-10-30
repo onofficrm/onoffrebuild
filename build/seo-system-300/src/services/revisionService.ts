@@ -1,6 +1,7 @@
 import { API_ENDPOINTS } from '../config/api';
 import { apiJson, ensureCsrfToken } from './apiClient';
 import type { RevisionAnnotation } from '../types/revisionAnnotation';
+import type { RevisionInfoRequest, RevisionTriageState, RevisionWorkPackage } from '../types/revisionWork';
 
 export type RevisionStatus =
   | 'requested'
@@ -57,6 +58,13 @@ export type ApiRevisionTicket = {
   feedbackUrl: string;
   annotation?: RevisionAnnotation | null;
   agentBrief?: string;
+  workPackage?: RevisionWorkPackage;
+  infoRequests?: RevisionInfoRequest[];
+  infoPendingCount?: number;
+  infoAnsweredCount?: number;
+  triageState?: RevisionTriageState;
+  triageStateLabel?: string;
+  cursorPrompt?: string;
   freeUsed: boolean;
   createdAt: string;
   updatedAt: string;
@@ -106,6 +114,16 @@ export async function commentRevision(ticketId: number, body: string) {
   });
 }
 
+export async function replyRevisionInfo(
+  ticketId: number,
+  items: { id: string; answerText?: string }[]
+) {
+  return apiJson<ApiRevisionTicket>(API_ENDPOINTS.revision, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'reply-info', ticketId, items }),
+  });
+}
+
 export async function confirmRevision(ticketId: number, ok: boolean) {
   return apiJson<ApiRevisionTicket>(API_ENDPOINTS.revision, {
     method: 'POST',
@@ -130,7 +148,7 @@ export async function uploadRevisionFile(
   ticketId: number,
   file: File,
   onProgress?: (pct: number) => void,
-  options?: { asSnapshot?: boolean }
+  options?: { asSnapshot?: boolean; infoRequestId?: string }
 ): Promise<ApiRevisionFile> {
   const token = await ensureCsrfToken();
   const form = new FormData();
@@ -140,6 +158,9 @@ export async function uploadRevisionFile(
   form.append('action', 'upload');
   if (options?.asSnapshot) {
     form.append('asSnapshot', '1');
+  }
+  if (options?.infoRequestId) {
+    form.append('infoRequestId', options.infoRequestId);
   }
 
   return new Promise((resolve, reject) => {

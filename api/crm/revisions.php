@@ -174,6 +174,9 @@ function onoff_crm_revision_enrich($item)
             }
         }
     }
+    if (function_exists('seosys300_revision_build_cursor_prompt')) {
+        $item['cursorPrompt'] = seosys300_revision_build_cursor_prompt($item);
+    }
     return $item;
 }
 
@@ -275,7 +278,7 @@ if (!is_array($input)) {
 }
 $op = isset($input['action']) ? (string) $input['action'] : (isset($input['op']) ? (string) $input['op'] : '');
 $op = strtolower(preg_replace('/[^a-z0-9_\-]/', '', $op));
-$allowed = array('review', 'need_info', 'need-info', 'free', 'free_progress', 'quote', 'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'complete', 'cancel', 'brief');
+$allowed = array('review', 'need_info', 'need-info', 'free', 'free_progress', 'quote', 'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'complete', 'cancel', 'brief', 'triage', 'package', 'ready');
 if (!in_array($op, $allowed, true)) {
     onoff_crm_revision_fail('unknown_action', 'Unsupported feedback action.', 400);
 }

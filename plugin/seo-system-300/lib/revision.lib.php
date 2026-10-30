@@ -153,6 +153,438 @@ function seosys300_revision_annotation_with_snapshot($annotation)
     return $annotation;
 }
 
+function seosys300_revision_clip_text($value, $max)
+{
+    $text = trim((string) $value);
+    $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text);
+    if (!is_string($text)) {
+        return '';
+    }
+    $max = (int) $max;
+    if ($max < 1) {
+        return $text;
+    }
+    if (function_exists('mb_substr')) {
+        return mb_substr($text, 0, $max);
+    }
+    return substr($text, 0, $max);
+}
+
+function seosys300_revision_new_info_id()
+{
+    return 'ir_' . date('YmdHis') . '_' . substr(bin2hex(random_bytes(3)), 0, 6);
+}
+
+function seosys300_revision_normalize_info_item($raw, $createId = true)
+{
+    if (!is_array($raw)) {
+        return null;
+    }
+    $id = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) (isset($raw['id']) ? $raw['id'] : ''));
+    if ($id === '' && !$createId) {
+        return null;
+    }
+    if ($id === '') {
+        $id = seosys300_revision_new_info_id();
+    }
+    $label = seosys300_revision_clip_text(isset($raw['label']) ? $raw['label'] : '', 80);
+    if ($label === '') {
+        $label = '추가 자료';
+    }
+    $hint = seosys300_revision_clip_text(isset($raw['hint']) ? $raw['hint'] : '', 400);
+    $required = !isset($raw['required']) || $raw['required'] === true || $raw['required'] === 1 || $raw['required'] === '1';
+    $status = isset($raw['status']) ? preg_replace('/[^a-z_]/', '', strtolower((string) $raw['status'])) : 'requested';
+    if (!in_array($status, array('requested', 'answered'), true)) {
+        $status = 'requested';
+    }
+    $fileIds = array();
+    $rawFiles = isset($raw['fileIds']) ? $raw['fileIds'] : (isset($raw['file_ids']) ? $raw['file_ids'] : array());
+    if (is_array($rawFiles)) {
+        foreach ($rawFiles as $fid) {
+            $n = (int) $fid;
+            if ($n > 0 && !in_array($n, $fileIds, true)) {
+                $fileIds[] = $n;
+            }
+        }
+    }
+    return array(
+        'id' => $id,
+        'label' => $label,
+        'hint' => $hint,
+        'required' => $required,
+        'status' => $status,
+        'answerText' => seosys300_revision_clip_text(isset($raw['answerText']) ? $raw['answerText'] : (isset($raw['answer_text']) ? $raw['answer_text'] : ''), 2000),
+        'fileIds' => $fileIds,
+        'createdAt' => seosys300_revision_clip_text(isset($raw['createdAt']) ? $raw['createdAt'] : (isset($raw['created_at']) ? $raw['created_at'] : seosys300_now()), 32),
+        'answeredAt' => isset($raw['answeredAt']) && $raw['answeredAt'] ? seosys300_revision_clip_text($raw['answeredAt'], 32) : (isset($raw['answered_at']) && $raw['answered_at'] ? seosys300_revision_clip_text($raw['answered_at'], 32) : null),
+    );
+}
+
+function seosys300_revision_normalize_work($raw)
+{
+    if (is_string($raw) && trim($raw) !== '') {
+        $decoded = json_decode($raw, true);
+        $raw = is_array($decoded) ? $decoded : array();
+    }
+    if (!is_array($raw)) {
+        $raw = array();
+    }
+    $scope = isset($raw['scope']) ? preg_replace('/[^a-z_]/', '', strtolower((string) $raw['scope'])) : 'page';
+    if (!in_array($scope, array('page', 'site'), true)) {
+        $scope = 'page';
+    }
+    $items = array();
+    $seen = array();
+    $rawItems = isset($raw['infoRequests']) ? $raw['infoRequests'] : (isset($raw['info_requests']) ? $raw['info_requests'] : array());
+    if (is_array($rawItems)) {
+        foreach ($rawItems as $item) {
+            $norm = seosys300_revision_normalize_info_item($item, false);
+            if (!$norm || isset($seen[$norm['id']])) {
+                continue;
+            }
+            $seen[$norm['id']] = true;
+            $items[] = $norm;
+        }
+    }
+    return array(
+        'assignee' => seosys300_revision_clip_text(isset($raw['assignee']) ? $raw['assignee'] : '', 80),
+        'constraints' => seosys300_revision_clip_text(isset($raw['constraints']) ? $raw['constraints'] : '', 2000),
+        'scope' => $scope,
+        'readyForAgent' => !empty($raw['readyForAgent']) || !empty($raw['ready_for_agent']),
+        'infoRequests' => $items,
+    );
+}
+
+function seosys300_revision_work_from_row($row)
+{
+    return seosys300_revision_normalize_work(isset($row['work_json']) ? $row['work_json'] : '');
+}
+
+function seosys300_revision_save_work($ticket_id, $work)
+{
+    $norm = seosys300_revision_normalize_work($work);
+    $json = json_encode($norm, JSON_UNESCAPED_UNICODE);
+    if ($json === false) {
+        return $norm;
+    }
+    $table = seosys300_revision_tickets_table();
+    $now = seosys300_esc(seosys300_now());
+    seosys300_query(
+        "UPDATE `{$table}` SET work_json = '" . seosys300_esc($json) . "', updated_at = '{$now}'
+         WHERE id = " . (int) $ticket_id
+    );
+    return $norm;
+}
+
+function seosys300_revision_info_pending_required($work)
+{
+    if (!is_array($work) || empty($work['infoRequests']) || !is_array($work['infoRequests'])) {
+        return false;
+    }
+    foreach ($work['infoRequests'] as $item) {
+        if (!empty($item['required']) && (isset($item['status']) ? $item['status'] : '') !== 'answered') {
+            return true;
+        }
+    }
+    return false;
+}
+
+function seosys300_revision_info_counts($work)
+{
+    $pending = 0;
+    $answered = 0;
+    $items = (is_array($work) && !empty($work['infoRequests']) && is_array($work['infoRequests'])) ? $work['infoRequests'] : array();
+    foreach ($items as $item) {
+        if ((isset($item['status']) ? $item['status'] : '') === 'answered') {
+            $answered++;
+        } else {
+            $pending++;
+        }
+    }
+    return array('pending' => $pending, 'answered' => $answered, 'total' => count($items));
+}
+
+function seosys300_revision_triage_state($row, $work)
+{
+    $status = is_array($row) ? (string) $row['status'] : '';
+    if (in_array($status, array('completed', 'cancelled', 'expired'), true)) {
+        return 'done';
+    }
+    if (in_array($status, array('in_progress', 'free_progress', 'paid', 'feedback'), true)) {
+        return 'in_progress';
+    }
+    if ($status === 'need_info') {
+        return seosys300_revision_info_pending_required($work) ? 'waiting_info' : 'info_returned';
+    }
+    if (!empty($work['readyForAgent'])) {
+        return 'ready';
+    }
+    if ($status === 'quote_pending') {
+        return 'ready';
+    }
+    return 'needs_triage';
+}
+
+function seosys300_revision_triage_state_label($state)
+{
+    $map = array(
+        'needs_triage' => '정리 대기',
+        'waiting_info' => '자료 대기',
+        'info_returned' => '자료 회신',
+        'ready' => '커서 준비',
+        'in_progress' => '작업중',
+        'done' => '종료',
+    );
+    return isset($map[$state]) ? $map[$state] : $state;
+}
+
+function seosys300_revision_find_info_item(&$work, $id)
+{
+    $id = (string) $id;
+    if (!is_array($work) || empty($work['infoRequests']) || !is_array($work['infoRequests'])) {
+        return null;
+    }
+    foreach ($work['infoRequests'] as $idx => $item) {
+        if ((string) $item['id'] === $id) {
+            return $idx;
+        }
+    }
+    return null;
+}
+
+function seosys300_revision_attach_info_file($ticket_id, $info_request_id, $file_id)
+{
+    $row = seosys300_revision_get_row($ticket_id);
+    if (!$row) {
+        return null;
+    }
+    $work = seosys300_revision_work_from_row($row);
+    $idx = seosys300_revision_find_info_item($work, $info_request_id);
+    if ($idx === null) {
+        return $work;
+    }
+    $fid = (int) $file_id;
+    if ($fid > 0 && !in_array($fid, $work['infoRequests'][$idx]['fileIds'], true)) {
+        $work['infoRequests'][$idx]['fileIds'][] = $fid;
+        seosys300_revision_save_work($ticket_id, $work);
+    }
+    return $work;
+}
+
+function seosys300_revision_apply_work_input($ticket_id, $row, $input)
+{
+    $work = seosys300_revision_work_from_row($row);
+    $pkg = isset($input['workPackage']) && is_array($input['workPackage']) ? $input['workPackage'] : $input;
+    $changed = false;
+    if (array_key_exists('assignee', $pkg)) {
+        $work['assignee'] = seosys300_revision_clip_text($pkg['assignee'], 80);
+        $changed = true;
+    }
+    if (array_key_exists('constraints', $pkg)) {
+        $work['constraints'] = seosys300_revision_clip_text($pkg['constraints'], 2000);
+        $changed = true;
+    }
+    if (array_key_exists('scope', $pkg)) {
+        $scope = preg_replace('/[^a-z_]/', '', strtolower((string) $pkg['scope']));
+        $work['scope'] = in_array($scope, array('page', 'site'), true) ? $scope : 'page';
+        $changed = true;
+    }
+    if (array_key_exists('readyForAgent', $pkg) || array_key_exists('ready_for_agent', $pkg)) {
+        $flag = array_key_exists('readyForAgent', $pkg) ? $pkg['readyForAgent'] : $pkg['ready_for_agent'];
+        $work['readyForAgent'] = ($flag === true || $flag === 1 || $flag === '1' || $flag === 'true');
+        $changed = true;
+    }
+    if ($changed) {
+        $work = seosys300_revision_save_work($ticket_id, $work);
+    }
+    return $work;
+}
+
+function seosys300_revision_append_info_requests($ticket_id, $row, $incoming, $note = '')
+{
+    $work = seosys300_revision_work_from_row($row);
+    $added = 0;
+    if (is_array($incoming)) {
+        foreach ($incoming as $item) {
+            $norm = seosys300_revision_normalize_info_item($item, true);
+            if (!$norm) {
+                continue;
+            }
+            $norm['status'] = 'requested';
+            $norm['answerText'] = '';
+            $norm['fileIds'] = array();
+            $norm['answeredAt'] = null;
+            $norm['createdAt'] = seosys300_now();
+            $work['infoRequests'][] = $norm;
+            $added++;
+        }
+    }
+    if ($added === 0 && trim((string) $note) !== '') {
+        $lines = preg_split('/\r\n|\r|\n/', trim((string) $note));
+        $label = seosys300_revision_clip_text(isset($lines[0]) ? $lines[0] : $note, 80);
+        $hint = count($lines) > 1 ? seosys300_revision_clip_text(implode("\n", array_slice($lines, 1)), 400) : '';
+        $work['infoRequests'][] = seosys300_revision_normalize_info_item(array(
+            'id' => seosys300_revision_new_info_id(),
+            'label' => $label !== '' ? $label : '추가 자료',
+            'hint' => $hint,
+            'required' => true,
+            'status' => 'requested',
+        ), false);
+        $added++;
+    }
+    $work['readyForAgent'] = false;
+    return seosys300_revision_save_work($ticket_id, $work);
+}
+
+function seosys300_revision_student_reply_info($ticket_id, $mb_id, $input)
+{
+    $row = seosys300_revision_get_owned($ticket_id, $mb_id);
+    if (!$row) {
+        seosys300_json_error(404, 'ticket_not_found', '수정 요청을 찾을 수 없습니다.');
+    }
+    if (in_array($row['status'], array('completed', 'cancelled'), true)) {
+        seosys300_json_error(409, 'ticket_closed', '완료·취소된 요청에는 자료를 올릴 수 없습니다.');
+    }
+    $replies = isset($input['items']) && is_array($input['items'])
+        ? $input['items']
+        : (isset($input['infoReplies']) && is_array($input['infoReplies']) ? $input['infoReplies'] : array());
+    if (isset($input['infoRequestId']) || isset($input['id'])) {
+        $replies[] = $input;
+    }
+    $work = seosys300_revision_work_from_row($row);
+    $now = seosys300_now();
+    $answered = 0;
+    $notes = array();
+    foreach ($replies as $reply) {
+        if (!is_array($reply)) {
+            continue;
+        }
+        $id = isset($reply['id']) ? (string) $reply['id'] : (isset($reply['infoRequestId']) ? (string) $reply['infoRequestId'] : '');
+        $idx = seosys300_revision_find_info_item($work, $id);
+        if ($idx === null) {
+            continue;
+        }
+        $text = seosys300_revision_clip_text(isset($reply['answerText']) ? $reply['answerText'] : (isset($reply['body']) ? $reply['body'] : ''), 2000);
+        if ($text !== '') {
+            $work['infoRequests'][$idx]['answerText'] = $text;
+        }
+        $hasFiles = !empty($work['infoRequests'][$idx]['fileIds']);
+        if ($text === '' && !$hasFiles) {
+            continue;
+        }
+        $work['infoRequests'][$idx]['status'] = 'answered';
+        $work['infoRequests'][$idx]['answeredAt'] = $now;
+        $answered++;
+        $notes[] = $work['infoRequests'][$idx]['label'] . ($text !== '' ? ': ' . $text : ' (파일 첨부)');
+    }
+    if ($answered < 1) {
+        seosys300_json_error(422, 'validation_error', '요청한 자료 칸에 답이나 파일을 넣어주세요.');
+    }
+    seosys300_revision_save_work($ticket_id, $work);
+    seosys300_revision_add_comment($ticket_id, $mb_id, 'student', "[자료 회신]\n" . implode("\n", $notes));
+    $table = seosys300_revision_tickets_table();
+    $escNow = seosys300_esc($now);
+    if (!seosys300_revision_info_pending_required($work) && (string) $row['status'] === 'need_info') {
+        seosys300_query(
+            "UPDATE `{$table}` SET status = 'reviewing', updated_at = '{$escNow}' WHERE id = " . (int) $ticket_id
+        );
+    } else {
+        seosys300_query(
+            "UPDATE `{$table}` SET updated_at = '{$escNow}' WHERE id = " . (int) $ticket_id
+        );
+    }
+    return seosys300_revision_ticket_to_api(seosys300_revision_get_row($ticket_id), true);
+}
+
+function seosys300_revision_build_cursor_prompt($ticket)
+{
+    $ann = (isset($ticket['annotation']) && is_array($ticket['annotation'])) ? $ticket['annotation'] : array();
+    $work = (isset($ticket['workPackage']) && is_array($ticket['workPackage'])) ? $ticket['workPackage'] : array();
+    $box = (isset($ann['box']) && is_array($ann['box'])) ? $ann['box'] : null;
+    $lines = array();
+    $lines[] = '홈페이지 수정 작업입니다. 정리된 지시와 제약만 따르고, 표시한 부분 외는 바꾸지 마세요.';
+    $lines[] = '';
+    $lines[] = '티켓: #' . (isset($ticket['id']) ? $ticket['id'] : '') . ' ' . (isset($ticket['title']) ? $ticket['title'] : '');
+    $page = '';
+    if (!empty($ann['pageUrl'])) {
+        $page = (string) $ann['pageUrl'];
+    } elseif (!empty($ticket['pageUrl'])) {
+        $page = (string) $ticket['pageUrl'];
+    }
+    if ($page !== '') {
+        $lines[] = '페이지: ' . $page;
+    }
+    $device = !empty($ann['device']) ? (string) $ann['device'] : (isset($ticket['device']) ? (string) $ticket['device'] : '');
+    if ($device !== '') {
+        $lines[] = '기기: ' . $device;
+    }
+    if (!empty($ann['label'])) {
+        $lines[] = '표시: ' . $ann['label'];
+    }
+    if ($box) {
+        $lines[] = '영역(%): x=' . $box['x'] . ', y=' . $box['y'] . ', w=' . $box['w'] . ', h=' . $box['h'];
+    }
+    if (!empty($ann['snapshotUrl'])) {
+        $lines[] = '캡처: ' . $ann['snapshotUrl'];
+    }
+    $scope = isset($work['scope']) ? (string) $work['scope'] : 'page';
+    $lines[] = '범위: ' . ($scope === 'site' ? '사이트 전체에서 같은 요소' : '이 페이지만');
+    if (!empty($work['assignee'])) {
+        $lines[] = '담당: ' . $work['assignee'];
+    }
+    $lines[] = '';
+    $lines[] = '## 고객 원문';
+    $lines[] = isset($ticket['description']) && $ticket['description'] !== '' ? (string) $ticket['description'] : '(없음)';
+    $lines[] = '';
+    $lines[] = '## 정리된 지시 (고객에게 보이지 않음)';
+    $brief = isset($ticket['agentBrief']) ? trim((string) $ticket['agentBrief']) : '';
+    $lines[] = $brief !== '' ? $brief : '(아직 없음)';
+    $lines[] = '';
+    $lines[] = '## 제약';
+    $constraints = isset($work['constraints']) ? trim((string) $work['constraints']) : '';
+    if ($constraints === '') {
+        $constraints = $scope === 'site'
+            ? '같은 요소만 맞추고 다른 페이지 레이아웃은 건드리지 마세요.'
+            : '이 페이지의 표시한 부분만 수정하세요. 버튼·메뉴·다른 섹션은 유지하세요.';
+    }
+    $lines[] = $constraints;
+    $info = (isset($ticket['infoRequests']) && is_array($ticket['infoRequests'])) ? $ticket['infoRequests'] : array();
+    $answered = array();
+    foreach ($info as $item) {
+        if ((isset($item['status']) ? $item['status'] : '') !== 'answered') {
+            continue;
+        }
+        $line = '- ' . $item['label'];
+        if (!empty($item['answerText'])) {
+            $line .= ': ' . $item['answerText'];
+        }
+        if (!empty($item['fileIds']) && is_array($item['fileIds'])) {
+            $line .= ' (파일 ' . count($item['fileIds']) . '개)';
+        }
+        $answered[] = $line;
+    }
+    if ($answered) {
+        $lines[] = '';
+        $lines[] = '## 고객이 보낸 자료';
+        foreach ($answered as $line) {
+            $lines[] = $line;
+        }
+    }
+    if (!empty($ticket['feedbackNote']) || !empty($ticket['feedbackUrl'])) {
+        $lines[] = '';
+        $lines[] = '## 이전 결과';
+        if (!empty($ticket['feedbackNote'])) {
+            $lines[] = (string) $ticket['feedbackNote'];
+        }
+        if (!empty($ticket['feedbackUrl'])) {
+            $lines[] = '확인 URL: ' . $ticket['feedbackUrl'];
+        }
+    }
+    $lines[] = '';
+    $lines[] = '끝나면 무엇을 바꿨는지와 확인 URL을 이 티켓 피드백에 남기세요.';
+    return implode("\n", $lines);
+}
+
 function seosys300_revision_bind_snapshot($ticket_id, $file_id)
 {
     $row = seosys300_revision_get_row($ticket_id);
@@ -275,6 +707,7 @@ function seosys300_revision_ensure_tables()
 
     seosys300_revision_ensure_column($tickets, 'annotation_json', '`annotation_json` text NULL');
     seosys300_revision_ensure_column($tickets, 'agent_brief', '`agent_brief` text NULL');
+    seosys300_revision_ensure_column($tickets, 'work_json', '`work_json` text NULL');
 
     $ok3 = seosys300_query("CREATE TABLE IF NOT EXISTS `{$files}` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -456,9 +889,24 @@ function seosys300_revision_ticket_to_api($row, $withDetail = false)
         'createdAt' => (string) $row['created_at'],
         'updatedAt' => (string) $row['updated_at'],
     );
+    $work = seosys300_revision_work_from_row($row);
+    $counts = seosys300_revision_info_counts($work);
+    $ticket['workPackage'] = array(
+        'assignee' => $work['assignee'],
+        'constraints' => $work['constraints'],
+        'scope' => $work['scope'],
+        'readyForAgent' => !empty($work['readyForAgent']),
+    );
+    $ticket['infoRequests'] = $work['infoRequests'];
+    $ticket['infoPendingCount'] = $counts['pending'];
+    $ticket['infoAnsweredCount'] = $counts['answered'];
+    $ticket['triageState'] = seosys300_revision_triage_state($row, $work);
+    $ticket['triageStateLabel'] = seosys300_revision_triage_state_label($ticket['triageState']);
+    $ticket['cursorPrompt'] = seosys300_revision_build_cursor_prompt($ticket);
     if ($withDetail) {
         $ticket['comments'] = seosys300_revision_list_comments((int) $row['id']);
         $ticket['files'] = seosys300_revision_list_files((int) $row['id']);
+        $ticket['cursorPrompt'] = seosys300_revision_build_cursor_prompt($ticket);
     }
     return $ticket;
 }
@@ -660,7 +1108,8 @@ function seosys300_revision_student_comment($ticket_id, $mb_id, $body)
     seosys300_revision_add_comment($ticket_id, $mb_id, 'student', $body);
     $table = seosys300_revision_tickets_table();
     $now = seosys300_esc(seosys300_now());
-    if ($row['status'] === 'need_info') {
+    $work = seosys300_revision_work_from_row($row);
+    if ($row['status'] === 'need_info' && !seosys300_revision_info_pending_required($work)) {
         seosys300_query(
             "UPDATE `{$table}` SET status = 'reviewing', updated_at = '{$now}' WHERE id = " . (int) $ticket_id
         );
@@ -972,6 +1421,10 @@ function seosys300_revision_upload_file($ticket_id, $mb_id, $is_admin = false)
     if ($asSnapshot) {
         seosys300_revision_bind_snapshot((int) $ticket_id, $fid);
     }
+    $infoRequestId = isset($_POST['infoRequestId']) ? (string) $_POST['infoRequestId'] : (isset($_POST['info_request_id']) ? (string) $_POST['info_request_id'] : '');
+    if ($infoRequestId !== '') {
+        seosys300_revision_attach_info_file((int) $ticket_id, $infoRequestId, $fid);
+    }
     $frow = seosys300_fetch("SELECT * FROM `{$table}` WHERE id = {$fid} LIMIT 1");
     return seosys300_revision_file_to_api($frow);
 }
@@ -1058,16 +1511,25 @@ function seosys300_revision_admin_save($input, $actor_mb_id = null)
         );
         $row['agent_brief'] = $brief;
     }
+    $work = seosys300_revision_apply_work_input($ticket_id, $row, $input);
+    $row['work_json'] = json_encode($work, JSON_UNESCAPED_UNICODE);
 
-    if ($action === 'brief') {
+    if ($action === 'brief' || $action === 'triage' || $action === 'package' || $action === 'ready') {
         if ($brief === '') {
             seosys300_json_error(422, 'validation_error', '에이전트에게 넘길 지시를 적어주세요.');
+        }
+        if ($action === 'ready' || !empty($input['readyForAgent']) || !empty($input['ready_for_agent'])) {
+            $work['readyForAgent'] = true;
+            seosys300_revision_save_work($ticket_id, $work);
         }
         return seosys300_revision_admin_detail($ticket_id);
     }
 
     if (in_array($action, array('free', 'free_progress', 'quote', 'start', 'in_progress'), true) && $brief === '') {
         seosys300_json_error(422, 'validation_error', '에이전트에게 넘길 지시를 먼저 적어주세요.');
+    }
+    if (in_array($action, array('free', 'free_progress', 'quote', 'start', 'in_progress'), true) && empty($work['readyForAgent'])) {
+        seosys300_json_error(409, 'triage_required', '정리를 마친 뒤에 커서로 넘길 수 있습니다. 담당·제약·지시를 저장하고 준비 완료로 표시하세요.');
     }
 
     if ($action === 'review') {
@@ -1078,15 +1540,26 @@ function seosys300_revision_admin_save($input, $actor_mb_id = null)
             seosys300_revision_add_comment($ticket_id, $admin_id, 'admin', $note);
         }
     } elseif ($action === 'need_info' || $action === 'need-info') {
-        if ($note === '') {
-            seosys300_json_error(422, 'validation_error', '필요한 자료를 적어주세요.');
+        $incoming = isset($input['infoRequests']) && is_array($input['infoRequests'])
+            ? $input['infoRequests']
+            : (isset($input['info_requests']) && is_array($input['info_requests']) ? $input['info_requests'] : array());
+        if ($note === '' && empty($incoming)) {
+            seosys300_json_error(422, 'validation_error', '필요한 자료를 칸으로 넣거나 메모를 적어주세요.');
         }
+        seosys300_revision_append_info_requests($ticket_id, $row, $incoming, $note);
+        $labels = array();
+        foreach ($incoming as $item) {
+            if (is_array($item) && !empty($item['label'])) {
+                $labels[] = seosys300_revision_clip_text($item['label'], 80);
+            }
+        }
+        $comment = $note !== '' ? $note : ('자료를 요청합니다: ' . implode(', ', $labels));
         seosys300_query(
             "UPDATE `{$table}` SET status = 'need_info', updated_at = '{$now}' WHERE id = {$ticket_id}"
         );
-        seosys300_revision_add_comment($ticket_id, $admin_id, 'admin', $note);
+        seosys300_revision_add_comment($ticket_id, $admin_id, 'admin', $comment);
         $fresh = seosys300_revision_get_row($ticket_id);
-        seosys300_revision_notify('REVISION_NEED_INFO', $fresh, array('memo' => $note));
+        seosys300_revision_notify('REVISION_NEED_INFO', $fresh, array('memo' => $comment));
     } elseif ($action === 'free' || $action === 'free_progress') {
         seosys300_query(
             "UPDATE `{$table}` SET

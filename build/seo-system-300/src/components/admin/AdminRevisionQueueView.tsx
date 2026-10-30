@@ -10,6 +10,7 @@ import {
   adminSaveRevision,
 } from '../../services/revisionService';
 import { RevisionMarkPreview } from '../website/RevisionMarkPreview';
+import { RevisionInfoRequestEditor, type InfoRequestDraft } from './RevisionInfoRequestEditor';
 
 function tone(status: string): 'completed' | 'in_progress' | 'pending' | 'needs_check' {
   if (status === 'completed') return 'completed';
@@ -31,7 +32,12 @@ export const AdminRevisionQueueView: React.FC = () => {
   const [feedbackNote, setFeedbackNote] = useState('');
   const [feedbackUrl, setFeedbackUrl] = useState('');
   const [agentBrief, setAgentBrief] = useState('');
+  const [assignee, setAssignee] = useState('');
+  const [constraints, setConstraints] = useState('');
+  const [scope, setScope] = useState<'page' | 'site'>('page');
+  const [infoDrafts, setInfoDrafts] = useState<InfoRequestDraft[]>([]);
   const [briefCopied, setBriefCopied] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -53,15 +59,23 @@ export const AdminRevisionQueueView: React.FC = () => {
   const open = async (item: ApiRevisionTicket) => {
     setSelected(item);
     setAgentBrief(item.agentBrief || '');
+    setAssignee(item.workPackage?.assignee || '');
+    setConstraints(item.workPackage?.constraints || '');
+    setScope(item.workPackage?.scope === 'site' ? 'site' : 'page');
+    setInfoDrafts([]);
     setNote('');
     setFeedbackNote('');
     setFeedbackUrl('');
     setQuoteNote('');
     setBriefCopied(false);
+    setPromptCopied(false);
     try {
       const detail = await adminGetRevision(item.id);
       setSelected(detail);
       setAgentBrief(detail.agentBrief || '');
+      setAssignee(detail.workPackage?.assignee || '');
+      setConstraints(detail.workPackage?.constraints || '');
+      setScope(detail.workPackage?.scope === 'site' ? 'site' : 'page');
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : '상세를 불러오지 못했습니다.');
     }
@@ -77,10 +91,17 @@ export const AdminRevisionQueueView: React.FC = () => {
         op,
         note,
         agentBrief: agentBrief.trim(),
+        assignee: assignee.trim(),
+        constraints: constraints.trim(),
+        scope,
         ...extra,
       });
       setSelected(next);
       setAgentBrief(next.agentBrief || agentBrief);
+      setAssignee(next.workPackage?.assignee || assignee);
+      setConstraints(next.workPackage?.constraints || constraints);
+      setScope(next.workPackage?.scope === 'site' ? 'site' : 'page');
+      if (op === 'need_info') setInfoDrafts([]);
       setNote('');
       await load();
     } catch (err) {
@@ -142,7 +163,7 @@ export const AdminRevisionQueueView: React.FC = () => {
                 </Badge>
               </div>
               <p className="text-[11px] text-slate-500">
-                {item.mbId} · 주문 #{item.orderId} · {item.createdAt.slice(0, 16)}
+                {item.mbId} · 주문 #{item.orderId} · {item.triageStateLabel || ''}
                 {item.annotation?.label ? ` · ${item.annotation.label}` : ''}
               </p>
               {item.priority === 'urgent' ? (
@@ -185,7 +206,58 @@ export const AdminRevisionQueueView: React.FC = () => {
 
               <div className="rounded-xl border border-[#2563EB]/20 bg-[#EFF6FF] p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-[#1D4ED8]">에이전트에게 넘길 지시</p>
+                  <p className="text-xs font-bold text-[#1D4ED8]">정리 작업대 · 고객에게 보이지 않음</p>
+                  <span className="text-[11px] font-bold text-[#1D4ED8]">
+                    {selected.triageStateLabel || (selected.workPackage?.readyForAgent ? '커서 준비' : '정리 대기')}
+                  </span>
+                </div>
+                <input
+                  value={assignee}
+                  onChange={(e) => setAssignee(e.target.value)}
+                  className="w-full text-xs border border-blue-200 rounded-lg px-3 py-2 bg-white"
+                  placeholder="담당자"
+                />
+                <div className="flex gap-2 text-[11px] font-bold text-slate-600">
+                  <label className="inline-flex items-center gap-1">
+                    <input type="radio" checked={scope === 'page'} onChange={() => setScope('page')} />
+                    이 페이지만
+                  </label>
+                  <label className="inline-flex items-center gap-1">
+                    <input type="radio" checked={scope === 'site'} onChange={() => setScope('site')} />
+                    같은 요소 사이트
+                  </label>
+                </div>
+                <textarea
+                  value={constraints}
+                  onChange={(e) => setConstraints(e.target.value)}
+                  rows={2}
+                  placeholder="제약: 버튼은 유지. 다른 섹션은 건드리지 말 것."
+                  className="w-full text-xs border border-blue-200 rounded-lg px-3 py-2 bg-white"
+                />
+                <textarea
+                  value={agentBrief}
+                  onChange={(e) => setAgentBrief(e.target.value)}
+                  rows={4}
+                  placeholder="대상: 메인 히어로 H1, PC·모바일. 문구만 교체하고 버튼은 유지."
+                  className="w-full text-xs border border-blue-200 rounded-lg px-3 py-2 bg-white"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy || !agentBrief.trim()}
+                    onClick={() => void run('triage', { readyForAgent: false })}
+                  >
+                    정리만 저장
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={busy || !agentBrief.trim()}
+                    onClick={() => void run('ready', { readyForAgent: true })}
+                  >
+                    정리 완료 · 커서 준비
+                  </Button>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2563EB]"
@@ -199,19 +271,37 @@ export const AdminRevisionQueueView: React.FC = () => {
                     }}
                   >
                     <Copy className="h-3 w-3" />
-                    {briefCopied ? '복사됨' : '복사'}
+                    {briefCopied ? '지시 복사됨' : '지시만 복사'}
                   </button>
                 </div>
-                <textarea
-                  value={agentBrief}
-                  onChange={(e) => setAgentBrief(e.target.value)}
-                  rows={4}
-                  placeholder="대상: 메인 히어로 H1, PC·모바일. 문구만 교체하고 버튼은 유지."
-                  className="w-full text-xs border border-blue-200 rounded-lg px-3 py-2 bg-white"
-                />
-                <Button size="sm" variant="outline" disabled={busy || !agentBrief.trim()} onClick={() => void run('brief')}>
-                  지시 저장
-                </Button>
+                {selected.cursorPrompt ? (
+                  <div className="rounded-lg border border-blue-200 bg-white p-2 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-bold text-slate-600">커서 작업 패키지</p>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2563EB]"
+                        onClick={() => {
+                          const text = selected.cursorPrompt || '';
+                          if (!text || !navigator.clipboard) return;
+                          void navigator.clipboard.writeText(text).then(() => {
+                            setPromptCopied(true);
+                            window.setTimeout(() => setPromptCopied(false), 1500);
+                          });
+                        }}
+                      >
+                        <Copy className="h-3 w-3" />
+                        {promptCopied ? '패키지 복사됨' : '패키지 복사'}
+                      </button>
+                    </div>
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-[11px] text-slate-700">
+                      {selected.cursorPrompt}
+                    </pre>
+                  </div>
+                ) : null}
+                {!selected.workPackage?.readyForAgent ? (
+                  <p className="text-[11px] text-slate-500">정리를 완료하기 전에는 무료·견적·작업을 시작할 수 없습니다.</p>
+                ) : null}
               </div>
 
               {(selected.files || []).length > 0 ? (
@@ -240,11 +330,25 @@ export const AdminRevisionQueueView: React.FC = () => {
                 ))}
               </div>
 
+              {(selected.infoRequests || []).length > 0 ? (
+                <div className="rounded-xl border border-slate-200 p-3 space-y-1">
+                  <p className="text-[11px] font-bold text-slate-500">자료 칸</p>
+                  {(selected.infoRequests || []).map((item) => (
+                    <p key={item.id} className="text-xs text-slate-700">
+                      {item.status === 'answered' ? '회신' : '대기'} · {item.label}
+                      {item.answerText ? ` — ${item.answerText}` : ''}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+
+              <RevisionInfoRequestEditor items={infoDrafts} onChange={setInfoDrafts} />
+
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
-                placeholder="댓글 / 자료 요청 / 안내 메모"
+                placeholder="댓글 / 자료 요청 안내"
                 className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2"
               />
 
@@ -252,14 +356,24 @@ export const AdminRevisionQueueView: React.FC = () => {
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => void run('review')}>
                   검토중
                 </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => void run('need_info')}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || (!note.trim() && infoDrafts.length === 0)}
+                  onClick={() => void run('need_info', { infoRequests: infoDrafts })}
+                >
                   자료 요청
                 </Button>
-                <Button size="sm" variant="primary" disabled={busy || !agentBrief.trim()} onClick={() => void run('free')}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={busy || !agentBrief.trim() || !selected.workPackage?.readyForAgent}
+                  onClick={() => void run('free')}
+                >
                   무료 진행
                 </Button>
-                {!agentBrief.trim() ? (
-                  <p className="w-full text-[11px] text-slate-500">무료·견적은 에이전트 지시를 적은 뒤에 할 수 있습니다.</p>
+                {!selected.workPackage?.readyForAgent ? (
+                  <p className="w-full text-[11px] text-slate-500">무료·견적은 정리 완료 뒤에만 할 수 있습니다.</p>
                 ) : null}
                 <Button size="sm" variant="outline" disabled={busy || !note.trim()} onClick={() => void run('comment')}>
                   <Send className="w-3.5 h-3.5 mr-1" />
@@ -293,7 +407,7 @@ export const AdminRevisionQueueView: React.FC = () => {
                   <Button
                     size="sm"
                     variant="primary"
-                    disabled={busy || !agentBrief.trim()}
+                    disabled={busy || !agentBrief.trim() || !selected.workPackage?.readyForAgent}
                     onClick={() =>
                       void run('quote', {
                         quotePoints: Number(quotePoints),

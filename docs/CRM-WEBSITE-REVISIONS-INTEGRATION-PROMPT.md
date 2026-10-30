@@ -51,6 +51,17 @@ Query: `status`(기본 `open`), `email`, `sinceId`, `ticketId`(상세. comments�
         "box": { "x": 4, "y": 12, "w": 92, "h": 30 }
       },
       "agentBrief": "",
+      "workPackage": {
+        "assignee": "김온오프",
+        "constraints": "이 페이지만. 버튼은 유지.",
+        "scope": "page",
+        "readyForAgent": false
+      },
+      "infoRequests": [],
+      "infoPendingCount": 0,
+      "triageState": "needs_triage",
+      "triageStateLabel": "정리 대기",
+      "cursorPrompt": "홈페이지 수정 작업입니다. ..."
       "device": "both",
       "category": "design",
       "priority": "normal",
@@ -68,10 +79,11 @@ Query: `status`(기본 `open`), `email`, `sinceId`, `ticketId`(상세. comments�
 | action | 의미 | 고객 화면 상태 |
 |---|---|---|
 | `review` | 검토 시작 | 검토중 |
-| `need_info` | 자료 더 필요. `note` 필수 | 자료 필요 |
-| `brief` | 에이전트 지시만 저장. `agentBrief` 필수 | 상태 유지 |
-| `free` | 무료로 진행. 과금 없음. `agentBrief` 필수 | 작업중 |
-| `quote` | 과금. `quotePoints` 필수, `quoteNote` 선택, `agentBrief` 필수. 고객이 온오프에서 결제하기 전에는 작업을 시작하지 마세요 | 결제 대기 |
+| `need_info` | 자료 더 필요. `infoRequests` 또는 `note` 필수. 고객은 그 칸에만 회신 | 자료 필요 |
+| `brief` / `triage` | 정리 저장. `agentBrief` 필수. `assignee`,`constraints`,`scope`,`readyForAgent` | 상태 유지 |
+| `ready` | 정리 완료. `agentBrief` 필수, `readyForAgent=true` | 상태 유지 |
+| `free` | 무료로 진행. `agentBrief` + 정리 완료(`readyForAgent`) 필수 | 작업중 |
+| `quote` | 과금. `quotePoints` 필수, 정리 완료 필수. 고객이 온오프에서 결제하기 전에는 작업을 시작하지 마세요 | 결제 대기 |
 | `start` | 작업 시작. 결제 대기(`quote_pending`)에서는 409 `payment_required` | 작업중 |
 | `feedback` | 처리 결과. `note` 또는 `feedbackNote` 필수. `feedbackUrl` 선택. 결제 전에는 409 | 확인 요청 |
 | `comment` | 댓글만. `note` 필수 | 상태 유지 |
@@ -83,10 +95,20 @@ Query: `status`(기본 `open`), `email`, `sinceId`, `ticketId`(상세. comments�
 
 무토큰 401, 잘못된 action 400, 그 외 메서드 405.
 
+### 정리·자료요청 POST
+```json
+{ "action": "ready", "ticketId": 1, "agentBrief": "히어로 H1만 교체", "assignee": "김온오프", "constraints": "버튼 유지", "scope": "page", "readyForAgent": true }
+```
+```json
+{ "action": "need_info", "ticketId": 1, "infoRequests": [{ "label": "로고 SVG", "hint": "투명 배경", "required": true }] }
+```
+
+`free`/`quote`/`start`는 `readyForAgent=true` 없이는 409 `triage_required` 입니다. 캡처 파일은 `GET /api/revisions?file={id}` 로 프록시하세요. `snapshotUrl`이 `/api/crm/revisions.php?file=` 이면 같은 file id로 바꿉니다.
+
 ## CRM 화면
-- 신청목록 또는 홈페이지 주문 상세에 **수정요청** 탭
+- Website Requests에 **온오프 정리** 작업대. 캡처+표시, 고객 원문, 담당/제약/지시, 커서 패키지 복사
+- 자료 칸(로고 SVG, 새 문구 등)을 보내면 고객은 온오프에서 그 칸에만 회신
 - 약 45초마다 `status=open` 폴링. `id`가 이전보다 크면 "홈페이지 수정요청" 알림
-- 상세에서 위 action 버튼과 메모 입력
 - 교육 승인, 주문 상태 변경과 버튼을 섞지 말 것
 
 ## 산출물

@@ -23,6 +23,7 @@ import {
 } from './RevisionRequestComposer';
 import { RevisionAnnotateWorkspace } from './RevisionAnnotateWorkspace';
 import { RevisionMarkPreview } from './RevisionMarkPreview';
+import { RevisionInfoReplySlots } from './RevisionInfoReplySlots';
 import type { WebsitePresence } from '../../utils/websitePresence';
 import {
   ApiRevisionTicket,
@@ -31,6 +32,7 @@ import {
   createRevision,
   listRevisions,
   payRevisionQuote,
+  replyRevisionInfo,
   uploadRevisionFile,
   getRevision,
 } from '../../services/revisionService';
@@ -307,6 +309,29 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
     }
   };
 
+  const handleReplyInfo = async (
+    items: { id: string; answerText: string }[],
+    uploads: { id: string; files: File[] }[]
+  ) => {
+    if (!selected) return;
+    setBusy(true);
+    setError('');
+    try {
+      for (const upload of uploads) {
+        for (const file of upload.files) {
+          await uploadRevisionFile(selected.id, file, undefined, { infoRequestId: upload.id });
+        }
+      }
+      const next = await replyRevisionInfo(selected.id, items);
+      setSelected(next);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : '자료 회신에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleAttachToSelected = async (files: FileList | null) => {
     if (!selected || !files?.length) return;
     setBusy(true);
@@ -572,6 +597,11 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
                 </Badge>
               </div>
               <p className="text-xs text-slate-500 line-clamp-2">{rev.description}</p>
+              {rev.status === 'need_info' ? (
+                <p className="text-[11px] font-bold text-amber-700">
+                  자료 요청 {rev.infoPendingCount ? `${rev.infoPendingCount}칸` : ''}
+                </p>
+              ) : null}
               <div className="flex items-center justify-between text-[10px] text-slate-400">
                 <span>{rev.annotation?.label || CATEGORY_LABEL[rev.category] || rev.category}</span>
                 <span>{rev.createdAt.slice(0, 16)}</span>
@@ -607,6 +637,19 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
               <p className="text-sm text-slate-700 bg-slate-50 border border-slate-100 rounded-xl p-3 whitespace-pre-wrap">
                 {selected.description}
               </p>
+
+              {(selected.infoRequests || []).length > 0 ? (
+                <RevisionInfoReplySlots
+                  items={selected.infoRequests || []}
+                  files={selected.files}
+                  busy={busy}
+                  onReply={handleReplyInfo}
+                />
+              ) : selected.status === 'need_info' ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                  운영자가 자료를 요청했습니다. 아래 대화에 답하거나 파일을 올려 주세요.
+                </div>
+              ) : null}
 
               {selected.status === 'quote_pending' ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">

@@ -58,6 +58,11 @@ if ($action === 'comment') {
     seosys300_json_ok(seosys300_revision_student_comment($id, $mb_id, $body));
 }
 
+if ($action === 'reply-info' || $action === 'reply_info' || $action === 'info-reply' || $action === 'info_reply') {
+    $id = isset($input['ticketId']) ? (int) $input['ticketId'] : 0;
+    seosys300_json_ok(seosys300_revision_student_reply_info($id, $mb_id, $input));
+}
+
 if ($action === 'confirm' || $action === 'confirm-done' || $action === 'confirm_done') {
     $id = isset($input['ticketId']) ? (int) $input['ticketId'] : 0;
     $ok = !isset($input['ok']) || $input['ok'] === true || $input['ok'] === 1 || $input['ok'] === '1';
