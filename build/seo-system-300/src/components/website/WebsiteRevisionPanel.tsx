@@ -3,7 +3,6 @@ import {
   PlusCircle,
   MessageSquare,
   Paperclip,
-  ExternalLink,
   Send,
   CreditCard,
   CheckCircle2,
@@ -24,6 +23,7 @@ import {
 import { RevisionAnnotateWorkspace } from './RevisionAnnotateWorkspace';
 import { RevisionMarkPreview } from './RevisionMarkPreview';
 import { RevisionInfoReplySlots } from './RevisionInfoReplySlots';
+import { RevisionResultCompare } from './RevisionResultCompare';
 import type { WebsitePresence } from '../../utils/websitePresence';
 import {
   ApiRevisionTicket,
@@ -680,28 +680,21 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
               ) : null}
 
               {selected.status === 'feedback' ? (
-                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-2">
-                  <p className="text-sm font-bold text-blue-900">수정 반영 — 확인해 주세요</p>
-                  {selected.feedbackNote ? (
-                    <p className="text-xs text-blue-800 whitespace-pre-wrap">{selected.feedbackNote}</p>
-                  ) : null}
-                  {selected.feedbackUrl ? (
-                    <a
-                      href={selected.feedbackUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-blue-700 font-medium"
-                    >
-                      결과 보기 <ExternalLink className="w-3 h-3" />
-                    </a>
-                  ) : null}
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+                  <p className="text-sm font-bold text-blue-900">수정 반영 — 표시한 자리가 고쳐졌는지 확인</p>
+                  <RevisionResultCompare
+                    annotation={selected.annotation}
+                    result={selected.resultPreview}
+                    feedbackUrl={selected.feedbackUrl}
+                    feedbackNote={selected.feedbackNote}
+                  />
                   <div className="flex gap-2">
                     <Button size="sm" variant="primary" disabled={busy} onClick={() => void handleConfirm(true)}>
                       <CheckCircle2 className="w-4 h-4 mr-1" />
                       확인했어요
                     </Button>
                     <Button size="sm" variant="outline" disabled={busy} onClick={() => void handleConfirm(false)}>
-                      아직 안 됐어요
+                      같은 자리 다시 요청
                     </Button>
                   </div>
                 </div>

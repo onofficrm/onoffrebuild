@@ -8,8 +8,10 @@ import {
   adminGetRevision,
   adminListRevisions,
   adminSaveRevision,
+  adminUploadRevisionFile,
 } from '../../services/revisionService';
 import { RevisionMarkPreview } from '../website/RevisionMarkPreview';
+import { RevisionResultCompare } from '../website/RevisionResultCompare';
 import { RevisionInfoRequestEditor, type InfoRequestDraft } from './RevisionInfoRequestEditor';
 
 function tone(status: string): 'completed' | 'in_progress' | 'pending' | 'needs_check' {
@@ -420,6 +422,15 @@ export const AdminRevisionQueueView: React.FC = () => {
                 </div>
               </div>
 
+              {selected.resultPreview?.url || selected.feedbackUrl || selected.status === 'feedback' ? (
+                <RevisionResultCompare
+                  annotation={selected.annotation}
+                  result={selected.resultPreview}
+                  feedbackUrl={selected.feedbackUrl}
+                  feedbackNote={selected.feedbackNote}
+                />
+              ) : null}
+
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2">
                 <p className="text-xs font-bold text-blue-900">완료 피드백</p>
                 <textarea
@@ -435,6 +446,32 @@ export const AdminRevisionQueueView: React.FC = () => {
                   className="w-full text-xs border border-blue-200 rounded-lg px-2 py-2"
                   placeholder="확인 URL (선택)"
                 />
+                <label className="block text-[11px] text-blue-800">
+                  결과 캡처 (선택)
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="mt-1 block w-full text-[11px]"
+                    disabled={busy}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file || !selected) return;
+                      void (async () => {
+                        setBusy(true);
+                        try {
+                          await adminUploadRevisionFile(selected.id, file, { asResult: true });
+                          const detail = await adminGetRevision(selected.id);
+                          setSelected(detail);
+                        } catch (err) {
+                          setError(err instanceof ApiRequestError ? err.message : '결과 캡처 업로드에 실패했습니다.');
+                        } finally {
+                          setBusy(false);
+                        }
+                      })();
+                    }}
+                  />
+                </label>
                 <Button
                   size="sm"
                   variant="primary"

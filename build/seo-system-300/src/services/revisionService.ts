@@ -1,7 +1,7 @@
 import { API_ENDPOINTS } from '../config/api';
 import { apiJson, ensureCsrfToken } from './apiClient';
 import type { RevisionAnnotation } from '../types/revisionAnnotation';
-import type { RevisionInfoRequest, RevisionTriageState, RevisionWorkPackage } from '../types/revisionWork';
+import type { RevisionInfoRequest, RevisionResultPreview, RevisionTriageState, RevisionWorkPackage } from '../types/revisionWork';
 
 export type RevisionStatus =
   | 'requested'
@@ -65,6 +65,9 @@ export type ApiRevisionTicket = {
   triageState?: RevisionTriageState;
   triageStateLabel?: string;
   cursorPrompt?: string;
+  resultPreview?: RevisionResultPreview;
+  reopenCount?: number;
+  reopenNote?: string;
   freeUsed: boolean;
   createdAt: string;
   updatedAt: string;
@@ -148,7 +151,7 @@ export async function uploadRevisionFile(
   ticketId: number,
   file: File,
   onProgress?: (pct: number) => void,
-  options?: { asSnapshot?: boolean; infoRequestId?: string }
+  options?: { asSnapshot?: boolean; asResult?: boolean; infoRequestId?: string }
 ): Promise<ApiRevisionFile> {
   const token = await ensureCsrfToken();
   const form = new FormData();
@@ -161,6 +164,9 @@ export async function uploadRevisionFile(
   }
   if (options?.infoRequestId) {
     form.append('infoRequestId', options.infoRequestId);
+  }
+  if (options?.asResult) {
+    form.append('asResult', '1');
   }
 
   return new Promise((resolve, reject) => {
@@ -208,4 +214,31 @@ export async function adminSaveRevision(payload: Record<string, unknown>) {
     method: 'POST',
     body: JSON.stringify({ action: 'revision-save', ...payload }),
   });
+}
+
+export async function adminUploadRevisionFile(
+  ticketId: number,
+  file: File,
+  options?: { asResult?: boolean }
+): Promise<ApiRevisionFile> {
+  const token = await ensureCsrfToken();
+  const form = new FormData();
+  form.append('file', file);
+  form.append('ticketId', String(ticketId));
+  form.append('token', token);
+  form.append('action', 'revision-upload');
+  if (options?.asResult) {
+    form.append('asResult', '1');
+  }
+  const res = await fetch(API_ENDPOINTS.admin, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json', 'X-CSRF-Token': token },
+    body: form,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.ok === false) {
+    throw new Error(body?.error?.message || '파일 업로드에 실패했습니다.');
+  }
+  return (body.data || body) as ApiRevisionFile;
 }

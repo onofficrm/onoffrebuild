@@ -34,6 +34,12 @@ function seosys300_revision_tickets_table()
     return $prefix . 'seosys300_revision_tickets';
 }
 
+function seosys300_revision_events_table()
+{
+    $prefix = defined('G5_TABLE_PREFIX') ? G5_TABLE_PREFIX : 'g5_';
+    return $prefix . 'seosys300_revision_events';
+}
+
 function seosys300_revision_comments_table()
 {
     $prefix = defined('G5_TABLE_PREFIX') ? G5_TABLE_PREFIX : 'g5_';
@@ -246,12 +252,21 @@ function seosys300_revision_normalize_work($raw)
             $items[] = $norm;
         }
     }
+    $last = isset($raw['lastResult']) && is_array($raw['lastResult']) ? $raw['lastResult'] : (isset($raw['last_result']) && is_array($raw['last_result']) ? $raw['last_result'] : array());
     return array(
         'assignee' => seosys300_revision_clip_text(isset($raw['assignee']) ? $raw['assignee'] : '', 80),
         'constraints' => seosys300_revision_clip_text(isset($raw['constraints']) ? $raw['constraints'] : '', 2000),
         'scope' => $scope,
         'readyForAgent' => !empty($raw['readyForAgent']) || !empty($raw['ready_for_agent']),
         'infoRequests' => $items,
+        'lastResult' => array(
+            'url' => seosys300_revision_clip_text(isset($last['url']) ? $last['url'] : '', 500),
+            'note' => seosys300_revision_clip_text(isset($last['note']) ? $last['note'] : '', 2000),
+            'snapshotFileId' => isset($last['snapshotFileId']) ? (int) $last['snapshotFileId'] : (isset($last['snapshot_file_id']) ? (int) $last['snapshot_file_id'] : 0),
+            'at' => seosys300_revision_clip_text(isset($last['at']) ? $last['at'] : '', 32),
+        ),
+        'reopenCount' => isset($raw['reopenCount']) ? max(0, (int) $raw['reopenCount']) : (isset($raw['reopen_count']) ? max(0, (int) $raw['reopen_count']) : 0),
+        'reopenNote' => seosys300_revision_clip_text(isset($raw['reopenNote']) ? $raw['reopenNote'] : (isset($raw['reopen_note']) ? $raw['reopen_note'] : ''), 500),
     );
 }
 
@@ -484,16 +499,22 @@ function seosys300_revision_student_reply_info($ticket_id, $mb_id, $input)
     seosys300_revision_add_comment($ticket_id, $mb_id, 'student', "[자료 회신]\n" . implode("\n", $notes));
     $table = seosys300_revision_tickets_table();
     $escNow = seosys300_esc($now);
+    $flipped = false;
     if (!seosys300_revision_info_pending_required($work) && (string) $row['status'] === 'need_info') {
         seosys300_query(
             "UPDATE `{$table}` SET status = 'reviewing', updated_at = '{$escNow}' WHERE id = " . (int) $ticket_id
         );
+        $flipped = true;
     } else {
         seosys300_query(
             "UPDATE `{$table}` SET updated_at = '{$escNow}' WHERE id = " . (int) $ticket_id
         );
     }
-    return seosys300_revision_ticket_to_api(seosys300_revision_get_row($ticket_id), true);
+    $fresh = seosys300_revision_get_row($ticket_id);
+    if ($flipped) {
+        seosys300_revision_crm_event('revision.info_returned', $fresh);
+    }
+    return seosys300_revision_ticket_to_api($fresh, true);
 }
 
 function seosys300_revision_build_cursor_prompt($ticket)
@@ -570,19 +591,59 @@ function seosys300_revision_build_cursor_prompt($ticket)
             $lines[] = $line;
         }
     }
-    if (!empty($ticket['feedbackNote']) || !empty($ticket['feedbackUrl'])) {
+    $result = (isset($ticket['resultPreview']) && is_array($ticket['resultPreview'])) ? $ticket['resultPreview'] : array();
+    if (!empty($ticket['feedbackNote']) || !empty($ticket['feedbackUrl']) || !empty($result['url']) || !empty($result['note'])) {
         $lines[] = '';
         $lines[] = '## 이전 결과';
-        if (!empty($ticket['feedbackNote'])) {
+        if (!empty($result['note'])) {
+            $lines[] = (string) $result['note'];
+        } elseif (!empty($ticket['feedbackNote'])) {
             $lines[] = (string) $ticket['feedbackNote'];
         }
-        if (!empty($ticket['feedbackUrl'])) {
-            $lines[] = '확인 URL: ' . $ticket['feedbackUrl'];
+        $resultUrl = !empty($result['url']) ? (string) $result['url'] : (isset($ticket['feedbackUrl']) ? (string) $ticket['feedbackUrl'] : '');
+        if ($resultUrl !== '') {
+            $lines[] = '확인 URL: ' . $resultUrl;
+        }
+        if (!empty($result['snapshotUrl'])) {
+            $lines[] = '결과 캡처: ' . $result['snapshotUrl'];
+        }
+    }
+    if (!empty($ticket['reopenNote']) || !empty($ticket['reopenCount'])) {
+        $lines[] = '';
+        $lines[] = '## 재요청';
+        $lines[] = !empty($ticket['reopenNote'])
+            ? (string) $ticket['reopenNote']
+            : '고객이 같은 자리가 아직 안 고쳐졌다고 했습니다. 표시한 부분만 다시 고치세요.';
+        if (!empty($ticket['reopenCount'])) {
+            $lines[] = '재요청 횟수: ' . (int) $ticket['reopenCount'];
         }
     }
     $lines[] = '';
     $lines[] = '끝나면 무엇을 바꿨는지와 확인 URL을 이 티켓 피드백에 남기세요.';
     return implode("\n", $lines);
+}
+
+function seosys300_revision_bind_result($ticket_id, $file_id)
+{
+    $row = seosys300_revision_get_row($ticket_id);
+    if (!$row) {
+        return;
+    }
+    $work = seosys300_revision_work_from_row($row);
+    if (!isset($work['lastResult']) || !is_array($work['lastResult'])) {
+        $work['lastResult'] = array('url' => '', 'note' => '', 'snapshotFileId' => 0, 'at' => '');
+    }
+    $work['lastResult']['snapshotFileId'] = (int) $file_id;
+    if (empty($work['lastResult']['at'])) {
+        $work['lastResult']['at'] = seosys300_now();
+    }
+    if (empty($work['lastResult']['url']) && !empty($row['feedback_url'])) {
+        $work['lastResult']['url'] = (string) $row['feedback_url'];
+    }
+    if (empty($work['lastResult']['note']) && !empty($row['feedback_note'])) {
+        $work['lastResult']['note'] = (string) $row['feedback_note'];
+    }
+    seosys300_revision_save_work($ticket_id, $work);
 }
 
 function seosys300_revision_bind_snapshot($ticket_id, $file_id)
@@ -709,6 +770,20 @@ function seosys300_revision_ensure_tables()
     seosys300_revision_ensure_column($tickets, 'agent_brief', '`agent_brief` text NULL');
     seosys300_revision_ensure_column($tickets, 'work_json', '`work_json` text NULL');
 
+    $events = seosys300_revision_events_table();
+    $okEvents = seosys300_query("CREATE TABLE IF NOT EXISTS `{$events}` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `ticket_id` int(11) NOT NULL DEFAULT 0,
+        `event` varchar(60) NOT NULL DEFAULT '',
+        `title` varchar(191) NOT NULL DEFAULT '',
+        `triage_state` varchar(40) NOT NULL DEFAULT '',
+        `payload_json` text NOT NULL,
+        `created_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+        PRIMARY KEY (`id`),
+        KEY `idx_created` (`id`),
+        KEY `idx_ticket` (`ticket_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+
     $ok3 = seosys300_query("CREATE TABLE IF NOT EXISTS `{$files}` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
         `ticket_id` int(11) NOT NULL DEFAULT 0,
@@ -724,7 +799,7 @@ function seosys300_revision_ensure_tables()
         KEY `idx_ticket` (`ticket_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
 
-    $done = ($ok && $ok2 && $ok3);
+    $done = ($ok && $ok2 && $ok3 && $okEvents);
     return $done;
 }
 
@@ -902,6 +977,9 @@ function seosys300_revision_ticket_to_api($row, $withDetail = false)
     $ticket['infoAnsweredCount'] = $counts['answered'];
     $ticket['triageState'] = seosys300_revision_triage_state($row, $work);
     $ticket['triageStateLabel'] = seosys300_revision_triage_state_label($ticket['triageState']);
+    $ticket['reopenCount'] = isset($work['reopenCount']) ? (int) $work['reopenCount'] : 0;
+    $ticket['reopenNote'] = isset($work['reopenNote']) ? (string) $work['reopenNote'] : '';
+    $ticket['resultPreview'] = seosys300_revision_result_preview($ticket, $work);
     $ticket['cursorPrompt'] = seosys300_revision_build_cursor_prompt($ticket);
     if ($withDetail) {
         $ticket['comments'] = seosys300_revision_list_comments((int) $row['id']);
@@ -909,6 +987,39 @@ function seosys300_revision_ticket_to_api($row, $withDetail = false)
         $ticket['cursorPrompt'] = seosys300_revision_build_cursor_prompt($ticket);
     }
     return $ticket;
+}
+
+function seosys300_revision_result_preview($ticket, $work)
+{
+    $last = (is_array($work) && isset($work['lastResult']) && is_array($work['lastResult'])) ? $work['lastResult'] : array();
+    $url = '';
+    if (!empty($last['url'])) {
+        $url = (string) $last['url'];
+    } elseif (!empty($ticket['feedbackUrl'])) {
+        $url = (string) $ticket['feedbackUrl'];
+    }
+    $note = '';
+    if (!empty($last['note'])) {
+        $note = (string) $last['note'];
+    } elseif (!empty($ticket['feedbackNote'])) {
+        $note = (string) $ticket['feedbackNote'];
+    }
+    $snapId = isset($last['snapshotFileId']) ? (int) $last['snapshotFileId'] : 0;
+    $snapshotUrl = '';
+    if ($snapId > 0) {
+        $file = seosys300_revision_get_file_row($snapId);
+        if ($file) {
+            $api = seosys300_revision_file_to_api($file);
+            $snapshotUrl = (string) $api['downloadUrl'];
+        }
+    }
+    return array(
+        'url' => $url,
+        'note' => $note,
+        'snapshotFileId' => $snapId,
+        'snapshotUrl' => $snapshotUrl,
+        'at' => isset($last['at']) ? (string) $last['at'] : '',
+    );
 }
 
 function seosys300_revision_list_comments($ticket_id)
@@ -981,19 +1092,134 @@ function seosys300_revision_add_comment($ticket_id, $mb_id, $role, $body)
 
 function seosys300_revision_notify($event, $ticket, $extra = array())
 {
-    if (!function_exists('seosys300_notify_order_event')) {
+    if (function_exists('seosys300_notify_order_event')) {
+        $payload = array_merge(array(
+            'order_id' => (int) $ticket['order_id'],
+            'project_id' => (int) $ticket['project_id'],
+            'mb_id' => (string) $ticket['mb_id'],
+            'ticket_id' => (int) $ticket['id'],
+            'ticket_title' => (string) $ticket['title'],
+            'status' => (string) $ticket['status'],
+            'quote_points' => (int) $ticket['quote_points'],
+        ), $extra);
+        seosys300_notify_order_event($event, $payload);
+    }
+    $push = array(
+        'REVISION_REQUESTED' => 'revision.requested',
+        'REVISION_PAID' => 'revision.paid',
+        'REVISION_INFO_RETURNED' => 'revision.info_returned',
+        'REVISION_REOPENED' => 'revision.reopened',
+    );
+    if (isset($push[$event])) {
+        seosys300_revision_crm_event($push[$event], $ticket, $extra);
+    }
+}
+
+function seosys300_revision_crm_event($event, $ticket, $extra = array())
+{
+    if (!is_array($ticket) || empty($ticket['id'])) {
         return;
     }
-    $payload = array_merge(array(
-        'order_id' => (int) $ticket['order_id'],
-        'project_id' => (int) $ticket['project_id'],
-        'mb_id' => (string) $ticket['mb_id'],
-        'ticket_id' => (int) $ticket['id'],
-        'ticket_title' => (string) $ticket['title'],
-        'status' => (string) $ticket['status'],
-        'quote_points' => (int) $ticket['quote_points'],
-    ), $extra);
-    seosys300_notify_order_event($event, $payload);
+    seosys300_revision_ensure_tables();
+    $api = seosys300_revision_ticket_to_api($ticket, false);
+    $title = isset($api['title']) ? (string) $api['title'] : (string) $ticket['title'];
+    $payload = array(
+        'event' => (string) $event,
+        'ticketId' => (int) $ticket['id'],
+        'triageState' => isset($api['triageState']) ? (string) $api['triageState'] : '',
+        'triageStateLabel' => isset($api['triageStateLabel']) ? (string) $api['triageStateLabel'] : '',
+        'title' => $title,
+        'status' => isset($api['status']) ? (string) $api['status'] : (string) $ticket['status'],
+        'createdAt' => seosys300_now(),
+    );
+    if (is_array($extra)) {
+        if (!empty($extra['siteName'])) {
+            $payload['siteName'] = seosys300_revision_clip_text($extra['siteName'], 120);
+        }
+    }
+    $table = seosys300_revision_events_table();
+    $now = seosys300_esc(seosys300_now());
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
+    seosys300_query(
+        "INSERT INTO `{$table}` SET
+            ticket_id = " . (int) $ticket['id'] . ",
+            event = '" . seosys300_esc(substr((string) $event, 0, 60)) . "',
+            title = '" . seosys300_esc(seosys300_revision_clip_text($title, 191)) . "',
+            triage_state = '" . seosys300_esc(isset($payload['triageState']) ? $payload['triageState'] : '') . "',
+            payload_json = '" . seosys300_esc($json ? $json : '{}') . "',
+            created_at = '{$now}'"
+    );
+    $payload['id'] = (int) sql_insert_id();
+    seosys300_revision_webhook_post($payload);
+}
+
+function seosys300_revision_list_events($since_id = 0, $limit = 50)
+{
+    seosys300_revision_ensure_tables();
+    $table = seosys300_revision_events_table();
+    $since = (int) $since_id;
+    $lim = max(1, min(100, (int) $limit));
+    $rows = seosys300_fetch_all(
+        "SELECT * FROM `{$table}` WHERE id > {$since} ORDER BY id ASC LIMIT {$lim}"
+    );
+    $out = array();
+    foreach ($rows as $row) {
+        $payload = array();
+        if (!empty($row['payload_json'])) {
+            $decoded = json_decode((string) $row['payload_json'], true);
+            if (is_array($decoded)) {
+                $payload = $decoded;
+            }
+        }
+        $payload['id'] = (int) $row['id'];
+        $payload['ticketId'] = (int) $row['ticket_id'];
+        $payload['event'] = (string) $row['event'];
+        $payload['title'] = (string) $row['title'];
+        $payload['triageState'] = (string) $row['triage_state'];
+        $payload['createdAt'] = (string) $row['created_at'];
+        $out[] = $payload;
+    }
+    return $out;
+}
+
+function seosys300_revision_webhook_post($payload)
+{
+    $url = seosys300_revision_env('SEOSYS300_CRM_REVISION_WEBHOOK_URL', 'https://crm.icrm.co.kr/api/revisions/webhook');
+    $url = trim((string) $url);
+    if ($url === '' || in_array(strtolower($url), array('off', '0', 'false', 'none'), true) || !preg_match('#^https?://#i', $url)) {
+        return;
+    }
+    $token = '';
+    if (defined('ONOFF_CRM_CONTRACT_API_TOKEN')) {
+        $token = (string) ONOFF_CRM_CONTRACT_API_TOKEN;
+    }
+    if ($token === '') {
+        $token = seosys300_revision_env('ONOFF_CRM_CONTRACT_API_TOKEN', '');
+    }
+    $body = json_encode(array('ok' => true) + (is_array($payload) ? $payload : array()), JSON_UNESCAPED_UNICODE);
+    if ($body === false || !function_exists('curl_init')) {
+        return;
+    }
+    $ch = curl_init($url);
+    if ($ch === false) {
+        return;
+    }
+    $headers = array('Content-Type: application/json', 'Accept: application/json');
+    if ($token !== '') {
+        $headers[] = 'X-ONOFF-Contract-Token: ' . $token;
+        $headers[] = 'Authorization: Bearer ' . $token;
+    }
+    curl_setopt_array($ch, array(
+        CURLOPT_POST => true,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_POSTFIELDS => $body,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 1,
+        CURLOPT_TIMEOUT => 2,
+        CURLOPT_SSL_VERIFYPEER => false,
+    ));
+    curl_exec($ch);
+    curl_close($ch);
 }
 
 function seosys300_revision_list_for_student($project_id, $mb_id)
@@ -1138,14 +1364,27 @@ function seosys300_revision_confirm_done($ticket_id, $mb_id, $ok)
         );
         seosys300_revision_add_comment($ticket_id, $mb_id, 'student', '수정 내용을 확인했습니다.');
     } else {
+        $work = seosys300_revision_work_from_row($row);
+        if (empty($work['lastResult']['url']) && !empty($row['feedback_url'])) {
+            $work['lastResult']['url'] = (string) $row['feedback_url'];
+        }
+        if (empty($work['lastResult']['note']) && !empty($row['feedback_note'])) {
+            $work['lastResult']['note'] = (string) $row['feedback_note'];
+        }
+        $work['readyForAgent'] = false;
+        $work['reopenCount'] = (isset($work['reopenCount']) ? (int) $work['reopenCount'] : 0) + 1;
+        $work['reopenNote'] = '고객이 같은 자리가 아직 안 고쳐졌다고 했습니다. 이전 결과와 표시를 보고 그 부분만 다시 고치세요.';
+        seosys300_revision_save_work($ticket_id, $work);
         seosys300_query(
-            "UPDATE `{$table}` SET status = 'in_progress', updated_at = '{$now}' WHERE id = " . (int) $ticket_id
+            "UPDATE `{$table}` SET status = 'reviewing', updated_at = '{$now}' WHERE id = " . (int) $ticket_id
         );
-        seosys300_revision_add_comment($ticket_id, $mb_id, 'student', '아직 반영되지 않았습니다. 추가 확인 부탁드립니다.');
+        seosys300_revision_add_comment($ticket_id, $mb_id, 'student', '같은 자리가 아직 반영되지 않았습니다. 다시 요청합니다.');
     }
     $fresh = seosys300_revision_get_row($ticket_id);
     if ($ok) {
         seosys300_revision_notify('REVISION_COMPLETED', $fresh);
+    } else {
+        seosys300_revision_crm_event('revision.reopened', $fresh);
     }
     return seosys300_revision_ticket_to_api($fresh, true);
 }
@@ -1421,6 +1660,10 @@ function seosys300_revision_upload_file($ticket_id, $mb_id, $is_admin = false)
     if ($asSnapshot) {
         seosys300_revision_bind_snapshot((int) $ticket_id, $fid);
     }
+    $asResult = !empty($_POST['asResult']) || !empty($_POST['as_result']) || !empty($_POST['resultSnapshot']);
+    if ($asResult) {
+        seosys300_revision_bind_result((int) $ticket_id, $fid);
+    }
     $infoRequestId = isset($_POST['infoRequestId']) ? (string) $_POST['infoRequestId'] : (isset($_POST['info_request_id']) ? (string) $_POST['info_request_id'] : '');
     if ($infoRequestId !== '') {
         seosys300_revision_attach_info_file((int) $ticket_id, $infoRequestId, $fid);
@@ -1642,6 +1885,15 @@ function seosys300_revision_admin_save($input, $actor_mb_id = null)
              WHERE id = {$ticket_id}"
         );
         seosys300_revision_add_comment($ticket_id, $admin_id, 'admin', $feedback . ($url !== '' ? "\n" . $url : ''));
+        $work = seosys300_revision_work_from_row($row);
+        $work['lastResult']['url'] = seosys300_revision_clip_text($url, 500);
+        $work['lastResult']['note'] = seosys300_revision_clip_text($feedback, 2000);
+        $work['lastResult']['at'] = seosys300_now();
+        if (isset($input['feedbackSnapshotFileId'])) {
+            $work['lastResult']['snapshotFileId'] = (int) $input['feedbackSnapshotFileId'];
+        }
+        $work['reopenNote'] = '';
+        seosys300_revision_save_work($ticket_id, $work);
         $fresh = seosys300_revision_get_row($ticket_id);
         seosys300_revision_notify('REVISION_FEEDBACK', $fresh);
     } elseif ($action === 'complete') {

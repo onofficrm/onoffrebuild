@@ -105,10 +105,29 @@ Query: `status`(기본 `open`), `email`, `sinceId`, `ticketId`(상세. comments�
 
 `free`/`quote`/`start`는 `readyForAgent=true` 없이는 409 `triage_required` 입니다. 캡처 파일은 `GET /api/revisions?file={id}` 로 프록시하세요. `snapshotUrl`이 `/api/crm/revisions.php?file=` 이면 같은 file id로 바꿉니다.
 
+상세에 `resultPreview`(url, note, snapshotUrl)와 `reopenNote`가 있습니다. 고객이 같은 자리를 다시 요청하면 티켓은 `reviewing`으로 돌아오고 커서 패키지에 이전 결과가 남습니다.
+
+### CRM 푸시
+ONOFF가 아래를 `POST https://crm.icrm.co.kr/api/revisions/webhook` 로 보냅니다. 헤더는 `X-ONOFF-Contract-Token`. 실패해도 티켓 처리는 계속됩니다.
+
+```json
+{ "ok": true, "id": 12, "event": "revision.requested", "ticketId": 1, "title": "히어로 문구", "triageState": "needs_triage", "createdAt": "2026-10-30 21:00:00" }
+```
+
+| event | 때 |
+|---|---|
+| `revision.requested` | 고객이 새 요청 |
+| `revision.info_returned` | 필수 자료 칸을 다 채움 |
+| `revision.paid` | 고객 결제 완료 |
+| `revision.reopened` | 같은 자리 재요청 |
+
+백업 조회: `GET /api/revisions?events=1&sinceId={lastEventId}`. 브라우저 알림은 이 이벤트로 배지·소리를 내고, 목록 폴링은 45초 백업만 유지하세요.
+
 ## CRM 화면
 - Website Requests에 **온오프 정리** 작업대. 캡처+표시, 고객 원문, 담당/제약/지시, 커서 패키지 복사
 - 자료 칸(로고 SVG, 새 문구 등)을 보내면 고객은 온오프에서 그 칸에만 회신
-- 약 45초마다 `status=open` 폴링. `id`가 이전보다 크면 "홈페이지 수정요청" 알림
+- 확인 화면은 요청 표시와 결과 URL/캡처를 나란히. 재요청은 원 티켓을 이어 받음
+- 웹훅/이벤트 수신 시 배지 + 소리 + "정리 대기 N건". 목록 폴링은 백업
 - 교육 승인, 주문 상태 변경과 버튼을 섞지 말 것
 
 ## 산출물

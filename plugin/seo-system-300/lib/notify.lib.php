@@ -141,6 +141,28 @@ function seosys300_notify_build_message($event, $payload, $order)
         );
     }
 
+    if ($event === 'WEBSITE_CUSTOMER_FEEDBACK') {
+        $message = isset($payload['message']) ? trim((string) $payload['message']) : '';
+        if ($message === '') {
+            $message = '제작 피드백이 등록되었습니다.';
+        }
+        return array(
+            'title' => '홈페이지 제작 피드백이 도착했습니다',
+            'body' => substr($message, 0, 500),
+            'action_tab' => 'website',
+            'action_sub_tab' => 'status',
+            'severity' => 'info',
+            'send_email' => true,
+            'email_subject' => '[SEO SYSTEM 300] 홈페이지 제작 피드백',
+            'email_body' => '<p>안녕하세요.</p><p><strong>' . htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8')
+                . '</strong> 제작 피드백이 등록되었습니다.</p><p>'
+                . nl2br(htmlspecialchars($message, ENT_QUOTES, 'UTF-8'))
+                . '</p><p><a href="'
+                . htmlspecialchars(G5_URL . $portal . '/website/status', ENT_QUOTES, 'UTF-8')
+                . '">제작 현황에서 확인</a></p>',
+        );
+    }
+
     if ($event === 'WEBSITE_STATUS_CHANGED') {
         $to = isset($payload['to']) ? (string) $payload['to'] : (string) $order['status'];
         // Materials path already sends a richer email.
@@ -171,6 +193,113 @@ function seosys300_notify_build_message($event, $payload, $order)
                 . '</strong> 로 변경되었습니다.</p><p><a href="'
                 . htmlspecialchars(G5_URL . $portal . '/website/status', ENT_QUOTES, 'UTF-8')
                 . '">Control Center에서 확인</a></p>',
+        );
+    }
+
+    $ticketTitle = isset($payload['ticket_title']) ? (string) $payload['ticket_title'] : '홈페이지 수정';
+    $revLink = htmlspecialchars(G5_URL . $portal . '/website/revisions', ENT_QUOTES, 'UTF-8');
+
+    if ($event === 'REVISION_REQUESTED') {
+        return array(
+            'title' => '수정 요청이 접수되었습니다',
+            'body' => $ticketTitle . ' 요청을 접수했습니다. 운영자가 검토 후 연락드립니다.',
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'info',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
+        );
+    }
+    if ($event === 'REVISION_NEED_INFO') {
+        $memo = isset($payload['memo']) ? (string) $payload['memo'] : '추가 자료가 필요합니다.';
+        return array(
+            'title' => '수정 요청에 자료가 필요합니다',
+            'body' => $memo,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'warning',
+            'send_email' => true,
+            'email_subject' => '[ONOFF] 홈페이지 수정 — 자료 요청',
+            'email_body' => '<p>안녕하세요.</p><p>수정 요청 「' . htmlspecialchars($ticketTitle, ENT_QUOTES, 'UTF-8')
+                . '」에 추가 자료가 필요합니다.</p><p>' . htmlspecialchars($memo, ENT_QUOTES, 'UTF-8')
+                . '</p><p><a href="' . $revLink . '">수정 요청에서 확인</a></p>',
+        );
+    }
+    if ($event === 'REVISION_FREE') {
+        return array(
+            'title' => '무료 수정으로 진행합니다',
+            'body' => $ticketTitle . ' 요청을 무료로 처리합니다.',
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'success',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
+        );
+    }
+    if ($event === 'REVISION_QUOTE') {
+        $pts = isset($payload['quote_points']) ? (int) $payload['quote_points'] : 0;
+        return array(
+            'title' => '수정 견적이 도착했습니다',
+            'body' => $ticketTitle . ' — ' . number_format($pts) . 'P. 승인 후 포인트로 결제하면 작업이 시작됩니다.',
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'warning',
+            'send_email' => true,
+            'email_subject' => '[ONOFF] 홈페이지 수정 견적 ' . number_format($pts) . 'P',
+            'email_body' => '<p>안녕하세요.</p><p>수정 요청 「' . htmlspecialchars($ticketTitle, ENT_QUOTES, 'UTF-8')
+                . '」 견적 <strong>' . number_format($pts) . 'P</strong>가 도착했습니다.</p><p><a href="'
+                . $revLink . '">결제하고 진행하기</a></p>',
+        );
+    }
+    if ($event === 'REVISION_PAID') {
+        return array(
+            'title' => '수정 결제가 확인되었습니다',
+            'body' => $ticketTitle . ' 작업을 시작합니다.',
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'success',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
+        );
+    }
+    if ($event === 'REVISION_FEEDBACK') {
+        return array(
+            'title' => '수정이 반영되었습니다 — 확인해 주세요',
+            'body' => $ticketTitle . ' 처리 결과를 확인하고 완료해 주세요.',
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'info',
+            'send_email' => true,
+            'email_subject' => '[ONOFF] 홈페이지 수정 확인 요청',
+            'email_body' => '<p>안녕하세요.</p><p>수정 요청 「' . htmlspecialchars($ticketTitle, ENT_QUOTES, 'UTF-8')
+                . '」이 반영되었습니다. 확인해 주세요.</p><p><a href="' . $revLink . '">결과 확인</a></p>',
+        );
+    }
+    if ($event === 'REVISION_INFO_RETURNED') {
+        return array(
+            'title' => '수정 자료가 도착했습니다',
+            'body' => $ticketTitle,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'info',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
+        );
+    }
+    if ($event === 'REVISION_COMPLETED') {
+        return array(
+            'title' => '수정 요청이 완료되었습니다',
+            'body' => $ticketTitle,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'success',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
         );
     }
 

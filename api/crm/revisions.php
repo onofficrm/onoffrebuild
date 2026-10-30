@@ -166,6 +166,12 @@ function onoff_crm_revision_enrich($item)
             $item['annotation']['snapshotUrl'] = '/api/crm/revisions.php?file=' . $snapId;
         }
     }
+    if (isset($item['resultPreview']) && is_array($item['resultPreview'])) {
+        $rid = isset($item['resultPreview']['snapshotFileId']) ? (int) $item['resultPreview']['snapshotFileId'] : 0;
+        if ($rid > 0) {
+            $item['resultPreview']['snapshotUrl'] = '/api/crm/revisions.php?file=' . $rid;
+        }
+    }
     if (!empty($item['files']) && is_array($item['files'])) {
         foreach ($item['files'] as $idx => $file) {
             $fid = isset($file['id']) ? (int) $file['id'] : 0;
@@ -227,6 +233,18 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET' && isset($_GET['file'])) {
     onoff_crm_revision_send_file((int) $_GET['file']);
+}
+
+if ($method === 'GET' && (isset($_GET['events']) || (isset($_GET['action']) && $_GET['action'] === 'events'))) {
+    $since = isset($_GET['sinceId']) ? (int) $_GET['sinceId'] : (isset($_GET['sinceEventId']) ? (int) $_GET['sinceEventId'] : 0);
+    $events = seosys300_revision_list_events($since);
+    echo json_encode(array(
+        'ok' => true,
+        'sinceId' => $since,
+        'events' => $events,
+        'latestId' => $events ? (int) $events[count($events) - 1]['id'] : $since,
+    ), JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 if ($method === 'GET') {
