@@ -27,6 +27,26 @@ if (!function_exists('edu_platform_is_host')) {
     }
 }
 
+if (!function_exists('edu_platform_is_request')) {
+    /**
+     * The temporary /seo-system-300 fallback runs on onoff.icrm.co.kr while
+     * edu.icrm.co.kr is being attached to the shared document root.
+     * Only plugin requests are treated as education requests; normal ONOFF
+     * pages keep their own platform identity.
+     */
+    function edu_platform_is_request()
+    {
+        if (edu_platform_is_host()) {
+            return true;
+        }
+        if (edu_platform_host() !== 'onoff.icrm.co.kr') {
+            return false;
+        }
+        $path = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?? '');
+        return strpos($path, '/plugin/seo-system-300/') === 0;
+    }
+}
+
 if (!function_exists('edu_platform_portal_prefix')) {
     /**
      * URL prefix for the student SPA. Empty on edu.icrm.co.kr (site root).
@@ -82,25 +102,36 @@ if (!function_exists('edu_platform_apply_env')) {
     function edu_platform_apply_env()
     {
         static $done = false;
-        if ($done || !edu_platform_is_host()) {
+        if ($done || !edu_platform_is_request()) {
             return;
         }
         $done = true;
 
         $boot = dirname(__FILE__) . '/branded-auth/bootstrap.php';
         if (is_file($boot)) {
-            require_once $boot;
+            try {
+                require_once $boot;
+            } catch (Throwable $e) {
+                return;
+            }
         }
         if (!class_exists('OnoffMarketing\\BrandedAuth\\BrandedAuthConfig')) {
             return;
         }
 
+        $isEduHost = edu_platform_host() === 'edu.icrm.co.kr';
+        $publicOrigin = $isEduHost ? 'https://edu.icrm.co.kr' : 'https://onoff.icrm.co.kr';
+        // Until edu.icrm.co.kr is live, /seo-system-300 runs as an ONOFF
+        // fallback route. Its browser login cookie belongs to the `onoff`
+        // platform, so asking Core for an `education` session here always
+        // reports authenticated=false even though the user just logged in.
+        $platformId = $isEduHost ? 'education' : 'onoff';
         $values = array(
-            'ONOFF_PLATFORM_ID' => 'education',
-            'ONOFF_SIGNUP_PLATFORM' => 'education',
-            'ONOFF_PUBLIC_ORIGIN' => 'https://edu.icrm.co.kr',
-            'ONOFF_SSO_CALLBACK_URL' => 'https://edu.icrm.co.kr/auth/callback',
-            'ONOFF_PUBLIC_HOST' => 'edu.icrm.co.kr',
+            'ONOFF_PLATFORM_ID' => $platformId,
+            'ONOFF_SIGNUP_PLATFORM' => $platformId,
+            'ONOFF_PUBLIC_ORIGIN' => $publicOrigin,
+            'ONOFF_SSO_CALLBACK_URL' => $publicOrigin . '/auth/callback',
+            'ONOFF_PUBLIC_HOST' => $isEduHost ? 'edu.icrm.co.kr' : 'onoff.icrm.co.kr',
             'ONOFF_BRANDED_AUTH_ENABLED' => 'true',
             'BFF_BRANDED_AUTH_ENABLED' => 'true',
             'ONOFF_PLATFORM_AUTH_ENABLED' => 'true',
@@ -160,6 +191,74 @@ if (!function_exists('edu_platform_lookup_member')) {
     }
 }
 
+if (!function_exists('edu_platform_core_cookie_candidates')) {
+    /**
+     * ONOFF may have both a host-only GNUBoard PHPSESSID and the shared
+     * Domain=.icrm.co.kr Core PHPSESSID. Cookie headers do not include Domain,
+     * so try each PHPSESSID value independently instead of trusting order.
+     *
+     * @return string[]
+     */
+    function edu_platform_core_cookie_candidates($cookieHeader)
+    {
+        $sessionValues = array();
+        $other = array();
+        foreach (explode(';', (string) $cookieHeader) as $part) {
+            $part = trim($part);
+            if ($part === '' || strpos($part, '=') === false) {
+                continue;
+            }
+            list($name, $value) = explode('=', $part, 2);
+            $name = trim($name);
+            if (strcasecmp($name, 'PHPSESSID') === 0) {
+                $value = trim($value);
+                if ($value !== '' && !in_array($value, $sessionValues, true)) {
+                    $sessionValues[] = $value;
+                }
+                continue;
+            }
+            // Never forward the platform-local session to Core.
+            if (strcasecmp($name, 'SEOSYS300PHPSESSID') !== 0) {
+                $other[] = $part;
+            }
+        }
+
+        $candidates = array();
+        foreach ($sessionValues as $value) {
+            $parts = $other;
+            $parts[] = 'PHPSESSID=' . $value;
+            $candidates[] = implode('; ', $parts);
+        }
+        if (!$candidates) {
+            $candidates[] = implode('; ', $other);
+        }
+        return $candidates;
+    }
+}
+
+if (!function_exists('edu_platform_get_core_session')) {
+    function edu_platform_get_core_session($cookieHeader, &$matchedCookies = '')
+    {
+        $fallback = null;
+        foreach (edu_platform_core_cookie_candidates($cookieHeader) as $candidate) {
+            try {
+                $session = OnoffMarketing\BrandedAuth\PlatformAuthService::getSession($candidate);
+            } catch (Throwable $e) {
+                continue;
+            }
+            if ($fallback === null) {
+                $fallback = $session;
+            }
+            if (!empty($session['authenticated'])) {
+                $matchedCookies = $candidate;
+                return $session;
+            }
+        }
+        $matchedCookies = '';
+        return $fallback;
+    }
+}
+
 if (!function_exists('edu_platform_adopt_member')) {
     /**
      * Replace the GNUBoard session user with the Core unified member.
@@ -167,11 +266,15 @@ if (!function_exists('edu_platform_adopt_member')) {
      */
     function edu_platform_adopt_member()
     {
-        if (!edu_platform_is_host() || !defined('_GNUBOARD_')) {
+        if (!edu_platform_is_request() || !defined('_GNUBOARD_')) {
             return;
         }
 
-        edu_platform_apply_env();
+        try {
+            edu_platform_apply_env();
+        } catch (Throwable $e) {
+            return;
+        }
         if (!class_exists('OnoffMarketing\\BrandedAuth\\BrandedAuthConfig')) {
             return;
         }
@@ -194,9 +297,9 @@ if (!function_exists('edu_platform_adopt_member')) {
             return;
         }
 
-        try {
-            $sess = OnoffMarketing\BrandedAuth\PlatformAuthService::getSession((string) ($_SERVER['HTTP_COOKIE'] ?? ''));
-        } catch (Throwable $e) {
+        $matchedCookies = '';
+        $sess = edu_platform_get_core_session((string) ($_SERVER['HTTP_COOKIE'] ?? ''), $matchedCookies);
+        if (!is_array($sess)) {
             $member = array();
             $is_member = false;
             $is_admin = '';
@@ -240,7 +343,7 @@ if (!function_exists('edu_platform_adopt_member')) {
             set_session('edu_core_mb', (string) $mb['mb_id']);
             set_session('edu_core_name', (string) ($mb['mb_name'] ?? $name));
             set_session('edu_core_email', (string) ($mb['mb_email'] ?? $email));
-            set_session('edu_core_until', (string) ($now + 45));
+            set_session('edu_core_until', (string) ($now + 300));
         }
     }
 }

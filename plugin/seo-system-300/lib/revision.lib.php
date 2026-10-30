@@ -46,6 +46,180 @@ function seosys300_revision_files_table()
     return $prefix . 'seosys300_revision_files';
 }
 
+function seosys300_revision_ensure_column($table, $column, $definition)
+{
+    $safeColumn = seosys300_esc($column);
+    $row = seosys300_fetch("SHOW COLUMNS FROM `{$table}` LIKE '{$safeColumn}'");
+    if ($row) {
+        return;
+    }
+    seosys300_query("ALTER TABLE `{$table}` ADD {$definition}");
+}
+
+function seosys300_revision_clamp_percent($value)
+{
+    $n = (float) $value;
+    if ($n < 0) {
+        return 0.0;
+    }
+    if ($n > 100) {
+        return 100.0;
+    }
+    return round($n, 1);
+}
+
+function seosys300_revision_normalize_box($box)
+{
+    if (!is_array($box)) {
+        return null;
+    }
+    $x = seosys300_revision_clamp_percent(isset($box['x']) ? $box['x'] : 0);
+    $y = seosys300_revision_clamp_percent(isset($box['y']) ? $box['y'] : 0);
+    $w = seosys300_revision_clamp_percent(isset($box['w']) ? $box['w'] : 0);
+    $h = seosys300_revision_clamp_percent(isset($box['h']) ? $box['h'] : 0);
+    if ($w < 0.5 || $h < 0.5) {
+        return null;
+    }
+    if ($x + $w > 100) {
+        $w = seosys300_revision_clamp_percent(100 - $x);
+    }
+    if ($y + $h > 100) {
+        $h = seosys300_revision_clamp_percent(100 - $y);
+    }
+    return array('x' => $x, 'y' => $y, 'w' => $w, 'h' => $h);
+}
+
+function seosys300_revision_normalize_annotation($raw)
+{
+    if (is_string($raw) && trim($raw) !== '') {
+        $decoded = json_decode($raw, true);
+        $raw = is_array($decoded) ? $decoded : array();
+    }
+    if (!is_array($raw)) {
+        return null;
+    }
+    $tool = isset($raw['tool']) ? preg_replace('/[^a-z]/', '', strtolower((string) $raw['tool'])) : '';
+    if (!in_array($tool, array('block', 'box', 'pen'), true)) {
+        return null;
+    }
+    $label = trim(isset($raw['label']) ? (string) $raw['label'] : '');
+    $label = preg_replace('/[\x00-\x1F\x7F]/u', '', $label);
+    if (!is_string($label) || $label === '') {
+        $label = '선택한 부분';
+    }
+    if (function_exists('mb_substr')) {
+        $label = mb_substr($label, 0, 80);
+    } else {
+        $label = substr($label, 0, 80);
+    }
+    $device = isset($raw['device']) ? preg_replace('/[^a-z]/', '', strtolower((string) $raw['device'])) : 'pc';
+    if (!in_array($device, array('pc', 'mobile', 'both'), true)) {
+        $device = 'pc';
+    }
+    $pageUrl = trim(isset($raw['pageUrl']) ? (string) $raw['pageUrl'] : '');
+    if (strlen($pageUrl) > 500) {
+        $pageUrl = substr($pageUrl, 0, 500);
+    }
+    $out = array(
+        'tool' => $tool,
+        'label' => $label,
+        'device' => $device,
+        'pageUrl' => $pageUrl,
+    );
+    $box = seosys300_revision_normalize_box(isset($raw['box']) ? $raw['box'] : null);
+    if ($box) {
+        $out['box'] = $box;
+    }
+    $snapId = isset($raw['snapshotFileId']) ? (int) $raw['snapshotFileId'] : 0;
+    if ($snapId > 0) {
+        $out['snapshotFileId'] = $snapId;
+    }
+    return $out;
+}
+
+function seosys300_revision_annotation_with_snapshot($annotation)
+{
+    if (!is_array($annotation)) {
+        return null;
+    }
+    $fid = isset($annotation['snapshotFileId']) ? (int) $annotation['snapshotFileId'] : 0;
+    if ($fid > 0) {
+        $file = seosys300_revision_get_file_row($fid);
+        if ($file) {
+            $api = seosys300_revision_file_to_api($file);
+            $annotation['snapshotUrl'] = (string) $api['downloadUrl'];
+        }
+    }
+    return $annotation;
+}
+
+function seosys300_revision_bind_snapshot($ticket_id, $file_id)
+{
+    $row = seosys300_revision_get_row($ticket_id);
+    if (!$row) {
+        return;
+    }
+    $ann = seosys300_revision_annotation_from_row($row);
+    if (!$ann) {
+        $ann = array(
+            'tool' => 'box',
+            'label' => '선택한 영역',
+            'device' => 'pc',
+            'pageUrl' => (string) $row['page_url'],
+        );
+    }
+    $ann['snapshotFileId'] = (int) $file_id;
+    $json = json_encode($ann, JSON_UNESCAPED_UNICODE);
+    if ($json === false) {
+        return;
+    }
+    $table = seosys300_revision_tickets_table();
+    $now = seosys300_esc(seosys300_now());
+    seosys300_query(
+        "UPDATE `{$table}` SET annotation_json = '" . seosys300_esc($json) . "', updated_at = '{$now}'
+         WHERE id = " . (int) $ticket_id
+    );
+}
+
+function seosys300_revision_annotation_from_description($description, $pageUrl = '', $device = '')
+{
+    if (!preg_match('/^\[표시\]\s*(.+?)\s*·\s*(PC|모바일)/u', (string) $description, $m)) {
+        return null;
+    }
+    $box = null;
+    if (preg_match('/영역:\s*([\d.]+),([\d.]+)\s*-\s*([\d.]+),([\d.]+)/u', (string) $description, $b)) {
+        $box = array(
+            'x' => (float) $b[1],
+            'y' => (float) $b[2],
+            'w' => (float) $b[3] - (float) $b[1],
+            'h' => (float) $b[4] - (float) $b[2],
+        );
+    }
+    return seosys300_revision_normalize_annotation(array(
+        'tool' => 'block',
+        'label' => $m[1],
+        'device' => $m[2] === '모바일' ? 'mobile' : ($device !== '' ? $device : 'pc'),
+        'pageUrl' => $pageUrl,
+        'box' => $box,
+    ));
+}
+
+function seosys300_revision_annotation_from_row($row)
+{
+    if (!is_array($row)) {
+        return null;
+    }
+    $fromJson = seosys300_revision_normalize_annotation(isset($row['annotation_json']) ? $row['annotation_json'] : '');
+    if ($fromJson) {
+        return $fromJson;
+    }
+    return seosys300_revision_annotation_from_description(
+        isset($row['description']) ? $row['description'] : '',
+        isset($row['page_url']) ? $row['page_url'] : '',
+        isset($row['device']) ? $row['device'] : ''
+    );
+}
+
 function seosys300_revision_ensure_tables()
 {
     static $done = false;
@@ -76,6 +250,8 @@ function seosys300_revision_ensure_tables()
         `paid_request_id` varchar(80) NOT NULL DEFAULT '',
         `feedback_note` text NOT NULL,
         `feedback_url` varchar(500) NOT NULL DEFAULT '',
+        `annotation_json` text NOT NULL,
+        `agent_brief` text NOT NULL,
         `free_used` tinyint(1) NOT NULL DEFAULT 0,
         `created_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
         `updated_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -96,6 +272,9 @@ function seosys300_revision_ensure_tables()
         PRIMARY KEY (`id`),
         KEY `idx_ticket` (`ticket_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+
+    seosys300_revision_ensure_column($tickets, 'annotation_json', '`annotation_json` text NULL');
+    seosys300_revision_ensure_column($tickets, 'agent_brief', '`agent_brief` text NULL');
 
     $ok3 = seosys300_query("CREATE TABLE IF NOT EXISTS `{$files}` (
         `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -271,6 +450,8 @@ function seosys300_revision_ticket_to_api($row, $withDetail = false)
         'paidAt' => $row['paid_at'] ? (string) $row['paid_at'] : null,
         'feedbackNote' => (string) $row['feedback_note'],
         'feedbackUrl' => (string) $row['feedback_url'],
+        'annotation' => seosys300_revision_annotation_with_snapshot(seosys300_revision_annotation_from_row($row)),
+        'agentBrief' => isset($row['agent_brief']) ? (string) $row['agent_brief'] : '',
         'freeUsed' => (int) $row['free_used'] === 1,
         'createdAt' => (string) $row['created_at'],
         'updatedAt' => (string) $row['updated_at'],
@@ -413,8 +594,8 @@ function seosys300_revision_create($input, $mb_id)
 
     $title = trim(isset($input['title']) ? (string) $input['title'] : '');
     $description = trim(isset($input['description']) ? (string) $input['description'] : '');
-    if ($title === '' || $description === '') {
-        seosys300_json_error(422, 'validation_error', '제목과 수정 내용을 입력해주세요.');
+    if ($title === '') {
+        seosys300_json_error(422, 'validation_error', '제목을 입력해주세요.');
     }
 
     $category = isset($input['category']) ? preg_replace('/[^a-z0-9_]/', '', strtolower((string) $input['category'])) : 'other';
@@ -430,6 +611,14 @@ function seosys300_revision_create($input, $mb_id)
     if (strlen($page_url) > 500) {
         $page_url = substr($page_url, 0, 500);
     }
+    $annotation = seosys300_revision_normalize_annotation(isset($input['annotation']) ? $input['annotation'] : null);
+    if ($annotation && $page_url === '' && $annotation['pageUrl'] !== '') {
+        $page_url = $annotation['pageUrl'];
+    }
+    if ($annotation && empty($annotation['pageUrl']) && $page_url !== '') {
+        $annotation['pageUrl'] = $page_url;
+    }
+    $annotation_json = $annotation ? json_encode($annotation, JSON_UNESCAPED_UNICODE) : '';
 
     $now = seosys300_now();
     $table = seosys300_revision_tickets_table();
@@ -448,6 +637,8 @@ function seosys300_revision_create($input, $mb_id)
             quote_note = '',
             feedback_note = '',
             feedback_url = '',
+            annotation_json = '" . seosys300_esc($annotation_json) . "',
+            agent_brief = '',
             created_at = '" . seosys300_esc($now) . "',
             updated_at = '" . seosys300_esc($now) . "'"
     );
@@ -777,6 +968,10 @@ function seosys300_revision_upload_file($ticket_id, $mb_id, $is_admin = false)
             created_at = '{$now}'"
     );
     $fid = (int) sql_insert_id();
+    $asSnapshot = !empty($_POST['asSnapshot']) || !empty($_POST['snapshot']) || !empty($_POST['as_snapshot']);
+    if ($asSnapshot) {
+        seosys300_revision_bind_snapshot((int) $ticket_id, $fid);
+    }
     $frow = seosys300_fetch("SELECT * FROM `{$table}` WHERE id = {$fid} LIMIT 1");
     return seosys300_revision_file_to_api($frow);
 }
@@ -853,6 +1048,27 @@ function seosys300_revision_admin_save($input, $actor_mb_id = null)
     $table = seosys300_revision_tickets_table();
     $now = seosys300_esc(seosys300_now());
     $note = trim(isset($input['note']) ? (string) $input['note'] : '');
+    $brief = trim(isset($input['agentBrief']) ? (string) $input['agentBrief'] : '');
+    if ($brief === '') {
+        $brief = isset($row['agent_brief']) ? trim((string) $row['agent_brief']) : '';
+    }
+    if ($brief !== '' && $brief !== (isset($row['agent_brief']) ? (string) $row['agent_brief'] : '')) {
+        seosys300_query(
+            "UPDATE `{$table}` SET agent_brief = '" . seosys300_esc($brief) . "', updated_at = '{$now}' WHERE id = {$ticket_id}"
+        );
+        $row['agent_brief'] = $brief;
+    }
+
+    if ($action === 'brief') {
+        if ($brief === '') {
+            seosys300_json_error(422, 'validation_error', '에이전트에게 넘길 지시를 적어주세요.');
+        }
+        return seosys300_revision_admin_detail($ticket_id);
+    }
+
+    if (in_array($action, array('free', 'free_progress', 'quote', 'start', 'in_progress'), true) && $brief === '') {
+        seosys300_json_error(422, 'validation_error', '에이전트에게 넘길 지시를 먼저 적어주세요.');
+    }
 
     if ($action === 'review') {
         seosys300_query(

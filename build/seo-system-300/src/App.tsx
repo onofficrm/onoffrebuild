@@ -50,6 +50,7 @@ import {
   adminKanbanOrders,
   adminProjectList,
   adminRequestMoreInfo,
+  adminSavePreviewUrl,
   adminSaveRequestChecklist,
   KANBAN_TO_STATUS,
   mapAdminProjectsToStudents,
@@ -1075,6 +1076,13 @@ export default function App() {
     setSelectedCardForModal(mapped);
   };
 
+  const handleAdminSavePreviewUrl = async (orderId: number, previewUrl: string) => {
+    const saved = await adminSavePreviewUrl(orderId, previewUrl);
+    const mapped = mapOrderToKanbanCard(saved);
+    setKanbanCards((prev) => prev.map((c) => (c.id === String(saved.id) ? mapped : c)));
+    setSelectedCardForModal(mapped);
+  };
+
   const handleAppendWebsiteMaterials = async (payload: {
     orderId?: number;
     businessInfoNote?: string;
@@ -1252,6 +1260,7 @@ export default function App() {
                   onOpenCardDetail={handleOpenWebsiteOrder}
                   onRequestMoreInfo={(orderId, payload) => void handleAdminRequestMoreInfo(orderId, payload)}
                   onSaveChecklist={(orderId, checklist) => handleAdminSaveChecklist(orderId, checklist)}
+                  onSavePreviewUrl={(orderId, previewUrl) => handleAdminSavePreviewUrl(orderId, previewUrl)}
                 />
               )}
 
@@ -1580,6 +1589,11 @@ export default function App() {
         onSaveChecklist={
           selectedCardForModal
             ? (checklist) => handleAdminSaveChecklist(Number(selectedCardForModal.id), checklist)
+            : undefined
+        }
+        onSavePreviewUrl={
+          selectedCardForModal
+            ? (previewUrl) => handleAdminSavePreviewUrl(Number(selectedCardForModal.id), previewUrl)
             : undefined
         }
       />

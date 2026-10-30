@@ -274,6 +274,7 @@ function onoff_crm_website_item($row)
         'contactEmail' => (string) ($row['email'] ?? ''),
         'businessDescription' => (string) ($row['business_description'] ?? ''),
         'currentUrl' => (string) ($row['current_url'] ?? ''),
+        'previewUrl' => isset($extra['previewUrl']) ? substr(trim((string) $extra['previewUrl']), 0, 500) : '',
         'designStyle' => (string) ($row['design_style'] ?? ''),
         'primaryColor' => (string) ($row['primary_color'] ?? ''),
         'customColor' => (string) ($row['custom_color'] ?? ''),

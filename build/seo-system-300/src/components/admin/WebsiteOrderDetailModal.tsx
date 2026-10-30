@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   User,
@@ -16,9 +16,10 @@ import {
   Save,
   Check
 } from 'lucide-react';
-import { WebsiteKanbanCard, WebsiteKanbanStage } from '../../types';
+import { WebsiteKanbanCard, WebsiteKanbanStage, RequestChecklistStatus } from '../../types';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
+import { BOARD_REQUEST_OPTIONS, PROGRAM_REQUEST_OPTIONS } from '../website/wizard/WizardStep9Review';
 
 export interface WebsiteOrderDetailModalProps {
   isOpen: boolean;
@@ -26,6 +27,11 @@ export interface WebsiteOrderDetailModalProps {
   card: WebsiteKanbanCard | null;
   onUpdateCard: (updated: WebsiteKanbanCard) => void;
   onRequestMoreInfo?: (payload: { title: string; body: string; adminMemo?: string }) => void;
+  onSaveChecklist?: (checklist: {
+    board: Record<string, string>;
+    program: Record<string, string>;
+  }) => Promise<void> | void;
+  onSavePreviewUrl?: (previewUrl: string) => Promise<void> | void;
 }
 
 const STAGE_OPTIONS: { id: WebsiteKanbanStage; label: string }[] = [
@@ -39,21 +45,66 @@ const STAGE_OPTIONS: { id: WebsiteKanbanStage; label: string }[] = [
   { id: 'completed', label: '완료 (납품)' }
 ];
 
+const CHECKLIST_STATUSES: { id: RequestChecklistStatus; label: string }[] = [
+  { id: 'pending', label: '대기' },
+  { id: 'included', label: '포함' },
+  { id: 'quote', label: '견적' },
+  { id: 'done', label: '완료' },
+  { id: 'skip', label: '제외' },
+];
+
+function labelForKey(group: 'board' | 'program', key: string): string {
+  const list = group === 'board' ? BOARD_REQUEST_OPTIONS : PROGRAM_REQUEST_OPTIONS;
+  return list.find((o) => o.key === key)?.label || key;
+}
+
 export const WebsiteOrderDetailModal: React.FC<WebsiteOrderDetailModalProps> = ({
   isOpen,
   onClose,
   card,
   onUpdateCard,
-  onRequestMoreInfo
+  onRequestMoreInfo,
+  onSaveChecklist,
+  onSavePreviewUrl,
 }) => {
-  if (!isOpen || !card) return null;
-
-  const [currentStage, setCurrentStage] = useState<WebsiteKanbanStage>(card.stage);
-  const [assignee, setAssignee] = useState(card.assignee);
+  const [currentStage, setCurrentStage] = useState<WebsiteKanbanStage>('new_order');
+  const [assignee, setAssignee] = useState('');
   const [newNoteText, setNewNoteText] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [reqTitle, setReqTitle] = useState('');
   const [reqBody, setReqBody] = useState('');
+  const [checklist, setChecklist] = useState({
+    board: {} as Record<string, string>,
+    program: {} as Record<string, string>,
+  });
+  const [checklistBusy, setChecklistBusy] = useState(false);
+  const [checklistMsg, setChecklistMsg] = useState('');
+  const [previewUrlDraft, setPreviewUrlDraft] = useState('');
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewMsg, setPreviewMsg] = useState('');
+
+  useEffect(() => {
+    if (!card) return;
+    setCurrentStage(card.stage);
+    setAssignee(card.assignee);
+    setNewNoteText('');
+    setIsSaved(false);
+    setReqTitle('');
+    setReqBody('');
+    setPreviewUrlDraft(card.previewUrl || '');
+    setPreviewMsg('');
+    const board: Record<string, string> = { ...(card.brief.requestChecklist?.board || {}) };
+    const program: Record<string, string> = { ...(card.brief.requestChecklist?.program || {}) };
+    (card.brief.boardRequests || []).forEach((k) => {
+      if (!board[k]) board[k] = 'pending';
+    });
+    (card.brief.programRequests || []).forEach((k) => {
+      if (!program[k]) program[k] = 'pending';
+    });
+    setChecklist({ board, program });
+  }, [card?.id]);
+
+  if (!isOpen || !card) return null;
 
   const handleSave = () => {
     let updatedNotes = card.notes;
@@ -187,6 +238,134 @@ export const WebsiteOrderDetailModal: React.FC<WebsiteOrderDetailModalProps> = (
                 <div className="text-sm font-bold text-[#0F172A]">{card.brief.siteType}</div>
               </div>
 
+              {card.brief.businessDescription ? (
+                <div className="space-y-1">
+                  <span className="text-xs text-[#64748B]">사업 설명</span>
+                  <p className="text-xs text-[#0F172A] whitespace-pre-wrap">{card.brief.businessDescription}</p>
+                </div>
+              ) : null}
+
+              {card.brief.businessInfoNote ? (
+                <div className="space-y-1">
+                  <span className="text-xs text-[#64748B]">사업자 정보</span>
+                  <p className="text-xs text-[#0F172A] whitespace-pre-wrap">{card.brief.businessInfoNote}</p>
+                </div>
+              ) : null}
+
+              {(card.brief.boardRequests || []).length > 0 ? (
+                <div className="space-y-1.5">
+                  <span className="text-xs text-[#64748B]">게시판 요청</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(card.brief.boardRequests || []).map((item) => (
+                      <span key={item} className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
+                        {{ notice: '공지사항', faq: 'FAQ', gallery: '갤러리', download: '자료실', qna: '문의 게시판' }[item] || item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {(card.brief.programRequests || []).length > 0 ? (
+                <div className="space-y-1.5">
+                  <span className="text-xs text-[#64748B]">프로그램 요청</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(card.brief.programRequests || []).map((item) => (
+                      <span key={item} className="px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#2563EB] text-xs font-bold border border-[#DBEAFE]">
+                        {{
+                          inquiry_form: '상담·견적 문의폼',
+                          reservation: '예약·신청',
+                          membership: '회원가입·로그인',
+                          payment: '결제',
+                          admin: '관리자 기능',
+                          map: '지도',
+                          kakao: '카카오톡 연결',
+                        }[item] || item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {(Object.keys(checklist.board).length > 0 || Object.keys(checklist.program).length > 0) && onSaveChecklist ? (
+                <div className="space-y-3 pt-2 border-t border-[#F1F5F9]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-[#0F172A]">요청 작업 체크리스트</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={checklistBusy}
+                      onClick={() => {
+                        setChecklistBusy(true);
+                        setChecklistMsg('');
+                        Promise.resolve(onSaveChecklist(checklist))
+                          .then(() => setChecklistMsg('체크리스트 저장됨'))
+                          .catch(() => setChecklistMsg('저장 실패'))
+                          .finally(() => setChecklistBusy(false));
+                      }}
+                    >
+                      체크리스트 저장
+                    </Button>
+                  </div>
+                  {(['board', 'program'] as const).map((group) => {
+                    const entries = Object.entries(checklist[group]);
+                    if (!entries.length) return null;
+                    return (
+                      <div key={group} className="space-y-1.5">
+                        <p className="text-[11px] font-bold text-[#64748B]">
+                          {group === 'board' ? '게시판' : '프로그램'}
+                        </p>
+                        {entries.map(([key, status]) => (
+                          <div key={`${group}-${key}`} className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-[#0F172A]">{labelForKey(group, key)}</span>
+                            <select
+                              value={status}
+                              onChange={(e) =>
+                                setChecklist((prev) => ({
+                                  ...prev,
+                                  [group]: { ...prev[group], [key]: e.target.value },
+                                }))
+                              }
+                              className="text-[11px] border border-[#E2E8F0] rounded-lg px-2 py-1 bg-white"
+                            >
+                              {CHECKLIST_STATUSES.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  {checklistMsg ? <p className="text-[11px] text-emerald-700 font-bold">{checklistMsg}</p> : null}
+                </div>
+              ) : null}
+
+              {card.brief.extraRequest ? (
+                <div className="space-y-1">
+                  <span className="text-xs text-[#64748B]">기타 요청사항</span>
+                  <p className="text-xs text-[#0F172A] whitespace-pre-wrap rounded-xl bg-amber-50 border border-amber-100 p-3">
+                    {card.brief.extraRequest}
+                  </p>
+                </div>
+              ) : null}
+
+              {card.brief.contacts && Object.keys(card.brief.contacts).length > 0 ? (
+                <div className="space-y-1">
+                  <span className="text-xs text-[#64748B]">연락처</span>
+                  <div className="text-xs text-[#475569] space-y-0.5">
+                    {Object.entries(card.brief.contacts).map(([key, value]) =>
+                      value ? (
+                        <p key={key}>
+                          {key}: {value}
+                        </p>
+                      ) : null
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
               {/* Structure */}
               <div className="space-y-1.5">
                 <span className="text-xs text-[#64748B]">홈페이지 메뉴 구조</span>
@@ -309,6 +488,45 @@ export const WebsiteOrderDetailModal: React.FC<WebsiteOrderDetailModalProps> = (
                   </option>
                 ))}
               </select>
+
+              {onSavePreviewUrl ? (
+                <div className="space-y-2 pt-3 border-t border-[#E2E8F0]">
+                  <span className="text-xs text-[#64748B]">고객 미리보기 주소</span>
+                  <input
+                    type="url"
+                    value={previewUrlDraft}
+                    onChange={(e) => {
+                      setPreviewUrlDraft(e.target.value);
+                      if (previewMsg) setPreviewMsg('');
+                    }}
+                    placeholder="https://예고편.주소"
+                    className="w-full p-2 text-xs bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl"
+                  />
+                  <p className="text-[11px] text-[#64748B]">
+                    이 주소가 있으면 고객 화면에 수정하기가 열립니다. 도메인만으로는 열리지 않습니다.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={previewBusy}
+                    onClick={() => {
+                      setPreviewBusy(true);
+                      setPreviewMsg('');
+                      Promise.resolve(onSavePreviewUrl(previewUrlDraft.trim()))
+                        .then(() => setPreviewMsg('미리보기 주소를 저장했습니다.'))
+                        .catch(() => setPreviewMsg('저장에 실패했습니다.'))
+                        .finally(() => setPreviewBusy(false));
+                    }}
+                  >
+                    {previewBusy ? '저장 중' : '미리보기 주소 저장'}
+                  </Button>
+                  {previewMsg ? (
+                    <p className={`text-[11px] font-bold ${previewMsg.includes('실패') ? 'text-rose-600' : 'text-emerald-700'}`}>
+                      {previewMsg}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="space-y-1 pt-2">
                 <span className="text-xs text-[#64748B]">담당 엔지니어 배정</span>

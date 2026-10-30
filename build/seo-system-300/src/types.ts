@@ -51,6 +51,13 @@ export interface Project {
   };
   gscConnected: boolean;
   gaConnected: boolean;
+  targetKeywords?: string[];
+  businessType?: string;
+  primaryRegion?: string;
+  impressionsGoal?: number;
+  trafficGoal?: number;
+  contentGoal?: number;
+  referringDomainGoal?: number;
   createdAt: string;
   websiteStatusLabel?: string;
   metricsAreDemo?: boolean;
@@ -122,10 +129,15 @@ export interface RoadmapStep {
   durationEst: string;
   checklist: {
     id: string;
+    taskKey?: string;
     text: string;
+    description?: string;
     completed: boolean;
     required: boolean;
     helpTip?: string;
+    estimatedMinutes?: number;
+    relatedTool?: string;
+    completionType?: string;
   }[];
   lectureModuleId?: number;
 }
@@ -343,6 +355,7 @@ export interface WebsiteKanbanCard {
   files?: Array<{ id: number; originalName: string; downloadUrl: string; category: string; memo: string }>;
   orderNo?: string;
   mbId?: string;
+  previewUrl?: string;
 }
 
 export interface StudentSummary {

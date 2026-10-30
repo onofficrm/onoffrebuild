@@ -13,8 +13,39 @@ if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.use_only_cookies', '1');
 }
 
-include_once dirname(__DIR__, 2) . '/plugin/seo-system-300/api/_init.php';
+include_once dirname(__DIR__, 2) . '/common.php';
 include_once G5_PATH . '/lib/onoff-education.lib.php';
+include_once G5_PATH . '/plugin/seo-system-300/lib/tables.php';
+include_once G5_PATH . '/plugin/seo-system-300/lib/db.lib.php';
+include_once G5_PATH . '/plugin/seo-system-300/lib/constants.php';
+include_once G5_PATH . '/plugin/seo-system-300/lib/validate.php';
+include_once G5_PATH . '/plugin/seo-system-300/lib/upload.lib.php';
+include_once G5_PATH . '/plugin/seo-system-300/lib/revision.lib.php';
+
+if (!function_exists('seosys300_log')) {
+    function seosys300_log($message)
+    {
+    }
+}
+if (!function_exists('seosys300_env')) {
+    function seosys300_env($name, $default = '')
+    {
+        $raw = getenv($name);
+        return ($raw === false || $raw === '') ? $default : (string) $raw;
+    }
+}
+if (!function_exists('seosys300_current_mb_id')) {
+    function seosys300_current_mb_id()
+    {
+        return '';
+    }
+}
+if (!function_exists('seosys300_is_admin')) {
+    function seosys300_is_admin()
+    {
+        return false;
+    }
+}
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -42,6 +73,13 @@ function onoff_crm_revision_fail($error, $message, $status)
         'message' => (string) $message,
     ), JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+if (!function_exists('seosys300_json_error')) {
+    function seosys300_json_error($status, $code, $message)
+    {
+        onoff_crm_revision_fail($code, $message, $status);
+    }
 }
 
 function onoff_crm_revision_token()
@@ -122,11 +160,71 @@ function onoff_crm_revision_enrich($item)
     $item['contactEmail'] = $order ? (string) $order['email'] : '';
     $item['memberEmail'] = $memberEmail;
     $item['memberName'] = $memberName;
+    if (isset($item['annotation']) && is_array($item['annotation'])) {
+        $snapId = isset($item['annotation']['snapshotFileId']) ? (int) $item['annotation']['snapshotFileId'] : 0;
+        if ($snapId > 0) {
+            $item['annotation']['snapshotUrl'] = '/api/crm/revisions.php?file=' . $snapId;
+        }
+    }
+    if (!empty($item['files']) && is_array($item['files'])) {
+        foreach ($item['files'] as $idx => $file) {
+            $fid = isset($file['id']) ? (int) $file['id'] : 0;
+            if ($fid > 0) {
+                $item['files'][$idx]['downloadUrl'] = '/api/crm/revisions.php?file=' . $fid;
+            }
+        }
+    }
     return $item;
+}
+
+function onoff_crm_revision_send_file($fileId)
+{
+    $fileId = (int) $fileId;
+    if ($fileId < 1) {
+        onoff_crm_revision_fail('file_not_found', '파일을 찾을 수 없습니다.', 404);
+    }
+    $row = seosys300_revision_get_file_row($fileId);
+    if (!$row) {
+        onoff_crm_revision_fail('file_not_found', '파일을 찾을 수 없습니다.', 404);
+    }
+    $path = rtrim(seosys300_upload_root(), '/') . '/' . ltrim((string) $row['rel_path'], '/');
+    $real_root = realpath(seosys300_upload_root());
+    $real_file = realpath($path);
+    if ($real_root === false || $real_file === false || strpos($real_file, $real_root) !== 0 || !is_file($real_file)) {
+        onoff_crm_revision_fail('file_not_found', '파일을 찾을 수 없습니다.', 404);
+    }
+    $name = str_replace(array("\r", "\n", '"'), '', (string) $row['original_name']);
+    $mime = strtolower((string) $row['mime_type']);
+    $imageMimes = array(
+        'image/jpeg' => 'image/jpeg',
+        'image/jpg' => 'image/jpeg',
+        'image/png' => 'image/png',
+        'image/gif' => 'image/gif',
+        'image/webp' => 'image/webp',
+    );
+    if (isset($imageMimes[$mime])) {
+        $mime = $imageMimes[$mime];
+    } else {
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $byExt = array('jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp');
+        $mime = isset($byExt[$ext]) ? $byExt[$ext] : 'application/octet-stream';
+    }
+    $inline = $mime !== 'application/octet-stream';
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . (string) filesize($real_file));
+    header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . '; filename="' . $name . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: private, no-store');
+    readfile($real_file);
+    exit;
 }
 
 seosys300_revision_ensure_tables();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+if ($method === 'GET' && isset($_GET['file'])) {
+    onoff_crm_revision_send_file((int) $_GET['file']);
+}
 
 if ($method === 'GET') {
     $ticketId = isset($_GET['ticketId']) ? (int) $_GET['ticketId'] : (isset($_GET['id']) ? (int) $_GET['id'] : 0);
@@ -177,7 +275,7 @@ if (!is_array($input)) {
 }
 $op = isset($input['action']) ? (string) $input['action'] : (isset($input['op']) ? (string) $input['op'] : '');
 $op = strtolower(preg_replace('/[^a-z0-9_\-]/', '', $op));
-$allowed = array('review', 'need_info', 'need-info', 'free', 'free_progress', 'quote', 'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'complete', 'cancel');
+$allowed = array('review', 'need_info', 'need-info', 'free', 'free_progress', 'quote', 'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'complete', 'cancel', 'brief');
 if (!in_array($op, $allowed, true)) {
     onoff_crm_revision_fail('unknown_action', 'Unsupported feedback action.', 400);
 }

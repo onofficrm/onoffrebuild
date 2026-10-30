@@ -45,11 +45,18 @@ if (
 }
 
 if (!$ticketEnrollment && function_exists('edu_platform_adopt_member')) {
-    edu_platform_adopt_member();
+    try {
+        edu_platform_adopt_member();
+    } catch (Throwable $e) {
+    }
 }
 
 if (function_exists('onoff_education_platform_grant_enrollment')) {
-    $educationGrant = onoff_education_platform_grant_enrollment('any');
+    try {
+        $educationGrant = onoff_education_platform_grant_enrollment('any');
+    } catch (Throwable $e) {
+        $educationGrant = null;
+    }
     $educationMemberId = is_array($educationGrant) ? (string) ($educationGrant['mb_id'] ?? '') : '';
     if ($educationMemberId !== '' && function_exists('get_member')) {
         $educationMember = get_member($educationMemberId);
@@ -67,5 +74,8 @@ if (function_exists('onoff_education_platform_grant_enrollment')) {
 }
 include_once(dirname(__FILE__) . '/../../lib/onoff-education-admin-auth.lib.php');
 if (function_exists('onoff_education_try_platform_admin_adopt')) {
-    onoff_education_try_platform_admin_adopt();
+    try {
+        onoff_education_try_platform_admin_adopt();
+    } catch (Throwable $e) {
+    }
 }

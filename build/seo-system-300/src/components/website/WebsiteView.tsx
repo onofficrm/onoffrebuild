@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutTemplate,
   Clock,
   CheckCircle2,
   AlertCircle,
-  PlusCircle,
   FileText,
   Send,
   ExternalLink,
-  MessageSquare,
   Sparkles,
   Layers,
   Monitor,
@@ -22,7 +20,6 @@ import {
 import {
   WebsiteSubTab,
   WebsiteOrder,
-  RevisionTicket,
   StatusType,
   Project
 } from '../../types';
@@ -31,31 +28,39 @@ import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { ProgressBar } from '../common/ProgressBar';
 import { Tabs } from '../common/Tabs';
-import { Modal } from '../common/Modal';
 import { WebsiteOrderWizard } from './WebsiteOrderWizard';
+import { WebsiteRevisionPanel } from './WebsiteRevisionPanel';
+import { WebsiteReviewConfirm } from './WebsiteReviewConfirm';
+import { MaterialsAddPanel, type MaterialsAppendPayload } from './MaterialsAddPanel';
 import type { ApiWebsiteOrder } from '../../services/websiteOrderService';
 import type { UploadedFileItem } from './wizard/WizardStep8UploadCenter';
 import { isDraftOrderStatus, isSubmittedOrderStatus, WEBSITE_ORDER_STATUS, WEBSITE_ORDER_STATUS_LABEL, WEBSITE_PROCESS_STEPS } from '../../constants/seoSystem300';
+import { websitePresence, websitePreviewUrl } from '../../utils/websitePresence';
 
 export interface WebsiteViewProps {
   activeSubTab: WebsiteSubTab;
   setActiveSubTab: (subTab: WebsiteSubTab) => void;
   order: WebsiteOrder;
-  revisions: RevisionTicket[];
   project: Project | null;
-  onAddRevision: (revision: Omit<RevisionTicket, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => void;
+  projects?: Project[];
+  onSelectProject?: (project: Project) => void;
+  onCreateProject?: (input: { name: string; domain: string; niche: string }) => Promise<void>;
   onSubmitNewOrder: (newOrder: Partial<WebsiteOrder>) => void;
   liveOrder?: ApiWebsiteOrder | null;
+  orders?: ApiWebsiteOrder[];
+  draftOrder?: ApiWebsiteOrder | null;
   liveError?: string;
   onRetryLive?: () => void;
   onSaveDraft?: (payload: Record<string, unknown>) => Promise<void>;
-  onSubmitLive?: (payload: Record<string, unknown>) => Promise<void>;
+  onSubmitLive?: (payload: Record<string, unknown>) => Promise<{ id?: number; orderNo?: string; status?: string } | void>;
+  onStartNewOrder?: () => Promise<void>;
   onStartDraft?: () => Promise<void>;
+  onAppendMaterials?: (payload: MaterialsAppendPayload & { orderId?: number }) => Promise<void>;
   wizardFiles?: UploadedFileItem[];
   uploading?: boolean;
   uploadProgress?: number;
   uploadError?: string;
-  onUploadFiles?: (categoryId: string, files: FileList) => void;
+  onUploadFiles?: (categoryId: string, files: FileList, orderId?: number) => void;
   onDeleteFile?: (id: string) => void;
   onUpdateFileMemo?: (id: string, memo: string) => void;
   onReplaceFile?: (id: string, file: File) => void;
@@ -67,16 +72,20 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
   activeSubTab,
   setActiveSubTab,
   order,
-  revisions,
   project,
-  onAddRevision,
+  projects = [],
+  onSelectProject,
+  onCreateProject,
   onSubmitNewOrder,
   liveOrder = null,
+  orders = [],
+  draftOrder = null,
   liveError = '',
   onRetryLive,
   onSaveDraft,
   onSubmitLive,
-  onStartDraft,
+  onStartNewOrder,
+  onAppendMaterials,
   wizardFiles,
   uploading,
   uploadProgress,
@@ -88,13 +97,6 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
   saveError,
   saveStatus
 }) => {
-  // Modal states
-  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
-  const [revisionTitle, setRevisionTitle] = useState('');
-  const [revisionCategory, setRevisionCategory] = useState<RevisionTicket['category']>('design');
-  const [revisionPriority, setRevisionPriority] = useState<RevisionTicket['priority']>('medium');
-  const [revisionDesc, setRevisionDesc] = useState('');
-
   // Order mode state: 'wizard' vs 'quick'
   const [orderMode, setOrderMode] = useState<'wizard' | 'quick'>('wizard');
 
@@ -106,55 +108,160 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
   const [orderRefs, setOrderRefs] = useState('https://sample-travel.com');
   const [orderRequests, setOrderRequests] = useState('구글 코어 웹 바이탈 최적화, 자동 목차 플러그인 포함');
   const [orderSubmittedSuccess, setOrderSubmittedSuccess] = useState(false);
-
-  const handleCreateRevision = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!revisionTitle.trim() || !revisionDesc.trim()) return;
-
-    onAddRevision({
-      orderId: order.id,
-      title: revisionTitle,
-      category: revisionCategory,
-      priority: revisionPriority,
-      description: revisionDesc
-    });
-
-    setRevisionTitle('');
-    setRevisionDesc('');
-    setIsRevisionModalOpen(false);
-  };
+  const [quickOrderNo, setQuickOrderNo] = useState('');
+  const [quickSubmitting, setQuickSubmitting] = useState(false);
+  const [placingNew, setPlacingNew] = useState(false);
+  const [startingNew, setStartingNew] = useState(false);
+  const [hubPick, setHubPick] = useState<string | null>(null);
+  const [viewOrderId, setViewOrderId] = useState<number | null>(null);
+  const userPickedOrder = useRef(false);
 
   const handleQuickOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmitNewOrder({
+    if (!onSubmitLive || quickSubmitting) return;
+    setQuickSubmitting(true);
+    void onSubmitLive({
       siteType: orderSiteType,
-      targetNiche: orderNiche,
-      targetKeywords: orderKeywords.split(',').map((k) => k.trim()),
-      theme: orderTheme,
-      referenceUrls: [orderRefs],
-      specialRequests: orderRequests
-    });
-    setOrderSubmittedSuccess(true);
-    setTimeout(() => {
-      setOrderSubmittedSuccess(false);
-      setActiveSubTab('status');
-    }, 1200);
+      siteName: orderNiche,
+      industry: orderNiche,
+      businessDescription: orderRequests,
+      designStyle: orderTheme,
+      currentUrl: orderRefs,
+      references: orderRefs ? [{ url: orderRefs, memo: '' }] : [],
+      keywords: orderKeywords.split(',').map((k) => k.trim()).filter(Boolean),
+      extraRequest: orderRequests,
+    })
+      .then((saved) => {
+        const orderNo = saved?.orderNo || '';
+        if (!saved?.id || saved.status !== 'submitted' || !/^WEB-\d{4}-\d{6}$/.test(orderNo)) {
+          throw new Error('주문이 저장되지 않았습니다. 다시 제출해주세요.');
+        }
+        setQuickOrderNo(orderNo);
+        setOrderSubmittedSuccess(true);
+      })
+      .catch(() => {
+        setOrderSubmittedSuccess(false);
+      })
+      .finally(() => setQuickSubmitting(false));
   };
 
   const handleWizardSubmit = (orderData: Record<string, unknown> | Partial<WebsiteOrder>) => {
-    if (onSubmitLive) void onSubmitLive(orderData as Record<string, unknown>);
-    else onSubmitNewOrder(orderData as Partial<WebsiteOrder>);
+    if (onSubmitLive) return onSubmitLive(orderData as Record<string, unknown>);
+    onSubmitNewOrder(orderData as Partial<WebsiteOrder>);
   };
 
-  const tabs = [
-    { id: 'status' as WebsiteSubTab, label: '제작현황 및 타임라인' },
-    { id: 'order' as WebsiteSubTab, label: '홈페이지 신규 주문' },
-    { id: 'revision' as WebsiteSubTab, label: '수정요청 관리', count: revisions.length }
-  ];
+  const listedOrders = orders.length > 0 ? orders : liveOrder ? [liveOrder] : [];
+  const previewSource =
+    listedOrders.find((item) => isSubmittedOrderStatus(item.status)) || liveOrder || null;
+  const previewUrl = websitePreviewUrl({
+    previewUrl: previewSource?.previewUrl || liveOrder?.previewUrl,
+  });
+  const hasSubmittedOrder = listedOrders.some((item) => isSubmittedOrderStatus(item.status));
+  const presence = useMemo(
+    () =>
+      websitePresence({
+        hasSubmittedOrder,
+        hasLivePreview: Boolean(previewUrl),
+      }),
+    [hasSubmittedOrder, previewUrl]
+  );
+  const tabs = useMemo(() => {
+    if (presence === 'absent') {
+      return [{ id: 'order' as WebsiteSubTab, label: '홈페이지 만들기' }];
+    }
+    if (presence === 'building') {
+      return [
+        { id: 'status' as WebsiteSubTab, label: '제작현황' },
+        { id: 'order' as WebsiteSubTab, label: '추가 주문' },
+      ];
+    }
+    return [
+      { id: 'revision' as WebsiteSubTab, label: '수정하기' },
+      { id: 'status' as WebsiteSubTab, label: '제작현황' },
+      { id: 'order' as WebsiteSubTab, label: '새 홈페이지' },
+    ];
+  }, [presence]);
+  const showHub = activeSubTab === 'order' && !placingNew && presence !== 'absent';
+  const composeOrder =
+    draftOrder && isDraftOrderStatus(draftOrder.status)
+      ? draftOrder
+      : listedOrders.find((item) => isDraftOrderStatus(item.status)) ||
+        (liveOrder && isDraftOrderStatus(liveOrder.status) ? liveOrder : null);
+  const detailOrder =
+    (viewOrderId ? listedOrders.find((item) => item.id === viewOrderId) : null) ||
+    listedOrders.find((item) => isSubmittedOrderStatus(item.status)) ||
+    liveOrder;
+
+  useEffect(() => {
+    if (presence === 'absent' && (activeSubTab === 'revision' || activeSubTab === 'status') && !placingNew) {
+      setActiveSubTab('order');
+      return;
+    }
+    if (presence === 'building' && activeSubTab === 'revision') {
+      setActiveSubTab('status');
+      return;
+    }
+    if (presence === 'present' && activeSubTab === 'order' && !placingNew && !userPickedOrder.current) {
+      setActiveSubTab('revision');
+    }
+  }, [presence, activeSubTab, placingNew, setActiveSubTab]);
+
+  const startNewOrder = () => {
+    if (startingNew) return;
+    setStartingNew(true);
+    const open = () => {
+      setHubPick(null);
+      setPlacingNew(true);
+      setOrderMode('wizard');
+    };
+    if (!onStartNewOrder) {
+      open();
+      setStartingNew(false);
+      return;
+    }
+    void onStartNewOrder()
+      .then(open)
+      .finally(() => setStartingNew(false));
+  };
+
+  const wizardValues = (source: ApiWebsiteOrder | null) =>
+    source
+      ? {
+          wizardStep: source.wizardStep,
+          siteType: source.siteType,
+          purposes: source.purposes,
+          industry: source.industry,
+          siteName: source.siteName,
+          brandName: source.brandName,
+          phone: source.phone,
+          email: source.email,
+          region: source.region,
+          businessDescription: source.businessDescription,
+          currentUrl: source.currentUrl,
+          designStyle: source.designStyle,
+          primaryColor: source.primaryColor,
+          customColor: source.customColor,
+          contacts: source.contacts || {},
+          extraRequest: source.extraRequest || '',
+          businessInfoNote: source.businessInfoNote || '',
+          boardRequests: source.boardRequests || [],
+          programRequests: source.programRequests || [],
+          accentColor: source.accentColor || '',
+          orderNo: source.orderNo || '',
+          status: source.status,
+          menus: source.menus.map((m) => ({
+            id: String(m.id),
+            title: m.label,
+            isSubItem: m.parentId > 0
+          })),
+          features: source.features.map((f) => f.key),
+          references: source.references.map((r) => r.url)
+        }
+      : null;
 
   return (
     <div className="space-y-6">
-      {!project ? (
+      {!project && activeSubTab !== 'revision' ? (
         <div className="bg-white rounded-3xl p-8 border border-[#E2E8F0] text-center space-y-3">
           <h2 className="text-lg font-black">프로젝트를 먼저 선택해주세요.</h2>
           <p className="text-sm text-slate-500">홈페이지 주문은 선택된 SEO 프로젝트에 저장됩니다.</p>
@@ -205,7 +312,7 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
             <p className="text-sm font-bold text-slate-900">
               홈페이지 주문이 {WEBSITE_ORDER_STATUS_LABEL[liveOrder.status] || liveOrder.status} 상태입니다.
             </p>
-            <p className="text-xs text-slate-500">새 위저드 대신 제작현황에서 진행 상태를 확인하세요.</p>
+            <p className="text-xs text-slate-500">진행 중인 주문과 별도로 신규 주문을 추가할 수 있습니다.</p>
           </div>
           <Button size="sm" variant="primary" onClick={() => setActiveSubTab('status')}>
             제작현황 보기
@@ -220,15 +327,35 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
             <span>SEO SYSTEM 300 전담 퍼블리싱 관제</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] tracking-tight">
-            홈페이지 제작 관제소
+            {presence === 'present' ? '내 홈페이지' : presence === 'building' ? '홈페이지 제작 중' : '홈페이지 만들기'}
           </h1>
           <p className="text-xs sm:text-sm text-[#64748B] leading-relaxed">
-            비전문가도 쉬운 질문형 위저드로 홈페이지를 기획하고, 제작 타임라인 및 수정 요청을 실시간으로 관리합니다.
+            {presence === 'present'
+              ? '고칠 자리를 찍고 원하는 내용만 남겨 주세요. 온오프가 읽고 정리한 뒤에 작업합니다.'
+              : presence === 'building'
+                ? '초안이 올라오면 화면을 보고 수정 요청할 수 있습니다. 지금은 제작 현황과 자료를 확인하세요.'
+                : '아직 보여 줄 화면이 없습니다. 종류와 자료를 남기면 온오프가 읽고 초안을 만듭니다.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          {activeSubTab === 'order' && (
+          {activeSubTab === 'order' && !placingNew && presence !== 'present' ? (
+            <Button
+              variant="primary"
+              size="md"
+              leftIcon={<Sparkles className="w-4 h-4" />}
+              onClick={startNewOrder}
+              disabled={startingNew}
+            >
+              {startingNew ? '준비 중' : presence === 'building' ? '추가 주문' : '기획 시작'}
+            </Button>
+          ) : null}
+          {activeSubTab === 'order' && placingNew ? (
+            <Button variant="outline" size="md" onClick={() => setPlacingNew(false)}>
+              목록으로
+            </Button>
+          ) : null}
+          {activeSubTab === 'order' && placingNew && (
             <div className="p-1 bg-[#F1F5F9] rounded-2xl border border-[#E2E8F0] flex items-center gap-1 text-xs font-bold">
               <button
                 onClick={() => setOrderMode('wizard')}
@@ -253,40 +380,108 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
             </div>
           )}
 
-          {activeSubTab === 'revision' && (
-            <Button
-              variant="primary"
-              size="md"
-              leftIcon={<PlusCircle className="w-4 h-4" />}
-              onClick={() => setIsRevisionModalOpen(true)}
-            >
-              수정요청 티켓 등록
-            </Button>
-          )}
-
-          {activeSubTab === 'status' && (
+          {activeSubTab === 'status' && presence !== 'present' ? (
             <Button
               variant="primary"
               size="md"
               leftIcon={<Sparkles className="w-4 h-4" />}
               onClick={() => {
+                userPickedOrder.current = true;
                 setActiveSubTab('order');
-                setOrderMode('wizard');
+                startNewOrder();
               }}
             >
-              새 홈페이지 주문하기
+              추가 주문
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <Tabs tabs={tabs} activeTab={activeSubTab} onChange={setActiveSubTab} variant="pills" />
+      {tabs.length > 1 ? (
+        <Tabs
+          tabs={tabs}
+          activeTab={activeSubTab}
+          onChange={(tab) => {
+            userPickedOrder.current = tab === 'order';
+            if (tab !== 'order') setPlacingNew(false);
+            setActiveSubTab(tab);
+          }}
+          variant="pills"
+        />
+      ) : null}
+
+      {presence === 'absent' && activeSubTab === 'order' && !placingNew ? (
+        <div className="bg-white rounded-3xl border border-[#E2E8F0] p-6 sm:p-8 space-y-4">
+          <div>
+            <h2 className="text-base font-black text-[#0F172A]">어떤 홈페이지를 만들까요?</h2>
+            <p className="text-xs text-[#64748B] mt-1">
+              미리보기와 펜은 초안이 올라온 뒤에 열립니다. 지금은 기획과 자료만 남기면 됩니다.
+            </p>
+          </div>
+          {composeOrder ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <p className="text-sm font-bold text-slate-900">작성 중인 기획이 있습니다.</p>
+              <Button size="sm" variant="primary" onClick={() => setPlacingNew(true)}>
+                이어서 작성
+              </Button>
+            </div>
+          ) : (
+            <Button variant="primary" size="md" onClick={startNewOrder} disabled={startingNew}>
+              {startingNew ? '준비 중' : '기획 시작'}
+            </Button>
+          )}
+        </div>
+      ) : null}
+
+      {showHub ? (
+        <div className="bg-white rounded-3xl border border-[#E2E8F0] overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#E2E8F0]">
+            <h2 className="text-base font-black text-[#0F172A]">주문 목록</h2>
+            <p className="text-xs text-[#64748B] mt-0.5">주문을 누르면 아래에 상세가 열립니다.</p>
+          </div>
+          {listedOrders.length === 0 ? (
+            <p className="px-5 py-8 text-sm text-slate-500">아직 주문이 없습니다.</p>
+          ) : null}
+          <ul className="divide-y divide-[#E2E8F0]">
+            {listedOrders.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isDraftOrderStatus(item.status)) {
+                      setPlacingNew(true);
+                      setOrderMode('wizard');
+                      return;
+                    }
+                    setViewOrderId(item.id);
+                    setHubPick(`order:${item.id}`);
+                  }}
+                  className={`w-full text-left px-5 py-4 hover:bg-[#F8FAFC] ${hubPick === `order:${item.id}` ? 'bg-[#EFF6FF]' : ''}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold text-[#2563EB]">주문</p>
+                      <p className="text-sm font-bold text-[#0F172A] truncate">
+                        {item.orderNo || item.siteName || '새 홈페이지 주문서'}
+                      </p>
+                      <p className="text-xs text-[#64748B] truncate">{item.siteName || project?.name || ''}</p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#475569] shrink-0">
+                      {WEBSITE_ORDER_STATUS_LABEL[item.status] || item.status}
+                    </span>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/* ========================================================================= */}
       {/* Sub-Tab 1: 제작현황 (Status & Timeline) */}
       {/* ========================================================================= */}
-      {activeSubTab === 'status' && (
+      {(activeSubTab === 'status' || (showHub && typeof hubPick === 'string' && hubPick.startsWith('order:'))) && (
         <div className="space-y-6">
           {/* Main Status Overview Card */}
           <div className="bg-gradient-to-br from-slate-900 to-blue-950 rounded-3xl p-6 sm:p-8 text-white shadow-md border border-slate-800">
@@ -294,20 +489,20 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-blue-300">
-                    주문번호: {liveOrder?.orderNo || liveOrder?.id || order.id}
+                    주문번호: {detailOrder?.orderNo || detailOrder?.id || order.id}
                   </span>
                   <Badge variant="green" size="sm" dot>
-                    {liveOrder
-                      ? WEBSITE_ORDER_STATUS_LABEL[liveOrder.status] || liveOrder.status
+                    {detailOrder
+                      ? WEBSITE_ORDER_STATUS_LABEL[detailOrder.status] || detailOrder.status
                       : order.currentStageName}
                   </Badge>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-extrabold text-white">
-                  {liveOrder ? liveOrder.siteName || liveOrder.projectName || project?.name : order.projectName}
+                  {detailOrder ? detailOrder.siteName || detailOrder.projectName || project?.name : order.projectName}
                 </h2>
                 <p className="text-xs text-slate-300">
-                  {liveOrder
-                    ? `자료 준비율 ${liveOrder.materialsReadiness ?? 0}% · 파일 ${(liveOrder.files || []).length}개`
+                  {detailOrder
+                    ? `자료 준비율 ${detailOrder.materialsReadiness ?? 0}% · 파일 ${(detailOrder.files || []).length}개`
                     : `담당 퍼블리셔: ${order.assignedEngineer} | 예상 일정: ${order.eta}`}
                 </p>
               </div>
@@ -324,13 +519,17 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 )}
-                <Button
-                  variant="white"
-                  size="sm"
-                  onClick={() => setActiveSubTab('revision')}
-                >
-                  수정요청 남기기
-                </Button>
+                {presence === 'present' ? (
+                  <Button
+                    variant="white"
+                    size="sm"
+                    onClick={() => setActiveSubTab('revision')}
+                  >
+                    수정하기
+                  </Button>
+                ) : presence === 'building' ? (
+                  <p className="text-xs text-slate-300">초안이 올라오면 여기서 화면을 보고 수정할 수 있습니다.</p>
+                ) : null}
               </div>
             </div>
 
@@ -339,9 +538,9 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-300 font-medium">제작 공정률</span>
                 <span className="text-emerald-400 font-extrabold">
-                  {(liveOrder ? liveOrder.progress : order.progress)}% (
-                  {liveOrder
-                    ? WEBSITE_ORDER_STATUS_LABEL[liveOrder.status] || liveOrder.status
+                  {(detailOrder ? detailOrder.progress : order.progress)}% (
+                  {detailOrder
+                    ? WEBSITE_ORDER_STATUS_LABEL[detailOrder.status] || detailOrder.status
                     : order.status === 'delivered'
                     ? '납품 완료'
                     : '공정 진행중'}
@@ -351,11 +550,43 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
               <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
                 <div
                   className="bg-gradient-to-r from-blue-500 to-emerald-400 h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${liveOrder ? liveOrder.progress : order.progress}%` }}
+                  style={{ width: `${detailOrder ? detailOrder.progress : order.progress}%` }}
                 />
               </div>
             </div>
           </div>
+
+          {detailOrder && detailOrder.status === WEBSITE_ORDER_STATUS.CUSTOMER_REVIEW ? (
+            <WebsiteReviewConfirm orderId={Number(detailOrder.id)} onAnswered={onRetryLive} />
+          ) : null}
+
+          {detailOrder?.customerUpdates && detailOrder.customerUpdates.length > 0 ? (
+            <div className="bg-white rounded-3xl p-6 shadow-xs border border-[#E2E8F0] space-y-3">
+              <h3 className="text-sm font-bold text-[#0F172A]">진행 내역</h3>
+              <p className="text-xs text-[#64748B]">담당자가 처리한 작업과 진행 안내입니다.</p>
+              <ol className="space-y-2">
+                {[...detailOrder.customerUpdates].reverse().map((update) => (
+                  <li key={update.id || update.createdAt} className="rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] px-4 py-3">
+                    <div className="text-[11px] text-[#64748B]">{update.createdAt || '피드백'}</div>
+                    <p className="mt-1 text-sm text-[#0F172A] whitespace-pre-wrap">{update.message}</p>
+                    {update.files && update.files.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {update.files.map((file) => (
+                          <a
+                            key={file.id}
+                            href={`/plugin/seo-system-300/api/website/download.php?id=${file.id}`}
+                            className="rounded-full bg-white border border-[#E2E8F0] px-3 py-1 text-[11px] font-bold text-[#2563EB]"
+                          >
+                            {file.name}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
 
           {/* 5-Stage Milestone Timeline Visualizer */}
           <div className="bg-white rounded-3xl p-6 shadow-xs border border-[#E2E8F0] space-y-4">
@@ -366,7 +597,7 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-3">
               {WEBSITE_PROCESS_STEPS.map((ms) => {
-                const current = liveOrder?.processStep || 0;
+                const current = detailOrder?.processStep || 0;
                 const isDone = current >= ms.id;
                 const isNow = current === ms.id;
                 return (
@@ -389,6 +620,26 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
               })}
             </div>
           </div>
+
+          {detailOrder &&
+          onAppendMaterials &&
+          isSubmittedOrderStatus(detailOrder.status) &&
+          detailOrder.status !== WEBSITE_ORDER_STATUS.COMPLETED &&
+          detailOrder.status !== 'cancelled' ? (
+            <MaterialsAddPanel
+              order={detailOrder}
+              uploading={uploading}
+              uploadProgress={uploadProgress}
+              uploadError={uploadError}
+              saveError={saveError}
+              onAppend={(payload) => onAppendMaterials({ ...payload, orderId: detailOrder.id })}
+              onUploadFiles={
+                onUploadFiles
+                  ? (categoryId, files) => onUploadFiles(categoryId, files, detailOrder.id)
+                  : undefined
+              }
+            />
+          ) : null}
 
           {/* Site Specs & Quality Checklist Card */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -446,75 +697,40 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
       {/* ========================================================================= */}
       {/* Sub-Tab 2: 홈페이지 주문 (Wizard vs Quick Form) */}
       {/* ========================================================================= */}
-      {activeSubTab === 'order' && (
+      {activeSubTab === 'order' && placingNew && (
         <div>
           {orderMode === 'wizard' ? (
-            liveOrder &&
-            isSubmittedOrderStatus(liveOrder.status) &&
-            liveOrder.status !== WEBSITE_ORDER_STATUS.NEED_MORE_INFO ? (
-              <div className="bg-white rounded-3xl p-8 border border-[#E2E8F0] text-center space-y-3">
-                <h2 className="text-lg font-black">이미 제출된 주문이 있습니다.</h2>
-                <p className="text-sm text-slate-500">제작현황 화면에서 진행 상태를 확인하세요.</p>
-                <Button variant="primary" onClick={() => setActiveSubTab('status')}>
-                  제작현황으로 이동
-                </Button>
-              </div>
-            ) : (
             <WebsiteOrderWizard
-              key={liveOrder ? `order-${liveOrder.id}` : 'order-new'}
+              key={composeOrder ? `order-${composeOrder.id}` : 'order-new'}
               onSubmitOrder={handleWizardSubmit}
-              onCancel={() => setActiveSubTab('status')}
+              onCancel={() => setPlacingNew(false)}
               onSaveDraft={onSaveDraft}
               saveError={saveError}
-              initialValues={
-                liveOrder
-                  ? {
-                      wizardStep: liveOrder.wizardStep,
-                      siteType: liveOrder.siteType,
-                      purposes: liveOrder.purposes,
-                      industry: liveOrder.industry,
-                      siteName: liveOrder.siteName,
-                      brandName: liveOrder.brandName,
-                      phone: liveOrder.phone,
-                      email: liveOrder.email,
-                      region: liveOrder.region,
-                      businessDescription: liveOrder.businessDescription,
-                      currentUrl: liveOrder.currentUrl,
-                      designStyle: liveOrder.designStyle,
-                      primaryColor: liveOrder.primaryColor,
-                      customColor: liveOrder.customColor,
-                      contacts: liveOrder.contacts || {},
-                      extraRequest: liveOrder.extraRequest || '',
-                      accentColor: liveOrder.accentColor || '',
-                      orderNo: liveOrder.orderNo || '',
-                      status: liveOrder.status,
-                      menus: liveOrder.menus.map((m) => ({
-                        id: String(m.id),
-                        title: m.label,
-                        isSubItem: m.parentId > 0
-                      })),
-                      features: liveOrder.features.map((f) => f.key),
-                      references: liveOrder.references.map((r) => r.url)
-                    }
-                  : null
-              }
+              initialValues={wizardValues(composeOrder)}
               files={wizardFiles}
               uploading={uploading}
               uploadProgress={uploadProgress}
               uploadError={uploadError}
-              onUploadFiles={onUploadFiles}
+              onUploadFiles={
+                onUploadFiles
+                  ? (categoryId, files) => onUploadFiles(categoryId, files, composeOrder?.id)
+                  : undefined
+              }
               onDeleteFile={onDeleteFile}
               onUpdateFileMemo={onUpdateFileMemo}
               onReplaceFile={onReplaceFile}
               saveStatus={saveStatus}
             />
-            )
           ) : (
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E2E8F0] shadow-xs space-y-5">
               <div className="border-b border-[#F1F5F9] pb-4">
                 <h2 className="text-base font-bold text-[#0F172A]">SEO 전용 웹사이트 직접 주문서</h2>
                 <p className="text-xs text-[#64748B]">
                   직접 세부 기획 사항을 입력하여 사이트 제작을 요청합니다.
+                </p>
+                <p className="mt-3 rounded-xl bg-sky-50 border border-sky-100 px-3 py-2 text-xs text-sky-900 leading-relaxed">
+                  온오프가 홈페이지를 제작해 드리면, 납품 후 매년 50만 포인트를 충전해 주셔야 합니다.
+                  이 금액은 연 유지보수비가 아니고, 충전한 포인트로 콘텐츠·백링크·트래픽 등 서비스 요금을 결제할 수 있습니다.
                 </p>
               </div>
 
@@ -524,6 +740,7 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
                     <CheckCircle2 className="w-7 h-7" />
                   </div>
                   <h3 className="text-lg font-bold text-[#0F172A]">주문서가 성공적으로 접수되었습니다!</h3>
+                  <p className="text-sm font-bold text-[#0F172A]">주문번호 {quickOrderNo}</p>
                   <p className="text-xs text-[#64748B]">
                     SYSTEM 300 전담 퍼블리셔가 배정되어 24시간 이내에 기획 검토를 시작합니다.
                   </p>
@@ -618,9 +835,15 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
                     />
                   </div>
 
+                  {saveError ? (
+                    <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                      {saveError}
+                    </p>
+                  ) : null}
+
                   <div className="pt-3 border-t border-[#F1F5F9] flex items-center justify-end gap-3">
-                    <Button type="submit" variant="primary" size="md" rightIcon={<Send className="w-4 h-4" />}>
-                      홈페이지 주문서 접수하기
+                    <Button type="submit" variant="primary" size="md" disabled={quickSubmitting} rightIcon={<Send className="w-4 h-4" />}>
+                      {quickSubmitting ? '접수 저장 중' : '홈페이지 주문서 접수하기'}
                     </Button>
                   </div>
                 </form>
@@ -630,160 +853,22 @@ export const WebsiteView: React.FC<WebsiteViewProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* Sub-Tab 3: 수정요청 (Revisions Ticket System) */}
-      {/* ========================================================================= */}
-      {activeSubTab === 'revision' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-[#64748B]">
-              홈페이지 배포 후 레이아웃, 디자인, SEO 태그 관련 수정 요청 사항을 기록하고 처리 현황을 확인합니다.
-            </p>
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<PlusCircle className="w-4 h-4" />}
-              onClick={() => setIsRevisionModalOpen(true)}
-            >
-              새 수정요청 작성
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {revisions.map((rev) => {
-              const isCompleted = rev.status === 'completed';
-              const isInProgress = rev.status === 'in_progress';
-
-              return (
-                <div
-                  key={rev.id}
-                  className="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-2xs space-y-3 hover:border-[#CBD5E1] transition-colors"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs text-[#94A3B8] font-bold">#{rev.id}</span>
-                      <h4 className="text-sm font-bold text-[#0F172A]">{rev.title}</h4>
-                      <Badge
-                        status={
-                          isCompleted
-                            ? 'completed'
-                            : isInProgress
-                            ? 'in_progress'
-                            : 'pending'
-                        }
-                        size="sm"
-                      >
-                        {isCompleted ? '수정완료' : isInProgress ? '작업진행중' : '접수대기'}
-                      </Badge>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#475569] font-medium">
-                        {rev.category.toUpperCase()}
-                      </span>
-                    </div>
-                    <span className="text-xs text-[#94A3B8] shrink-0">접수일: {rev.createdAt}</span>
-                  </div>
-
-                  <p className="text-xs text-[#334155] leading-relaxed bg-[#F8FAFC] p-3.5 rounded-xl border border-[#E2E8F0]">
-                    {rev.description}
-                  </p>
-
-                  {rev.devReply && (
-                    <div className="p-3.5 rounded-xl bg-[#EFF6FF] border border-[#DBEAFE] flex items-start gap-2.5 text-xs">
-                      <div className="p-1 rounded-md bg-[#2563EB] text-white shrink-0 mt-0.5">
-                        <MessageSquare className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="font-bold text-[#1E40AF]">퍼블리셔 답변:</span>
-                          <span className="text-[10px] text-[#2563EB]">{rev.updatedAt}</span>
-                        </div>
-                        <p className="text-[#1E3A8A] font-medium">{rev.devReply}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Revision Request Modal */}
-      <Modal
-        isOpen={isRevisionModalOpen}
-        onClose={() => setIsRevisionModalOpen(false)}
-        title="홈페이지 수정 요청서 작성"
-        subtitle="원활한 반영을 위해 수정이 필요한 페이지 위치와 상세 내용을 작성해주세요."
-      >
-        <form onSubmit={handleCreateRevision} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              수정 요청 제목 <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={revisionTitle}
-              onChange={(e) => setRevisionTitle(e.target.value)}
-              placeholder="예: 모바일 상단 로고 크기 축소 및 패딩 조정"
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">수정 분야</label>
-              <select
-                value={revisionCategory}
-                onChange={(e) => setRevisionCategory(e.target.value as any)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
-              >
-                <option value="layout">레이아웃 / 구조</option>
-                <option value="design">디자인 / 색상 / 여백</option>
-                <option value="seo_tag">SEO 태그 / 메타데이터</option>
-                <option value="speed">로딩 속도 / 이미지 최적화</option>
-                <option value="content">문구 및 푸터 정보</option>
-                <option value="other">기타</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">긴급도</label>
-              <select
-                value={revisionPriority}
-                onChange={(e) => setRevisionPriority(e.target.value as any)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
-              >
-                <option value="low">일반 (1~2일 내 처리)</option>
-                <option value="medium">중간 (24시간 내 처리)</option>
-                <option value="high">긴급 (오류/깨짐 수정)</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              상세 수정 내용 <span className="text-rose-500">*</span>
-            </label>
-            <textarea
-              value={revisionDesc}
-              onChange={(e) => setRevisionDesc(e.target.value)}
-              rows={4}
-              placeholder="수정이 필요한 구체적인 URL, 디바이스 환경(모바일/PC), 변경 전/후 내용을 적어주세요."
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => setIsRevisionModalOpen(false)}>
-              취소
-            </Button>
-            <Button type="submit" variant="primary" size="sm">
-              수정요청 접수
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      {activeSubTab === 'revision' && presence === 'present' ? (
+        <WebsiteRevisionPanel
+          projectId={project ? Number(project.id) : null}
+          orderId={liveOrder?.id || previewSource?.id || null}
+          projects={projects}
+          onSelectProject={onSelectProject || (() => undefined)}
+          onCreateProject={onCreateProject || (async () => undefined)}
+          onRegisterHomepage={() => {
+            userPickedOrder.current = true;
+            setPlacingNew(true);
+            setActiveSubTab('order');
+          }}
+          presence={presence}
+          previewUrl={previewUrl}
+        />
+      ) : null}
     </div>
   );
 };

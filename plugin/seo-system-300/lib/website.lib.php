@@ -51,6 +51,7 @@ function seosys300_order_to_api($row, $menus = array(), $features = array(), $re
         'region' => (string) $row['region'],
         'businessDescription' => (string) $row['business_description'],
         'currentUrl' => (string) $row['current_url'],
+        'previewUrl' => seosys300_order_preview_url($row, $extra),
         'designStyle' => (string) $row['design_style'],
         'primaryColor' => (string) $row['primary_color'],
         'customColor' => (string) $row['custom_color'],
@@ -212,7 +213,22 @@ function seosys300_order_extra_public($extra)
     if (isset($extra['customerUpdates']) && is_array($extra['customerUpdates'])) {
         $out['customerUpdates'] = seosys300_public_customer_updates($extra['customerUpdates']);
     }
+    if (isset($extra['previewUrl'])) {
+        $out['previewUrl'] = substr(trim((string) $extra['previewUrl']), 0, 500);
+    }
     return $out;
+}
+
+function seosys300_order_preview_url($row, $extra = null)
+{
+    if (!is_array($extra)) {
+        $extra = seosys300_order_extra_decode(is_array($row) ? $row : array());
+    }
+    $fromExtra = isset($extra['previewUrl']) ? trim((string) $extra['previewUrl']) : '';
+    if ($fromExtra !== '') {
+        return $fromExtra;
+    }
+    return isset($row['preview_url']) ? trim((string) $row['preview_url']) : '';
 }
 
 function seosys300_student_customer_updates($items)
@@ -457,6 +473,15 @@ function seosys300_current_order_for_project($project_id, $mb_id)
     return $row;
 }
 
+function seosys300_open_draft_for_project($project_id, $mb_id)
+{
+    global $g5;
+    $pid = (int) $project_id;
+    $mb = seosys300_esc($mb_id);
+    $table = $g5['seosys300_website_orders_table'];
+    return seosys300_fetch("SELECT * FROM `{$table}` WHERE project_id = {$pid} AND mb_id = '{$mb}' AND (is_draft = 1 OR status = 'draft') ORDER BY id DESC LIMIT 1");
+}
+
 function seosys300_append_status_history($order_id, $from, $to, $role, $memo = '')
 {
     global $g5;
@@ -648,7 +673,8 @@ function seosys300_apply_order_fields($order_id, $input, $allow_admin_extra = fa
         || ($allow_admin_extra && array_key_exists('materialsRequest', $input))
         || ($allow_admin_extra && array_key_exists('requestChecklist', $input))
         || ($allow_admin_extra && array_key_exists('customerUpdates', $input))
-        || ($allow_admin_extra && array_key_exists('staffNotes', $input));
+        || ($allow_admin_extra && array_key_exists('staffNotes', $input))
+        || ($allow_admin_extra && array_key_exists('previewUrl', $input));
     if ($needsExtra && seosys300_orders_has_column('extra_json')) {
         $current = seosys300_fetch("SELECT extra_json FROM `{$table}` WHERE id = {$oid} LIMIT 1");
         $extra = seosys300_order_extra_decode($current ? $current : array());
@@ -697,6 +723,13 @@ function seosys300_apply_order_fields($order_id, $input, $allow_admin_extra = fa
         if ($allow_admin_extra && array_key_exists('staffNotes', $input)) {
             $extra['staffNotes'] = seosys300_sanitize_staff_notes($input['staffNotes']);
         }
+        if ($allow_admin_extra && array_key_exists('previewUrl', $input)) {
+            $preview = trim((string) $input['previewUrl']);
+            if ($preview !== '' && !seosys300_valid_http_url($preview)) {
+                seosys300_json_error(422, 'invalid_url', '미리보기 주소는 http 또는 https만 사용할 수 있습니다.');
+            }
+            $extra['previewUrl'] = substr($preview, 0, 500);
+        }
         $public = seosys300_order_extra_public($extra);
         if (!empty($extra['staffNotes']) && is_array($extra['staffNotes'])) {
             $public['staffNotes'] = seosys300_sanitize_staff_notes($extra['staffNotes']);
@@ -718,7 +751,7 @@ function seosys300_order_ensure_draft($project_id)
     if (!$project) {
         seosys300_json_error(404, 'project_not_found', '프로젝트를 찾을 수 없습니다.');
     }
-    $existing = seosys300_current_order_for_project($project_id, $mb_id);
+    $existing = seosys300_open_draft_for_project($project_id, $mb_id);
     if ($existing) {
         list($menus, $features, $refs, $files) = seosys300_order_relations($existing['id']);
         return seosys300_order_to_api($existing, $menus, $features, $refs, $files);
@@ -999,6 +1032,26 @@ function seosys300_order_get_current($project_id)
     }
     list($menus, $features, $refs, $files) = seosys300_order_relations($row['id']);
     return seosys300_order_to_api($row, $menus, $features, $refs, $files);
+}
+
+function seosys300_order_list_for_project($project_id)
+{
+    global $g5;
+    $mb_id = seosys300_current_mb_id();
+    $project = seosys300_get_owned_project($project_id, $mb_id);
+    if (!$project) {
+        seosys300_json_error(404, 'project_not_found', '프로젝트를 찾을 수 없습니다.');
+    }
+    $pid = (int) $project_id;
+    $mb = seosys300_esc($mb_id);
+    $table = $g5['seosys300_website_orders_table'];
+    $rows = seosys300_fetch_all("SELECT * FROM `{$table}` WHERE project_id = {$pid} AND mb_id = '{$mb}' ORDER BY id DESC");
+    $out = array();
+    foreach ($rows as $row) {
+        list($menus, $features, $refs, $files) = seosys300_order_relations($row['id']);
+        $out[] = seosys300_order_to_api($row, $menus, $features, $refs, $files);
+    }
+    return $out;
 }
 
 function seosys300_admin_order_list()

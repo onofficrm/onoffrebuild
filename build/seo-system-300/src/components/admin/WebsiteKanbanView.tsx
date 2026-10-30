@@ -25,6 +25,11 @@ export interface WebsiteKanbanViewProps {
   onUpdateCard: (updated: WebsiteKanbanCard) => void;
   onOpenCardDetail?: (card: WebsiteKanbanCard) => void;
   onRequestMoreInfo?: (orderId: number, payload: { title: string; body: string; adminMemo?: string }) => void;
+  onSaveChecklist?: (
+    orderId: number,
+    checklist: { board: Record<string, string>; program: Record<string, string> }
+  ) => Promise<void> | void;
+  onSavePreviewUrl?: (orderId: number, previewUrl: string) => Promise<void> | void;
 }
 
 const STAGES: { id: WebsiteKanbanStage; title: string; color: string }[] = [
@@ -41,7 +46,9 @@ const STAGES: { id: WebsiteKanbanStage; title: string; color: string }[] = [
 export const WebsiteKanbanView: React.FC<WebsiteKanbanViewProps> = ({
   cards,
   onUpdateCard,
-  onRequestMoreInfo
+  onRequestMoreInfo,
+  onSaveChecklist,
+  onSavePreviewUrl,
 }) => {
   const [selectedCard, setSelectedCard] = useState<WebsiteKanbanCard | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -287,6 +294,16 @@ export const WebsiteKanbanView: React.FC<WebsiteKanbanViewProps> = ({
         onRequestMoreInfo={
           selectedCard && onRequestMoreInfo
             ? (payload) => onRequestMoreInfo(Number(selectedCard.id), payload)
+            : undefined
+        }
+        onSaveChecklist={
+          selectedCard && onSaveChecklist
+            ? (checklist) => onSaveChecklist(Number(selectedCard.id), checklist)
+            : undefined
+        }
+        onSavePreviewUrl={
+          selectedCard && onSavePreviewUrl
+            ? (previewUrl) => onSavePreviewUrl(Number(selectedCard.id), previewUrl)
             : undefined
         }
       />
