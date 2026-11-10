@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.onoff.revision-worker</string>
+  <key>WorkingDirectory</key>
+  <string>/Volumes/onoff/cursor/platform/onoff-home</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Volumes/onoff/cursor/platform/onoff-home/scripts/revision-cursor-agent/start-worker.sh</string>
+    <string>--interval=30</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>20</integer>
+  <key>StandardOutPath</key>
+  <string>/Volumes/onoff/cursor/platform/onoff-home/data/revision_agent_worker/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Volumes/onoff/cursor/platform/onoff-home/data/revision_agent_worker/launchd.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>/Users/gimhaseong</string>
+  </dict>
+</dict>
+</plist>

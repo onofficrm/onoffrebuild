@@ -1,7 +1,16 @@
 import { API_ENDPOINTS } from '../config/api';
 import { apiJson, ensureCsrfToken } from './apiClient';
 import type { RevisionAnnotation } from '../types/revisionAnnotation';
-import type { RevisionCustomerProgress, RevisionInfoRequest, RevisionResultPreview, RevisionTriageState, RevisionWorkPackage } from '../types/revisionWork';
+import type {
+  RevisionCustomerProgress,
+  RevisionDeployChecklist,
+  RevisionDeployPlan,
+  RevisionInfoRequest,
+  RevisionResultPreview,
+  RevisionSla,
+  RevisionTriageState,
+  RevisionWorkPackage,
+} from '../types/revisionWork';
 
 export type RevisionStatus =
   | 'requested'
@@ -66,6 +75,12 @@ export type ApiRevisionTicket = {
   triageStateLabel?: string;
   cursorPrompt?: string;
   resultPreview?: RevisionResultPreview;
+  deployChecklist?: RevisionDeployChecklist;
+  deployPlan?: RevisionDeployPlan;
+  suggestedCwd?: string;
+  cwdIsPlatform?: boolean;
+  cwdWarning?: string;
+  sla?: RevisionSla;
   reopenCount?: number;
   reopenNote?: string;
   customerProgress?: RevisionCustomerProgress;
@@ -75,10 +90,17 @@ export type ApiRevisionTicket = {
   updatedAt: string;
   comments?: ApiRevisionComment[];
   files?: ApiRevisionFile[];
-  quota?: { limit: number; used: number; remaining: number };
+  quota?: RevisionQuota;
 };
 
-export type RevisionQuota = { limit: number; used: number; remaining: number };
+export type RevisionQuota = {
+  limit: number;
+  used: number;
+  remaining: number;
+  monthStart?: string;
+  resetAt?: string;
+  resetLabel?: string;
+};
 
 export type RevisionWallet = {
   ok: boolean;

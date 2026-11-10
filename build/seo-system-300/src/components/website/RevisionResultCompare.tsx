@@ -44,6 +44,17 @@ export const RevisionResultCompare: React.FC<Props> = ({
             <p className="text-xs text-slate-500 py-8 text-center">결과 화면이 아직 없습니다.</p>
           )}
           {note ? <p className="text-xs text-blue-900 whitespace-pre-wrap">{note}</p> : null}
+          {(result?.changedFiles || []).length > 0 ? (
+            <div className="rounded-lg border border-blue-100 bg-white px-2 py-1.5">
+              <p className="text-[10px] font-bold text-blue-800 mb-1">
+                변경 파일 {result?.changedFiles?.length}개
+                {result?.cwd ? ` · ${result.cwd}` : ''}
+              </p>
+              <pre className="max-h-24 overflow-auto text-[10px] text-slate-700 whitespace-pre-wrap">
+                {(result?.changedFiles || []).join('\n')}
+              </pre>
+            </div>
+          ) : null}
           {afterUrl ? (
             <a
               href={afterUrl}

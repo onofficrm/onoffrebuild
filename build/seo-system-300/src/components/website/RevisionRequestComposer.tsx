@@ -18,16 +18,7 @@ export function pendingAttachment(file: File, index: number): PendingAttachment 
   };
 }
 
-const STEPS = ['어디를 고칠지', '어떻게 바꿀지', '확인 후 접수'] as const;
-
-const CATEGORIES = [
-  { id: 'design', label: '디자인', hint: '색, 여백, 로고' },
-  { id: 'layout', label: '레이아웃', hint: '배치, 메뉴, 간격' },
-  { id: 'content', label: '문구', hint: '문장, 오탈자' },
-  { id: 'seo_tag', label: 'SEO', hint: '제목, 설명, 태그' },
-  { id: 'speed', label: '속도', hint: '로딩, 이미지' },
-  { id: 'other', label: '기타', hint: '그 외 한 가지' },
-];
+const STEPS = ['표시', '한 줄 설명', '보내기'] as const;
 
 const DEVICES = [
   { id: 'pc', label: 'PC' },
@@ -73,15 +64,11 @@ export const RevisionRequestComposer: React.FC<Props> = ({
   description,
   pageUrl,
   device,
-  category,
-  priority,
   files,
   onTitle,
   onDescription,
   onPageUrl,
   onDevice,
-  onCategory,
-  onPriority,
   onAddFiles,
   onRemoveFile,
   onStep,
@@ -89,7 +76,6 @@ export const RevisionRequestComposer: React.FC<Props> = ({
   onSubmit,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const categoryLabel = CATEGORIES.find((item) => item.id === category)?.label || category;
   const deviceLabel = DEVICES.find((item) => item.id === device)?.label || device;
 
   const takeFiles = (list: FileList | null) => {
@@ -102,27 +88,41 @@ export const RevisionRequestComposer: React.FC<Props> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-bold text-[#2563EB]">홈페이지 수정 요청</p>
+            <p className="text-[11px] font-bold text-[#2563EB]">수정 요청</p>
             <h2 className="text-lg sm:text-xl font-black text-[#0F172A] tracking-tight">{STEPS[step - 1]}</h2>
           </div>
           <span className="text-xs font-bold text-[#2563EB]">{step}/3</span>
         </div>
-        <div className="w-full bg-[#F1F5F9] rounded-full h-2 overflow-hidden">
-          <div className="bg-[#2563EB] h-2 rounded-full transition-all" style={{ width: `${(step / 3) * 100}%` }} />
-        </div>
+        <ol className="grid grid-cols-3 gap-1.5">
+          {STEPS.map((label, index) => {
+            const id = (index + 1) as 1 | 2 | 3;
+            const active = step === id;
+            const done = step > id;
+            return (
+              <li
+                key={label}
+                className={`rounded-lg px-2 py-1.5 text-center text-[11px] font-bold ${
+                  active ? 'bg-[#2563EB] text-white' : done ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-400'
+                }`}
+              >
+                {id}. {label}
+              </li>
+            );
+          })}
+        </ol>
         <p className="text-xs text-[#64748B]">
-          {projectLabel ? `${projectLabel} · ` : ''}한 화면, 한 가지 이슈로 적어 주세요. 수정은 기본 무료이고, 관리자가 비용을 정하면 이 화면에서 결제합니다.
+          {projectLabel ? `${projectLabel} · ` : ''}한 화면만, 한 가지씩.
         </p>
       </div>
 
       {step === 1 ? (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-[#0F172A] mb-1.5">제목 *</label>
+            <label className="block text-xs font-bold text-[#0F172A] mb-1.5">어디를 고칠까요? *</label>
             <input
               value={title}
               onChange={(e) => onTitle(e.target.value)}
-              placeholder="예: 모바일 상단 로고 크기 조정"
+              placeholder="예: 상단 로고"
               className="w-full px-3.5 py-2.5 text-sm border border-[#E2E8F0] rounded-xl focus:ring-2 focus:ring-[#2563EB]"
             />
           </div>
@@ -136,7 +136,7 @@ export const RevisionRequestComposer: React.FC<Props> = ({
             />
           </div>
           <div>
-            <p className="text-xs font-bold text-[#0F172A] mb-2">어느 화면인가요?</p>
+            <p className="text-xs font-bold text-[#0F172A] mb-2">화면</p>
             <div className="grid grid-cols-3 gap-2">
               {DEVICES.map((item) => (
                 <button
@@ -160,85 +160,41 @@ export const RevisionRequestComposer: React.FC<Props> = ({
       {step === 2 ? (
         <div className="space-y-4">
           <div>
-            <p className="text-xs font-bold text-[#0F172A] mb-2">분야</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {CATEGORIES.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onCategory(item.id)}
-                  className={`text-left rounded-2xl border px-3 py-3 ${
-                    category === item.id ? 'border-[#2563EB] bg-[#EFF6FF]' : 'border-[#E2E8F0] bg-white'
-                  }`}
-                >
-                  <span className="block text-sm font-bold text-[#0F172A]">{item.label}</span>
-                  <span className="block text-[11px] text-[#64748B] mt-0.5">{item.hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-bold text-[#0F172A] mb-2">긴급도</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: 'normal', label: '일반' },
-                { id: 'urgent', label: '급함' },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onPriority(item.id)}
-                  className={`rounded-2xl border px-3 py-3 text-sm font-bold ${
-                    priority === item.id
-                      ? 'border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]'
-                      : 'border-[#E2E8F0] bg-white text-[#0F172A]'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-[#0F172A] mb-1.5">상세 내용 <span className="font-medium text-[#94A3B8]">(선택)</span></label>
-            <textarea
+            <label className="block text-xs font-bold text-[#0F172A] mb-1.5">한 줄 설명 *</label>
+            <input
               value={description}
               onChange={(e) => onDescription(e.target.value)}
-              rows={5}
-              placeholder="어디에, 무엇이, 어떻게 바뀌어야 하는지 적어 주세요."
+              placeholder="예: 로고와 메뉴 사이 간격만 줄여 주세요"
               className="w-full px-3.5 py-2.5 text-sm border border-[#E2E8F0] rounded-xl focus:ring-2 focus:ring-[#2563EB]"
             />
           </div>
+          <p className="text-xs text-[#64748B]">표시: {title || '—'} · {deviceLabel}</p>
         </div>
       ) : null}
 
       {step === 3 ? (
         <div className="space-y-4">
           <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-1 text-sm">
-            <p className="font-black text-[#0F172A]">{title || '제목 없음'}</p>
+            <p className="font-black text-[#0F172A]">{title || '표시 없음'}</p>
             <p className="text-xs text-[#64748B]">
-              {categoryLabel} · {deviceLabel}
-              {priority === 'urgent' ? ' · 급함' : ''}
+              {deviceLabel}
               {pageUrl ? ` · ${pageUrl}` : ''}
             </p>
-            <p className="text-sm text-[#334155] whitespace-pre-wrap pt-2">{description || '상세 내용 없음'}</p>
+            <p className="text-sm text-[#334155] pt-2">{description || '설명 없음'}</p>
           </div>
 
           <label
-            className="block rounded-3xl border border-dashed border-[#93C5FD] bg-[#F8FAFC] p-6 text-center cursor-pointer"
+            className="block rounded-3xl border border-dashed border-[#93C5FD] bg-[#F8FAFC] p-5 text-center cursor-pointer"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
               takeFiles(e.dataTransfer.files);
             }}
           >
-            <div className="w-12 h-12 rounded-2xl bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center mx-auto">
-              <UploadCloud className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-2xl bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center mx-auto">
+              <UploadCloud className="w-5 h-5" />
             </div>
-            <p className="mt-3 text-sm font-bold text-[#0F172A]">
-              스크린샷을 여기로 드래그하거나 <span className="text-[#2563EB] underline">클릭하여 선택</span>하세요
-            </p>
-            <p className="text-[11px] text-[#64748B] mt-1">JPG, PNG, GIF, WEBP는 미리보기가 표시됩니다. 최대 12MB</p>
+            <p className="mt-2 text-sm font-bold text-[#0F172A]">캡처 올리기 (선택)</p>
             <input
               ref={inputRef}
               type="file"
@@ -252,22 +208,15 @@ export const RevisionRequestComposer: React.FC<Props> = ({
             />
           </label>
 
-          {files.length === 0 ? (
-            <div className="p-4 rounded-xl bg-white border border-[#E2E8F0] text-center text-xs text-[#94A3B8]">
-              아직 첨부한 파일이 없습니다. 화면 캡처가 있으면 처리가 빨라집니다.
-            </div>
-          ) : (
+          {files.length > 0 ? (
             <div className="space-y-2">
-              <span className="text-xs font-bold text-[#64748B]">첨부 {files.length}개</span>
               {files.map((item) => (
-                <div key={item.key} className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] flex items-center justify-between gap-3">
+                <div key={item.key} className="p-3 rounded-2xl bg-white border border-[#E2E8F0] flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     {item.previewUrl ? (
-                      <a href={item.previewUrl} target="_blank" rel="noreferrer" className="shrink-0">
-                        <img src={item.previewUrl} alt={item.file.name} className="h-16 w-24 rounded-lg object-cover border border-[#E2E8F0] bg-white" />
-                      </a>
+                      <img src={item.previewUrl} alt={item.file.name} className="h-12 w-16 rounded-lg object-cover border border-[#E2E8F0]" />
                     ) : (
-                      <div className="w-10 h-10 rounded-lg bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center shrink-0">
                         <FileText className="w-4 h-4" />
                       </div>
                     )}
@@ -287,11 +236,7 @@ export const RevisionRequestComposer: React.FC<Props> = ({
                 </div>
               ))}
             </div>
-          )}
-
-          <p className="text-xs text-sky-900 leading-relaxed rounded-xl bg-sky-50 border border-sky-100 px-4 py-3">
-            접수 후 관리자가 확인합니다. 기본은 무료로 진행되고, 비용이 필요하면 결제 요청이 이 목록에 표시됩니다.
-          </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -310,15 +255,15 @@ export const RevisionRequestComposer: React.FC<Props> = ({
               type="button"
               variant="primary"
               size="sm"
-              disabled={step === 1 ? !title.trim() : false}
+              disabled={step === 1 ? !title.trim() : !description.trim()}
               onClick={() => onStep((step + 1) as 2 | 3)}
             >
               다음
             </Button>
           ) : (
-            <Button type="button" variant="primary" size="sm" disabled={busy || !title.trim()} onClick={onSubmit}>
+            <Button type="button" variant="primary" size="sm" disabled={busy || !title.trim() || !description.trim()} onClick={onSubmit}>
               <CheckCircle2 className="w-4 h-4 mr-1" />
-              {busy ? '접수 중' : '수정요청 접수'}
+              {busy ? '보내는 중' : '보내기'}
             </Button>
           )}
         </div>
@@ -327,60 +272,63 @@ export const RevisionRequestComposer: React.FC<Props> = ({
   );
 };
 
-const RAIL = [
-  { id: 'requested', label: '요청됨' },
-  { id: 'reviewing', label: '검토중' },
-  { id: 'payment', label: '결제 대기' },
-  { id: 'work', label: '작업중' },
-  { id: 'feedback', label: '확인 요청' },
+/** Customer-facing progress only — 접수 → 진행 → 확인 → 완료 */
+const SIMPLE_RAIL = [
+  { id: 'received', label: '접수' },
+  { id: 'working', label: '진행' },
+  { id: 'feedback', label: '확인' },
   { id: 'done', label: '완료' },
 ];
 
+function mapCustomerRailStep(status: string, progressId?: string): string {
+  if (status === 'completed' || progressId === 'done') return 'done';
+  if (status === 'feedback' || progressId === 'feedback') return 'feedback';
+  if (
+    progressId === 'work' ||
+    progressId === 'queued' ||
+    progressId === 'need_info' ||
+    progressId === 'payment' ||
+    ['in_progress', 'free_progress', 'paid', 'need_info', 'quote_pending'].includes(status)
+  ) {
+    return 'working';
+  }
+  return 'received';
+}
+
 export function RevisionStatusRail({
   status,
-  quotePoints,
-  paidAt,
+  progressId,
 }: {
   status: string;
-  quotePoints: number;
-  paidAt: string | null;
+  /** @deprecated kept for call-site compatibility */
+  quotePoints?: number;
+  /** @deprecated kept for call-site compatibility */
+  paidAt?: string | null;
+  progressId?: string;
 }) {
   if (status === 'cancelled' || status === 'expired') {
     return (
       <p className="text-xs font-bold text-slate-500 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2">
-        {status === 'cancelled' ? '취소된 요청입니다.' : '결제 기한이 지난 요청입니다.'}
+        {status === 'cancelled' ? '취소' : '만료'}
       </p>
     );
   }
-  const charged = status === 'quote_pending' || quotePoints > 0 || Boolean(paidAt);
-  const steps = RAIL.filter((step) => charged || step.id !== 'payment');
-  const currentId =
-    status === 'completed'
-      ? 'done'
-      : status === 'feedback'
-        ? 'feedback'
-        : status === 'in_progress' || status === 'free_progress' || status === 'paid'
-          ? 'work'
-          : status === 'quote_pending'
-            ? 'payment'
-            : status === 'reviewing' || status === 'need_info'
-              ? 'reviewing'
-              : 'requested';
-  const current = Math.max(0, steps.findIndex((step) => step.id === currentId));
+  const currentId = mapCustomerRailStep(status, progressId);
+  const current = Math.max(0, SIMPLE_RAIL.findIndex((step) => step.id === currentId));
   return (
-    <ol className="flex flex-wrap gap-2">
-      {steps.map((step, index) => {
+    <ol className="grid grid-cols-4 gap-1.5">
+      {SIMPLE_RAIL.map((step, index) => {
         const done = index < current;
         const active = index === current;
         return (
           <li
             key={step.id}
-            className={`min-w-[5.5rem] flex-1 rounded-xl border px-2 py-2 text-center text-[11px] font-bold ${
+            className={`rounded-lg px-1.5 py-2 text-center text-[11px] font-bold ${
               active
-                ? 'border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]'
+                ? 'bg-[#2563EB] text-white'
                 : done
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                  : 'border-[#E2E8F0] bg-white text-[#94A3B8]'
+                  ? 'bg-emerald-50 text-emerald-800'
+                  : 'bg-[#F1F5F9] text-[#94A3B8]'
             }`}
           >
             {step.label}

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  PlusCircle,
   MessageSquare,
   Paperclip,
   Send,
@@ -14,12 +13,7 @@ import { Badge } from '../common/Badge';
 import { Project } from '../../types';
 import { ApiRequestError } from '../../services/apiClient';
 import { websiteImagePreviewUrl } from '../../services/websiteOrderService';
-import {
-  PendingAttachment,
-  RevisionRequestComposer,
-  RevisionStatusRail,
-  pendingAttachment,
-} from './RevisionRequestComposer';
+import { RevisionStatusRail } from './RevisionRequestComposer';
 import { RevisionAnnotateWorkspace } from './RevisionAnnotateWorkspace';
 import { RevisionMarkPreview } from './RevisionMarkPreview';
 import { RevisionInfoReplySlots } from './RevisionInfoReplySlots';
@@ -53,15 +47,6 @@ type Props = {
   previewUrl?: string;
 };
 
-const CATEGORY_LABEL: Record<string, string> = {
-  layout: '레이아웃',
-  design: '디자인',
-  content: '문구',
-  seo_tag: 'SEO',
-  speed: '속도',
-  other: '기타',
-};
-
 const DEVICE_LABEL: Record<string, string> = {
   pc: 'PC',
   mobile: '모바일',
@@ -77,6 +62,20 @@ function statusTone(status: string): 'completed' | 'in_progress' | 'pending' | '
     return 'needs_check';
   }
   return 'pending';
+}
+
+function customerCta(ticket: ApiRevisionTicket): string {
+  if (ticket.customerProgress?.cta) return ticket.customerProgress.cta;
+  if (ticket.status === 'feedback') return '확인';
+  if (ticket.status === 'need_info') return '자료 보내기';
+  if (ticket.status === 'quote_pending') return '결제하기';
+  if (ticket.status === 'completed') return '완료';
+  if (ticket.status === 'cancelled' || ticket.status === 'expired') return ticket.status === 'cancelled' ? '취소' : '만료';
+  return ticket.customerProgress?.label || '접수';
+}
+
+function customerNeedsAction(ticket: ApiRevisionTicket): boolean {
+  return ['feedback', 'need_info', 'quote_pending'].includes(ticket.status);
 }
 
 function RevisionDetailDrawer({
@@ -149,17 +148,8 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<ApiRevisionTicket | null>(null);
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [busy, setBusy] = useState(false);
-
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [pageUrl, setPageUrl] = useState('');
-  const [device, setDevice] = useState('both');
-  const [category, setCategory] = useState('design');
-  const [priority, setPriority] = useState('normal');
-  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
   const [commentBody, setCommentBody] = useState('');
   const [newName, setNewName] = useState('');
   const [newDomain, setNewDomain] = useState('');
@@ -188,6 +178,12 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!pageUrl.trim() && previewUrl.trim()) {
+      setPageUrl(previewUrl.trim());
+    }
+  }, [previewUrl, pageUrl]);
 
   useEffect(() => {
     if (!focusTicketId) return;
@@ -223,59 +219,6 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
     setSelected(null);
     onCloseDetail?.();
   }, [onCloseDetail]);
-
-  const clearPending = (items: PendingAttachment[]) => {
-    items.forEach((item) => {
-      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-    });
-    setPendingFiles([]);
-  };
-
-  const openComposer = () => {
-    clearPending(pendingFiles);
-    setTitle('');
-    setDescription('');
-    setPageUrl('');
-    setDevice('both');
-    setCategory('design');
-    setPriority('normal');
-    setWizardStep(1);
-    setError('');
-    setComposerOpen(true);
-  };
-
-  const handleCreate = async () => {
-    if (!projectId || !title.trim()) return;
-    setBusy(true);
-    setError('');
-    try {
-      const created = await createRevision({
-        projectId,
-        orderId: resolvedOrderId || orderId || undefined,
-        title: title.trim(),
-        description: description.trim(),
-        pageUrl: pageUrl.trim(),
-        device,
-        category,
-        priority,
-      });
-      for (const item of pendingFiles) {
-        await uploadRevisionFile(created.id, item.file);
-      }
-      clearPending(pendingFiles);
-      setComposerOpen(false);
-      setWizardStep(1);
-      setTitle('');
-      setDescription('');
-      setPageUrl('');
-      await refresh();
-      await openDetail(created);
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : '수정 요청 접수에 실패했습니다.');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const handleComment = async () => {
     if (!selected || !commentBody.trim()) return;
@@ -392,10 +335,7 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
       {!detailOnly && projects.length === 0 ? (
         <form onSubmit={(e) => void handleCreateProject(e)} className="bg-white rounded-2xl border border-[#E2E8F0] p-5 space-y-4">
           <div>
-            <p className="text-sm font-bold text-slate-900">홈페이지 수정은 프로젝트에 등록된 홈페이지만 가능합니다.</p>
-            <p className="text-xs text-slate-500 mt-1">
-              등록된 프로젝트가 없습니다. 프로젝트를 만든 뒤 그 프로젝트에 홈페이지를 등록해주세요.
-            </p>
+            <p className="text-sm font-bold text-slate-900">프로젝트를 먼저 만들어 주세요.</p>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -436,14 +376,14 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
           </div>
           <div className="flex justify-end">
             <Button type="submit" variant="primary" size="sm" disabled={creatingProject}>
-              {creatingProject ? '등록 중' : '프로젝트 등록 후 홈페이지 주문'}
+              {creatingProject ? '등록 중' : '프로젝트 만들기'}
             </Button>
           </div>
         </form>
       ) : !detailOnly ? (
         <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4">
           <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="revision-project">
-            수정할 프로젝트
+            프로젝트
           </label>
           <select
             id="revision-project"
@@ -454,7 +394,7 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
             }}
             className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white"
           >
-            <option value="">프로젝트를 선택하세요</option>
+            <option value="">선택</option>
             {projects.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
@@ -462,48 +402,37 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
               </option>
             ))}
           </select>
-          <p className="text-[11px] text-slate-500 mt-2">선택한 프로젝트에 접수된 홈페이지만 수정 요청할 수 있습니다.</p>
         </div>
       ) : null}
 
-      {!detailOnly && projects.length > 0 && projectId && !composerOpen && presence !== 'present' ? (
+      {!detailOnly && projects.length > 0 && projectId && eligible ? (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <p className="text-xs text-[#64748B]">
-            수정 요청은 기본 무료입니다.
-            {quota
-              ? ` 이번 달 무료 ${quota.remaining}/${quota.limit}회 남았습니다.`
-              : ''}
-            {quoteEnabled
-              ? ' 관리자가 비용을 정하면 이 화면에서 결제한 뒤에 작업이 진행됩니다.'
-              : ''}
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          size="sm"
-          leftIcon={<PlusCircle className="w-4 h-4" />}
-          disabled={!eligible || busy}
-          onClick={openComposer}
-        >
-          새 수정요청
-        </Button>
+        <p className="text-xs text-[#64748B]">
+          {quota ? `무료 ${quota.remaining}/${quota.limit}회` : '무료 수정'}
+          {presence !== 'present' ? ' · 주소나 캡처로도 요청할 수 있습니다' : ''}
+        </p>
       </div>
       ) : null}
 
       {!detailOnly && projects.length > 0 && !projectId ? (
-        <p className="text-sm text-slate-500">수정할 프로젝트를 선택해주세요.</p>
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-5 text-sm text-slate-700">
+          프로젝트를 선택해 주세요.
+        </div>
       ) : null}
 
       {!detailOnly && projectId && !loading && !error && !eligible ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>이 프로젝트에 접수된 홈페이지가 없습니다. 홈페이지를 등록한 뒤에 수정 요청을 할 수 있습니다.</span>
-          </div>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm font-bold text-amber-950">홈페이지를 등록해 주세요.</p>
           <Button size="sm" variant="primary" onClick={onRegisterHomepage}>
             홈페이지 등록
           </Button>
+        </div>
+      ) : null}
+
+      {!detailOnly && projectId && eligible && quota && quota.remaining < 1 ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm font-bold text-rose-900">
+          이번 달 무료 한도를 모두 썼습니다.
+          {quota.resetLabel ? ` ${quota.resetLabel}에 다시 열립니다.` : ''}
         </div>
       ) : null}
 
@@ -511,14 +440,14 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-sm text-rose-800">{error}</div>
       ) : null}
 
-      {presence === 'present' && projectId && !detailOnly ? (
+      {!detailOnly && projectId && eligible && !(quota && quota.remaining < 1) ? (
         <RevisionAnnotateWorkspace
           projectLabel={(() => {
             const current = projects.find((item) => item.id === String(projectId));
             if (!current) return '';
             return current.domain ? `${current.name} · ${current.domain}` : current.name;
           })()}
-          previewUrl={previewUrl}
+          previewUrl={previewUrl || pageUrl}
           busy={busy}
           onSubmit={(payload) => {
             void (async () => {
@@ -552,96 +481,56 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
         />
       ) : null}
 
-      {composerOpen && projectId && presence !== 'present' ? (
-        <RevisionRequestComposer
-          projectLabel={(() => {
-            const current = projects.find((item) => item.id === String(projectId));
-            if (!current) return '';
-            return current.domain ? `${current.name} · ${current.domain}` : current.name;
-          })()}
-          step={wizardStep}
-          busy={busy}
-          title={title}
-          description={description}
-          pageUrl={pageUrl}
-          device={device}
-          category={category}
-          priority={priority}
-          files={pendingFiles}
-          onTitle={setTitle}
-          onDescription={setDescription}
-          onPageUrl={setPageUrl}
-          onDevice={setDevice}
-          onCategory={setCategory}
-          onPriority={setPriority}
-          onAddFiles={(selected) => {
-            setPendingFiles((prev) => [...prev, ...selected.map((file, index) => pendingAttachment(file, prev.length + index))]);
-          }}
-          onRemoveFile={(key) => {
-            setPendingFiles((prev) => {
-              const target = prev.find((item) => item.key === key);
-              if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
-              return prev.filter((item) => item.key !== key);
-            });
-          }}
-          onStep={setWizardStep}
-          onCancel={() => {
-            if (busy) return;
-            clearPending(pendingFiles);
-            setComposerOpen(false);
-            setWizardStep(1);
-          }}
-          onSubmit={() => void handleCreate()}
-        />
-      ) : null}
-
-      {projectId && !composerOpen && !detailOnly && loading && tickets.length === 0 ? (
+      {projectId && !detailOnly && loading && tickets.length === 0 ? (
         <p className="text-sm text-slate-500">불러오는 중…</p>
       ) : null}
 
-      {projectId && !composerOpen && !detailOnly ? <div className="space-y-3">
+      {projectId && !detailOnly ? <div className="space-y-2">
           {tickets.length === 0 && !loading ? (
-            <div className="bg-white rounded-2xl border border-dashed border-[#CBD5E1] p-6 text-center text-sm text-slate-500">
-              아직 수정 요청이 없습니다.
+            <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-white px-5 py-8 text-center">
+              <p className="text-sm font-bold text-slate-800">아직 수정 요청이 없습니다.</p>
+              <p className="mt-1 text-xs text-slate-500">위 스튜디오에서 자리를 고르고 보내 주세요.</p>
             </div>
           ) : null}
-          {tickets.map((rev) => (
-            <button
-              key={rev.id}
-              type="button"
-              onClick={() => void openDetail(rev)}
-              className={`w-full text-left bg-white rounded-2xl border p-4 space-y-2 transition-colors ${
-                selected?.id === rev.id ? 'border-blue-400 ring-1 ring-blue-100' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
-              }`}
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-[10px] text-slate-400">#{rev.id}</span>
-                <span className="text-sm font-bold text-slate-900 truncate">{rev.title}</span>
-                <Badge status={statusTone(rev.status)} size="sm">
-                  {rev.customerProgress?.label || rev.statusLabel}
-                </Badge>
-              </div>
-              {rev.customerProgress?.hint ? (
-                <p className="text-[11px] font-bold text-slate-600">{rev.customerProgress.hint}</p>
-              ) : null}
-              <RevisionStatusRail
-                status={rev.status}
-                quotePoints={rev.quotePoints}
-                paidAt={rev.paidAt}
-                progressId={rev.customerProgress?.id}
-              />
-              <p className="text-xs text-slate-500 line-clamp-2">{rev.description}</p>
-              {rev.status === 'need_info' ? (
-                <p className="text-[11px] font-bold text-amber-700">
-                  자료 요청 {rev.infoPendingCount ? `${rev.infoPendingCount}칸` : ''}
-                </p>
-              ) : null}
-              <div className="flex items-center justify-between text-[10px] text-slate-400">
-                <span>{rev.annotation?.label || CATEGORY_LABEL[rev.category] || rev.category}</span>
-                <span>{rev.createdAt.slice(0, 16)}</span>
-              </div>
-            </button>
-          ))}
+          {tickets.map((rev) => {
+            const cta = customerCta(rev);
+            const needsAction = customerNeedsAction(rev);
+            return (
+              <button
+                key={rev.id}
+                type="button"
+                onClick={() => void openDetail(rev)}
+                className={`w-full text-left rounded-2xl border bg-white px-4 py-3 transition-colors ${
+                  selected?.id === rev.id ? 'border-blue-400 ring-1 ring-blue-100' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="truncate text-sm font-bold text-slate-900">{rev.title}</span>
+                      <Badge status={statusTone(rev.status)} size="sm">
+                        {rev.customerProgress?.label || rev.statusLabel}
+                      </Badge>
+                    </div>
+                    <p className="text-[12px] text-slate-600 line-clamp-1">
+                      {rev.customerProgress?.label || '접수'}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${
+                      needsAction
+                        ? 'bg-[#2563EB] text-white'
+                        : rev.status === 'completed'
+                          ? 'bg-emerald-50 text-emerald-800'
+                          : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {cta}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div> : null}
 
         {selected || (detailOnly && focusTicketId) ? (
@@ -649,108 +538,44 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
           {!selected ? (
             <p className="text-sm text-slate-500">{error || '불러오는 중…'}</p>
           ) : (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base font-black text-slate-900">{selected.title}</h3>
-                    <Badge status={statusTone(selected.status)} size="sm">
-                      {selected.customerProgress?.label || selected.statusLabel}
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    {DEVICE_LABEL[selected.device] || selected.device}
-                    {selected.pageUrl ? ` · ${selected.pageUrl}` : ''}
-                  </p>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-black text-slate-900">{selected.title}</h3>
+                  <Badge status={statusTone(selected.status)} size="sm">
+                    {selected.customerProgress?.label || selected.statusLabel}
+                  </Badge>
                 </div>
-              </div>
-              {selected.customerProgress?.hint ? (
-                <p className="text-xs font-bold text-slate-700">{selected.customerProgress.hint}</p>
-              ) : null}
-              <RevisionStatusRail
-                status={selected.status}
-                quotePoints={selected.quotePoints}
-                paidAt={selected.paidAt}
-                progressId={selected.customerProgress?.id}
-              />
-
-              <RevisionMarkPreview annotation={selected.annotation} compact />
-
-              <p className="text-sm text-slate-700 bg-slate-50 border border-slate-100 rounded-xl p-3 whitespace-pre-wrap">
-                {selected.description}
-              </p>
-
-              {(selected.infoRequests || []).length > 0 ? (
-                <RevisionInfoReplySlots
-                  items={selected.infoRequests || []}
-                  files={selected.files}
-                  busy={busy}
-                  onReply={handleReplyInfo}
+                <RevisionStatusRail
+                  status={selected.status}
+                  progressId={selected.customerProgress?.id}
                 />
-              ) : selected.status === 'need_info' ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                  운영자가 자료를 요청했습니다. 아래 대화에 답하거나 파일을 올려 주세요.
-                </div>
-              ) : null}
+              </div>
 
-              {selected.status === 'quote_pending' ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
-                  <p className="text-sm font-bold text-amber-900">
-                    관리자 과금 {selected.quotePoints.toLocaleString()}P
-                  </p>
-                  <p className="text-xs text-amber-800">온오프 포인트에서 결제하면 관리자가 수정을 진행합니다.</p>
-                  {selected.quoteNote ? (
-                    <p className="text-xs text-amber-800 whitespace-pre-wrap">{selected.quoteNote}</p>
-                  ) : null}
-                  {selected.quoteExpiresAt ? (
-                    <p className="text-[11px] text-amber-700">결제 기한: {selected.quoteExpiresAt}</p>
-                  ) : null}
-                  {wallet?.ok ? (
-                    <p className={`text-xs font-bold ${wallet.balance < selected.quotePoints ? 'text-rose-700' : 'text-amber-900'}`}>
-                      보유 {wallet.balance.toLocaleString()}P
-                      {wallet.balance < selected.quotePoints
-                        ? ` · ${selected.quotePoints - wallet.balance}P 부족`
-                        : ' · 결제 가능'}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-amber-800">
-                      {wallet?.message || '포인트 잔액을 확인하지 못했습니다. 다시 로그인한 뒤 결제해주세요.'}
-                    </p>
-                  )}
-                  {wallet?.ok && wallet.balance < selected.quotePoints ? (
+              {/* Primary next action — always first after progress */}
+              {selected.status === 'feedback' ? (
+                <div className="space-y-3 rounded-2xl border border-[#2563EB]/25 bg-[#EFF6FF] p-4">
+                  <p className="text-sm font-black text-[#1D4ED8]">확인</p>
+                  {(selected.customerProgress?.confirmUrl || selected.feedbackUrl) ? (
                     <a
-                      href={POINT_CHARGE_URL}
-                      className="inline-flex text-xs font-bold text-blue-700 underline"
+                      href={selected.customerProgress?.confirmUrl || selected.feedbackUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex rounded-lg bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8] underline break-all"
                     >
-                      포인트 충전하기
+                      {selected.customerProgress?.confirmUrl || selected.feedbackUrl}
                     </a>
                   ) : null}
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    leftIcon={<CreditCard className="w-4 h-4" />}
-                    disabled={busy || Boolean(wallet?.ok && wallet.balance < selected.quotePoints)}
-                    onClick={() => void handlePay()}
-                  >
-                    {selected.quotePoints.toLocaleString()}P 결제하기
-                  </Button>
-                </div>
-              ) : null}
-
-              {selected.paidAt && selected.status !== 'quote_pending' ? (
-                <p className="text-xs text-emerald-700">결제 완료. 관리자가 수정을 진행합니다.</p>
-              ) : null}
-
-              {selected.status === 'feedback' ? (
-                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
-                  <p className="text-sm font-bold text-blue-900">수정 반영 — 표시한 자리가 고쳐졌는지 확인</p>
+                  {selected.feedbackNote ? (
+                    <p className="text-xs text-slate-800 whitespace-pre-wrap">{selected.feedbackNote}</p>
+                  ) : null}
                   <RevisionResultCompare
                     annotation={selected.annotation}
                     result={selected.resultPreview}
-                    feedbackUrl={selected.feedbackUrl}
+                    feedbackUrl={selected.customerProgress?.confirmUrl || selected.feedbackUrl}
                     feedbackNote={selected.feedbackNote}
                   />
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     <Button size="sm" variant="primary" disabled={busy} onClick={() => void handleConfirm(true)}>
                       <CheckCircle2 className="w-4 h-4 mr-1" />
                       확인했어요
@@ -762,92 +587,174 @@ export const WebsiteRevisionPanel: React.FC<Props> = ({
                 </div>
               ) : null}
 
-              {(selected.files || []).length > 0 ? (
-                <div className="space-y-1">
-                  <p className="text-[11px] font-bold text-slate-500">첨부</p>
-                  <ul className="space-y-1">
-                    {(selected.files || []).map((f) => {
-                      const preview = websiteImagePreviewUrl(f);
-                      return (
-                        <li key={f.id}>
-                          {preview ? (
-                            <a href={preview} target="_blank" rel="noreferrer" className="inline-block" title={f.originalName}>
-                              <img
-                                src={preview}
-                                alt={f.originalName}
-                                className="h-16 w-16 rounded-lg object-cover border border-[#E2E8F0] bg-white"
-                              />
-                            </a>
-                          ) : (
-                            <a
-                              href={f.downloadUrl}
-                              className="text-xs text-blue-600 inline-flex items-center gap-1"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              <Paperclip className="w-3 h-3" />
-                              {f.originalName}
-                            </a>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
+              {selected.status === 'need_info' ? (
+                <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-black text-amber-950">진행 · 자료 보내기</p>
+                  {(selected.infoRequests || []).length > 0 ? (
+                    <RevisionInfoReplySlots
+                      items={selected.infoRequests || []}
+                      files={selected.files}
+                      busy={busy}
+                      onReply={handleReplyInfo}
+                    />
+                  ) : (
+                    <p className="text-xs text-amber-900">아래 대화에 답하거나 파일을 올려 주세요.</p>
+                  )}
                 </div>
               ) : null}
 
-              <div className="space-y-2 border-t border-slate-100 pt-3">
-                <p className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                  <MessageSquare className="w-3.5 h-3.5" /> 대화
-                </p>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {(selected.comments || []).length === 0 ? (
-                    <p className="text-xs text-slate-400">아직 댓글이 없습니다.</p>
-                  ) : (
-                    (selected.comments || []).map((c) => (
-                      <div
-                        key={c.id}
-                        className={`rounded-xl px-3 py-2 text-xs ${
-                          c.authorRole === 'admin'
-                            ? 'bg-blue-50 border border-blue-100 text-blue-900'
-                            : 'bg-slate-50 border border-slate-100 text-slate-700'
-                        }`}
-                      >
-                        <div className="flex justify-between gap-2 mb-0.5">
-                          <span className="font-bold">{c.authorRole === 'admin' ? '운영자' : '나'}</span>
-                          <span className="text-[10px] opacity-60">{c.createdAt.slice(0, 16)}</span>
-                        </div>
-                        <p className="whitespace-pre-wrap">{c.body}</p>
-                      </div>
-                    ))
-                  )}
+              {quoteEnabled && selected.status === 'quote_pending' ? (
+                <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-black text-amber-950">
+                    {selected.quotePoints.toLocaleString()}P 결제
+                  </p>
+                  <p className="text-xs text-amber-900">결제하면 수정을 시작합니다.</p>
+                  {selected.quoteNote ? (
+                    <p className="text-xs text-amber-800 whitespace-pre-wrap">{selected.quoteNote}</p>
+                  ) : null}
+                  {wallet?.ok ? (
+                    <p className={`text-xs font-bold ${wallet.balance < selected.quotePoints ? 'text-rose-700' : 'text-amber-950'}`}>
+                      보유 {wallet.balance.toLocaleString()}P
+                      {wallet.balance < selected.quotePoints
+                        ? ` · ${selected.quotePoints - wallet.balance}P 부족`
+                        : ''}
+                    </p>
+                  ) : null}
+                  {wallet?.ok && wallet.balance < selected.quotePoints ? (
+                    <a href={POINT_CHARGE_URL} className="inline-flex text-xs font-bold text-blue-700 underline">
+                      포인트 충전
+                    </a>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    leftIcon={<CreditCard className="w-4 h-4" />}
+                    disabled={busy || Boolean(wallet?.ok && wallet.balance < selected.quotePoints)}
+                    onClick={() => void handlePay()}
+                  >
+                    결제하기
+                  </Button>
                 </div>
-                {selected.status !== 'completed' && selected.status !== 'cancelled' ? (
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={commentBody}
-                      onChange={(e) => setCommentBody(e.target.value)}
-                      placeholder="추가 설명이나 답변을 남겨주세요"
-                      className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-lg"
-                    />
-                    <label className="inline-flex items-center justify-center px-3 py-2 text-xs border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
-                      <Paperclip className="w-3.5 h-3.5 mr-1" />
-                      파일
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*,.pdf,.zip,.doc,.docx,.txt"
-                        multiple
-                        onChange={(e) => void handleAttachToSelected(e.target.files)}
-                      />
-                    </label>
-                    <Button size="sm" variant="primary" disabled={busy || !commentBody.trim()} onClick={() => void handleComment()}>
-                      <Send className="w-3.5 h-3.5" />
-                    </Button>
+              ) : null}
+
+              {!quoteEnabled && selected.status === 'quote_pending' ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                  무료로 이어서 처리합니다. 조금만 기다려 주세요.
+                </div>
+              ) : null}
+
+              {!customerNeedsAction(selected) && selected.status !== 'completed' && selected.status !== 'cancelled' ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+                  {selected.customerProgress?.label || '진행'}
+                </div>
+              ) : null}
+
+              {selected.status === 'completed' ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+                  완료
+                </div>
+              ) : null}
+
+              <details className="rounded-2xl border border-[#E2E8F0] bg-white open:pb-3">
+                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-bold text-slate-800">
+                  요청 내용 보기
+                </summary>
+                <div className="space-y-3 border-t border-[#E2E8F0] px-4 pt-3">
+                  <RevisionMarkPreview annotation={selected.annotation} compact />
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{selected.description}</p>
+                  {selected.pageUrl ? (
+                    <p className="text-[11px] text-slate-400 break-all">
+                      {DEVICE_LABEL[selected.device] || selected.device} · {selected.pageUrl}
+                    </p>
+                  ) : null}
+                  {(selected.files || []).length > 0 ? (
+                    <ul className="flex flex-wrap gap-2">
+                      {(selected.files || []).map((f) => {
+                        const preview = websiteImagePreviewUrl(f);
+                        return (
+                          <li key={f.id}>
+                            {preview ? (
+                              <a href={preview} target="_blank" rel="noreferrer" title={f.originalName}>
+                                <img
+                                  src={preview}
+                                  alt={f.originalName}
+                                  className="h-14 w-14 rounded-lg object-cover border border-[#E2E8F0] bg-white"
+                                />
+                              </a>
+                            ) : (
+                              <a
+                                href={f.downloadUrl}
+                                className="text-xs text-blue-600 inline-flex items-center gap-1"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <Paperclip className="w-3 h-3" />
+                                {f.originalName}
+                              </a>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                </div>
+              </details>
+
+              <details className="rounded-2xl border border-[#E2E8F0] bg-white open:pb-3">
+                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  대화 {(selected.comments || []).length ? `(${(selected.comments || []).length})` : ''}
+                </summary>
+                <div className="space-y-2 border-t border-[#E2E8F0] px-4 pt-3">
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {(selected.comments || []).length === 0 ? (
+                      <p className="text-xs text-slate-400">아직 대화가 없습니다.</p>
+                    ) : (
+                      (selected.comments || []).map((c) => (
+                        <div
+                          key={c.id}
+                          className={`rounded-xl px-3 py-2 text-xs ${
+                            c.authorRole === 'admin'
+                              ? 'bg-blue-50 text-blue-900'
+                              : 'bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex justify-between gap-2 mb-0.5">
+                            <span className="font-bold">{c.authorRole === 'admin' ? '운영자' : '나'}</span>
+                            <span className="text-[10px] opacity-60">{c.createdAt.slice(0, 16)}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap">{c.body}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
-                ) : null}
-              </div>
+                  {selected.status !== 'completed' && selected.status !== 'cancelled' ? (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={commentBody}
+                        onChange={(e) => setCommentBody(e.target.value)}
+                        placeholder="추가 설명을 남겨 주세요"
+                        className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-lg"
+                      />
+                      <label className="inline-flex items-center justify-center px-3 py-2 text-xs border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
+                        <Paperclip className="w-3.5 h-3.5 mr-1" />
+                        파일
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*,.pdf,.zip,.doc,.docx,.txt"
+                          multiple
+                          onChange={(e) => void handleAttachToSelected(e.target.files)}
+                        />
+                      </label>
+                      <Button size="sm" variant="primary" disabled={busy || !commentBody.trim()} onClick={() => void handleComment()}>
+                        <Send className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </details>
             </div>
           )}
           </RevisionDetailDrawer>

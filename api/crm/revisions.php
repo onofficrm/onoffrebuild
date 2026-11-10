@@ -160,6 +160,20 @@ function onoff_crm_revision_enrich($item)
     $item['contactEmail'] = $order ? (string) $order['email'] : '';
     $item['memberEmail'] = $memberEmail;
     $item['memberName'] = $memberName;
+    if (function_exists('seosys300_revision_site_context')) {
+        $site = seosys300_revision_site_context($item);
+        if ($item['siteName'] === '' && !empty($site['siteName'])) {
+            $item['siteName'] = (string) $site['siteName'];
+        }
+        $item['orderDomain'] = (string) ($site['orderDomain'] ?? '');
+        $item['siteUrl'] = (string) ($site['siteUrl'] ?? '');
+        if (empty($item['workPackage']) || !is_array($item['workPackage'])) {
+            $item['workPackage'] = array();
+        }
+        if (empty($item['workPackage']['cwd']) && !empty($site['cwd'])) {
+            $item['workPackage']['cwd'] = (string) $site['cwd'];
+        }
+    }
     if (isset($item['annotation']) && is_array($item['annotation'])) {
         $snapId = isset($item['annotation']['snapshotFileId']) ? (int) $item['annotation']['snapshotFileId'] : 0;
         if ($snapId > 0) {
@@ -182,6 +196,21 @@ function onoff_crm_revision_enrich($item)
     }
     if (function_exists('seosys300_revision_build_cursor_prompt')) {
         $item['cursorPrompt'] = seosys300_revision_build_cursor_prompt($item);
+    }
+    if (isset($item['id']) && function_exists('seosys300_revision_agent_package_dir')) {
+        $tid = (int) $item['id'];
+        $hasMd = is_file(seosys300_revision_agent_package_dir() . '/ticket-' . $tid . '.md');
+        $prev = (isset($item['cursorPackage']) && is_array($item['cursorPackage'])) ? $item['cursorPackage'] : array();
+        $written = isset($prev['writtenAt']) ? (string) $prev['writtenAt'] : '';
+        $item['cursorPackage'] = array(
+            'ready' => $hasMd || $written !== '',
+            'writtenAt' => $written,
+            'downloadUrl' => '/api/crm/revisions.php?ticketId=' . $tid . '&package=md',
+            'jsonUrl' => '/api/crm/revisions.php?ticketId=' . $tid . '&package=json',
+            'dispatchStatus' => isset($prev['dispatchStatus']) ? (string) $prev['dispatchStatus'] : '',
+            'dispatchedAt' => isset($prev['dispatchedAt']) ? (string) $prev['dispatchedAt'] : '',
+            'agentRunId' => isset($prev['agentRunId']) ? (string) $prev['agentRunId'] : '',
+        );
     }
     if ($mbId !== '' && function_exists('seosys300_revision_free_quota') && empty($item['quota'])) {
         static $quotaCache = array();
@@ -243,6 +272,40 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET' && isset($_GET['file'])) {
     onoff_crm_revision_send_file((int) $_GET['file']);
+}
+
+if ($method === 'GET' && isset($_GET['package'])) {
+    $ticketId = isset($_GET['ticketId']) ? (int) $_GET['ticketId'] : (isset($_GET['id']) ? (int) $_GET['id'] : 0);
+    $format = strtolower(trim((string) $_GET['package']));
+    if ($format === '1' || $format === 'true' || $format === 'yes') {
+        $format = 'md';
+    }
+    if ($ticketId < 1) {
+        onoff_crm_revision_fail('validation_error', 'ticketId가 필요합니다.', 422);
+    }
+    $file = function_exists('seosys300_revision_agent_package_file')
+        ? seosys300_revision_agent_package_file($ticketId, $format)
+        : null;
+    if (!$file) {
+        // Build on demand if triage already marked ready.
+        $detail = seosys300_revision_admin_detail($ticketId);
+        if (empty($detail['workPackage']['readyForAgent']) && empty($detail['agentBrief'])) {
+            onoff_crm_revision_fail('package_not_ready', '정리 완료 후 커서 패키지를 받을 수 있습니다.', 409);
+        }
+        seosys300_revision_persist_agent_package($detail);
+        $file = seosys300_revision_agent_package_file($ticketId, $format);
+    }
+    if (!$file || empty($file['path']) || !is_file($file['path'])) {
+        onoff_crm_revision_fail('package_not_found', '커서 패키지를 찾을 수 없습니다.', 404);
+    }
+    $name = str_replace(array("\r", "\n", '"'), '', (string) $file['name']);
+    header('Content-Type: ' . $file['mime']);
+    header('Content-Length: ' . (string) filesize($file['path']));
+    header('Content-Disposition: attachment; filename="' . $name . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: private, no-store');
+    readfile($file['path']);
+    exit;
 }
 
 if ($method === 'GET' && (isset($_GET['events']) || (isset($_GET['action']) && $_GET['action'] === 'events'))) {
@@ -328,9 +391,35 @@ if (!is_array($input)) {
 }
 $op = isset($input['action']) ? (string) $input['action'] : (isset($input['op']) ? (string) $input['op'] : '');
 $op = strtolower(preg_replace('/[^a-z0-9_\-]/', '', $op));
-$allowed = array('review', 'need_info', 'need-info', 'free', 'free_progress', 'quote', 'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'cancel', 'brief', 'triage', 'package', 'ready');
+$allowed = array(
+    'review', 'need_info', 'need-info', 'free', 'free_progress', 'quote',
+    'feedback', 'complete_feedback', 'comment', 'start', 'in_progress', 'cancel',
+    'brief', 'triage', 'package', 'ready', 'dispatch', 'dispatch_status', 'dispatch-status',
+    'retry', 'retry_dispatch', 'retry-dispatch',
+    'deploy', 'deploy_queue', 'deploy-queue', 'deploy_status', 'deploy-status',
+    'sla_scan', 'sla-scan',
+    'operator_status', 'operator-status',
+);
 if (!in_array($op, $allowed, true)) {
     onoff_crm_revision_fail('unknown_action', 'Unsupported feedback action.', 400);
+}
+if ($op === 'sla_scan' || $op === 'sla-scan') {
+    $scan = seosys300_revision_sla_scan();
+    echo json_encode(array(
+        'ok' => true,
+        'checked' => (int) $scan['checked'],
+        'alerted' => (int) $scan['alerted'],
+        'items' => $scan['items'],
+    ), JSON_UNESCAPED_UNICODE);
+    exit;
+}
+if ($op === 'operator_status' || $op === 'operator-status') {
+    $saved = seosys300_revision_operator_status_save($input);
+    echo json_encode(array(
+        'ok' => true,
+        'operator' => $saved,
+    ), JSON_UNESCAPED_UNICODE);
+    exit;
 }
 $input['op'] = $op;
 unset($input['actorMbId'], $input['_actor_mb_id']);
