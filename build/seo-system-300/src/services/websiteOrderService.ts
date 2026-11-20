@@ -36,6 +36,17 @@ export type ApiWebsiteFile = {
   downloadUrl: string;
 };
 
+const PREVIEWABLE_IMAGE = /\.(jpe?g|png|gif|webp)$/i;
+
+export function websiteImagePreviewUrl(file: { originalName?: string; mimeType?: string; downloadUrl?: string }): string {
+  const name = file.originalName || '';
+  const mime = (file.mimeType || '').toLowerCase();
+  const safeMime = mime === 'image/jpeg' || mime === 'image/jpg' || mime === 'image/png' || mime === 'image/gif' || mime === 'image/webp';
+  const safeName = PREVIEWABLE_IMAGE.test(name) && !/\.(svg|heic|heif)$/i.test(name);
+  if (!safeMime && !safeName) return '';
+  return file.downloadUrl || '';
+}
+
 export type ApiWebsiteOrder = {
   id: number;
   projectId: number;
@@ -50,6 +61,7 @@ export type ApiWebsiteOrder = {
   region: string;
   businessDescription: string;
   currentUrl: string;
+  previewUrl?: string;
   designStyle: string;
   primaryColor: string;
   customColor: string;
@@ -59,6 +71,13 @@ export type ApiWebsiteOrder = {
   accentColor?: string;
   contacts?: Record<string, string>;
   extraRequest?: string;
+  businessInfoNote?: string;
+  boardRequests?: string[];
+  programRequests?: string[];
+  requestChecklist?: {
+    board?: Record<string, string>;
+    program?: Record<string, string>;
+  };
   materialsRequest?: {
     title?: string;
     body?: string;
@@ -85,6 +104,12 @@ export type ApiWebsiteOrder = {
   projectDomain?: string;
   kanbanColumn?: string;
   history?: Array<{ toStatus: string; createdAt: string; fromStatus?: string }>;
+  customerUpdates?: Array<{
+    id?: string;
+    message: string;
+    createdAt?: string;
+    files?: Array<{ id: number; name: string; size?: number }>;
+  }>;
 };
 
 export type WebsiteOrderSaveInput = {
@@ -120,16 +145,28 @@ export type WebsiteOrderSaveInput = {
   progress?: number;
   contacts?: Record<string, string>;
   extraRequest?: string;
+  businessInfoNote?: string;
+  boardRequests?: string[];
+  programRequests?: string[];
   secondaryStyle?: string;
   colorPreset?: string;
   accentColor?: string;
 };
 
 export async function getCurrentWebsiteOrder(projectId: string | number): Promise<ApiWebsiteOrder | null> {
-  const data = await apiJson<{ order: ApiWebsiteOrder | null }>(
+  const data = await getWebsiteOrderBundle(projectId);
+  return data.order;
+}
+
+export async function getWebsiteOrderBundle(projectId: string | number): Promise<{
+  order: ApiWebsiteOrder | null;
+  orders: ApiWebsiteOrder[];
+}> {
+  const data = await apiJson<{ order: ApiWebsiteOrder | null; orders?: ApiWebsiteOrder[] }>(
     `${API_ENDPOINTS.website}?projectId=${encodeURIComponent(String(projectId))}`
   );
-  return data.order || null;
+  const orders = Array.isArray(data.orders) ? data.orders : data.order ? [data.order] : [];
+  return { order: data.order || null, orders };
 }
 
 export async function ensureWebsiteDraft(projectId: string | number): Promise<ApiWebsiteOrder> {
@@ -150,5 +187,23 @@ export async function submitWebsiteOrder(input: WebsiteOrderSaveInput): Promise<
   return apiJson<ApiWebsiteOrder>(`${API_ENDPOINTS.website}?action=submit`, {
     method: 'POST',
     body: JSON.stringify({ action: 'submit', ...input }),
+  });
+}
+
+export async function appendWebsiteMaterials(
+  input: {
+    orderId?: number;
+    projectId?: number;
+    businessInfoNote?: string;
+    extraRequest?: string;
+    boardRequests?: string[];
+    programRequests?: string[];
+    references?: Array<string | { url: string; memo?: string }>;
+    contacts?: Record<string, string>;
+  }
+): Promise<ApiWebsiteOrder> {
+  return apiJson<ApiWebsiteOrder>(API_ENDPOINTS.website, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'append_materials', ...input }),
   });
 }

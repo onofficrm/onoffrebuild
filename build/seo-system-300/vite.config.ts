@@ -5,11 +5,14 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: '/seo-system-300/',
+    base: process.env.VITE_BASE || '/seo-system-300/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        'react': path.resolve(__dirname, 'node_modules/react'),
+        'react/jsx-runtime': path.resolve(__dirname, 'node_modules/react/jsx-runtime.js'),
+        'lucide-react': path.resolve(__dirname, 'node_modules/lucide-react'),
       },
     },
     server: {

@@ -37,6 +37,23 @@ export async function adminRequestMoreInfo(
   });
 }
 
+export async function adminSavePreviewUrl(orderId: number, previewUrl: string) {
+  return apiJson<ApiWebsiteOrder>(API_ENDPOINTS.admin, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'preview-url', orderId, previewUrl }),
+  });
+}
+
+export async function adminSaveRequestChecklist(
+  orderId: number,
+  requestChecklist: { board?: Record<string, string>; program?: Record<string, string> }
+) {
+  return apiJson<ApiWebsiteOrder>(API_ENDPOINTS.admin, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'request-checklist', orderId, requestChecklist }),
+  });
+}
+
 export async function adminInbox() {
   const data = await apiJson<{ items: Array<Record<string, unknown>> }>(`${API_ENDPOINTS.admin}?action=inbox`);
   return data.items || [];
@@ -121,10 +138,21 @@ export function mapOrderToKanbanCard(order: ApiWebsiteOrder): WebsiteKanbanCard 
       referenceUrls: (order.references || []).map((r) => r.url),
       features: (order.features || []).map((f) => f.key),
       keywords: [],
+      businessDescription: order.businessDescription || '',
+      businessInfoNote: order.businessInfoNote || '',
+      extraRequest: order.extraRequest || '',
+      boardRequests: order.boardRequests || [],
+      programRequests: order.programRequests || [],
+      requestChecklist: {
+        board: (order.requestChecklist?.board || {}) as Record<string, string>,
+        program: (order.requestChecklist?.program || {}) as Record<string, string>,
+      },
+      contacts: order.contacts || {},
     },
     notes: [],
     orderNo: order.orderNo || '',
     mbId: order.mbId,
+    previewUrl: order.previewUrl || '',
     files: (order.files || []).map((f) => ({
       id: f.id,
       originalName: f.originalName,
@@ -136,18 +164,30 @@ export function mapOrderToKanbanCard(order: ApiWebsiteOrder): WebsiteKanbanCard 
 }
 
 export function mapInboxToPriority(items: Array<Record<string, unknown>>): AdminPriorityItem[] {
-  return items.map((it) => ({
-    id: String(it.id || ''),
-    studentId: String(it.mbId || ''),
-    studentName: String(it.mbId || ''),
-    type: (it.type as AdminPriorityItem['type']) || 'custom',
-    title: String(it.title || ''),
-    description: String(it.description || ''),
-    urgentLevel: (it.urgentLevel as AdminPriorityItem['urgentLevel']) || 'normal',
-    ctaText: '자세히 보기',
-    relatedProjectId: String(it.projectId || ''),
-    actionType: it.type === 'missing_material' ? 'open_materials' : 'open_student',
-  }));
+  return items.map((it) => {
+    const actionTab = String(it.actionTab || '');
+    const type = (it.type as AdminPriorityItem['type']) || 'custom';
+    let actionType: AdminPriorityItem['actionType'] = 'open_student';
+    if (actionTab === 'geo' || String(it.title || '').includes('막힘')) {
+      actionType = 'open_geo';
+    } else if (type === 'missing_material') {
+      actionType = 'open_materials';
+    } else if (type === 'review_pending') {
+      actionType = 'open_review';
+    }
+    return {
+      id: String(it.id || ''),
+      studentId: String(it.mbId || ''),
+      studentName: String(it.mbId || ''),
+      type,
+      title: String(it.title || ''),
+      description: String(it.description || ''),
+      urgentLevel: (it.urgentLevel as AdminPriorityItem['urgentLevel']) || 'normal',
+      ctaText: actionType === 'open_geo' ? 'GEO 막힘 처리' : '자세히 보기',
+      relatedProjectId: String(it.projectId || ''),
+      actionType,
+    };
+  });
 }
 
 export const KANBAN_TO_STATUS: Record<WebsiteKanbanStage, string> = {

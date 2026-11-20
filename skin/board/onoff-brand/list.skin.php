@@ -6,7 +6,7 @@ if (!defined('_GNUBOARD_')) {
 include_once G5_SKIN_PATH . '/board/_inc/g5b-seo-list.php';
 include_once G5_SKIN_PATH . '/board/_inc/g5b-youtube.php';
 
-add_stylesheet('<link rel="stylesheet" href="' . $board_skin_url . '/style.css?v=3">', 0);
+add_stylesheet('<link rel="stylesheet" href="' . $board_skin_url . '/style.css?v=6">', 0);
 
 $is_faq = ($bo_table === 'faq');
 $is_youtube = ($bo_table === 'youtube');
@@ -21,16 +21,14 @@ $desc = isset($desc_map[$bo_table]) ? $desc_map[$bo_table] : get_text($board['bo
 
 <div class="ob-board" id="bo_list">
     <div class="ob-board__hero">
-        <a class="ob-board__brand" href="<?php echo G5_URL; ?>/">
-            <img src="<?php echo G5_URL; ?>/img/logo/logo-white.png" alt="온오프마케팅" width="140" height="46">
-        </a>
-        <span class="ob-board__eyebrow"><?php echo $eyebrow; ?></span>
+        <span class="ob-board__eyebrow">ONOFF Builder · <?php echo $eyebrow; ?></span>
         <h1 class="ob-board__title"><?php echo get_text($board['bo_subject']); ?></h1>
         <p class="ob-board__desc"><?php echo get_text($desc); ?></p>
         <nav class="ob-board__tabs" aria-label="커뮤니티">
+            <a href="<?php echo G5_URL; ?>/community">커뮤니티 홈</a>
             <a href="<?php echo G5_URL; ?>/notice"<?php echo $bo_table === 'notice' ? ' aria-current="page"' : ''; ?>>공지사항</a>
-            <a href="<?php echo G5_URL; ?>/faq"<?php echo $bo_table === 'faq' ? ' aria-current="page"' : ''; ?>>자주묻는질문</a>
-            <a href="<?php echo G5_URL; ?>/youtube"<?php echo $bo_table === 'youtube' ? ' aria-current="page"' : ''; ?>>유튜브게시판</a>
+            <a href="<?php echo G5_URL; ?>/faq"<?php echo $bo_table === 'faq' ? ' aria-current="page"' : ''; ?>>자주 묻는 질문</a>
+            <a href="<?php echo G5_URL; ?>/youtube"<?php echo $bo_table === 'youtube' ? ' aria-current="page"' : ''; ?>>유튜브 콘텐츠</a>
         </nav>
     </div>
 

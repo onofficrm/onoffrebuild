@@ -60,6 +60,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
               ? '지금 확인해야 할 작업 (Priority Inbox)'
               : activeTab === 'kanban'
               ? '홈페이지 제작 Kanban 파이프라인'
+              : activeTab === 'classes'
+              ? '다음 수업'
               : activeTab === 'integrations'
               ? 'SEO 데이터 연결 현황'
               : '수강생 통합 관리'}

@@ -6,7 +6,10 @@
 
 $seosys300LaunchConfig = dirname(__FILE__) . '/../config.local.php';
 if (defined('_GNUBOARD_') && is_file($seosys300LaunchConfig)) {
-    include_once $seosys300LaunchConfig;
+    try {
+        include_once $seosys300LaunchConfig;
+    } catch (Throwable $e) {
+    }
 }
 
 if (!function_exists('seosys300_env')) {
@@ -73,6 +76,13 @@ function seosys300_is_pilot_member($mbId = null)
  */
 function seosys300_is_launch_allowed($opts = array())
 {
+    if (function_exists('edu_platform_is_request') && edu_platform_is_request()) {
+        $authenticated = array_key_exists('authenticated', $opts)
+            ? (bool) $opts['authenticated']
+            : (function_exists('seosys300_is_member') && seosys300_is_member());
+        return $authenticated;
+    }
+
     $mode = seosys300_launch_mode();
     if ($mode === 'off') {
         return false;
@@ -104,6 +114,13 @@ function seosys300_is_launch_allowed($opts = array())
 
 function seosys300_launch_public_state()
 {
+    if (function_exists('edu_platform_is_request') && edu_platform_is_request()) {
+        return array(
+            'launchMode' => 'all',
+            'launchAllowed' => function_exists('seosys300_is_member') && seosys300_is_member(),
+        );
+    }
+
     return array(
         'launchMode' => seosys300_launch_mode(),
         'launchAllowed' => seosys300_is_launch_allowed(),
@@ -112,7 +129,12 @@ function seosys300_launch_public_state()
 
 function seosys300_require_launch_access()
 {
-    if (!seosys300_is_launch_allowed()) {
+    $allowed = seosys300_is_launch_allowed();
+    if (!$allowed && function_exists('seosys300_enrollment_state')) {
+        $enrollment = seosys300_enrollment_state();
+        $allowed = !empty($enrollment['access']);
+    }
+    if (!$allowed) {
         if (function_exists('seosys300_json_error')) {
             seosys300_json_error(403, 'launch_not_allowed', 'SEO SYSTEM 300을 준비하고 있습니다.');
         }

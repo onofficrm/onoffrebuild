@@ -1,11 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   NavigationTab,
   WebsiteSubTab,
   ToolSubTab,
   Project,
   WebsiteOrder,
-  RevisionTicket,
   ActivityLog,
   NotificationItem,
   TaskWorkLog,
@@ -18,22 +17,26 @@ import {
 import {useLocation, useNavigate, Navigate} from 'react-router-dom';
 import { loadStudentDemoState } from './services/studentDemoService';
 import {
+  archiveProject,
   createProject,
   listProjects,
   mapApiProjectToUi,
+  updateProject,
   type ProjectCreateInput,
 } from './services/projectService';
 import { pickCurrentProjectId, writeStoredProjectId } from './services/currentProject';
 import {
   ensureWebsiteDraft,
-  getCurrentWebsiteOrder,
+  getWebsiteOrderBundle,
   saveWebsiteOrder,
   submitWebsiteOrder,
+  appendWebsiteMaterials,
   type ApiWebsiteOrder,
   type WebsiteOrderSaveInput,
+  websiteImagePreviewUrl,
 } from './services/websiteOrderService';
 import { deleteWebsiteFile, formatFileSize, replaceWebsiteFile, updateWebsiteFile, uploadWebsiteFile } from './services/websiteFileService';
-import { addTaskResult, completeRoadmapTask, getRoadmap, mapRoadmapToUi, reopenRoadmapTask, uploadTaskScreenshot, type ApiRoadmap } from './services/roadmapService';
+import { addTaskResult, completeRoadmapTask, getRoadmap, listTaskResults, mapRoadmapToUi, reopenRoadmapTask, uploadTaskScreenshot, type ApiRoadmap, type ApiTaskResult } from './services/roadmapService';
 import { completeMission, getTodayMissions, mapMissionsToUi, reopenMission } from './services/missionService';
 import { listActivities, mapActivitiesToUi } from './services/activityService';
 import {
@@ -47,12 +50,14 @@ import {
   adminKanbanOrders,
   adminProjectList,
   adminRequestMoreInfo,
+  adminSavePreviewUrl,
+  adminSaveRequestChecklist,
   KANBAN_TO_STATUS,
   mapAdminProjectsToStudents,
   mapInboxToPriority,
   mapOrderToKanbanCard,
 } from './services/adminKanbanService';
-import { ApiRequestError } from './services/apiClient';
+import { ApiRequestError, apiJson } from './services/apiClient';
 import {
   getBeforeNow,
   getMetricsPages,
@@ -63,13 +68,17 @@ import {
   type MetricsSummary,
 } from './services/metricsService';
 import { getUnifiedSummary } from './services/toolsService';
-import { ADMIN_PATH, parsePortalPath, projectPath, studentPath } from './config/routes';
+import { ADMIN_PATH, openContractPath, parsePortalPath, projectPath, studentPath } from './config/routes';
+import { API_ENDPOINTS } from './config/api';
+import { isDraftOrderStatus } from './constants/seoSystem300';
 import { MockDataBanner } from './components/common/MockDataBanner';
 import { useAuth } from './auth/AuthContext';
 import { AuthLoadingScreen } from './components/auth/AuthLoadingScreen';
 import { LoginRequiredScreen } from './components/auth/LoginRequiredScreen';
 import { AdminForbiddenScreen } from './components/auth/AdminForbiddenScreen';
-import { LaunchPreparingScreen } from './components/auth/LaunchPreparingScreen';
+import { EnrollmentBlockedScreen } from './components/auth/EnrollmentBlockedScreen';
+import { EduAuthScreen, isEduAuthPath } from './components/auth/EduAuthScreen';
+import { classTodayScreen, type ClassJourney } from './components/class/ClassHome';
 
 // Layout components
 import { Sidebar } from './components/layout/Sidebar';
@@ -105,6 +114,11 @@ const ReportsView = React.lazy(() =>
 const AiCoachView = React.lazy(() =>
   import('./components/ai-coach/AiCoachView').then((m) => ({ default: m.AiCoachView }))
 );
+const EducationSlideLibraryView = React.lazy(() =>
+  import('./components/slides/EducationSlideLibraryView').then((m) => ({
+    default: m.EducationSlideLibraryView,
+  }))
+);
 const AdminDashboardView = React.lazy(() =>
   import('./components/admin/AdminDashboardView').then((m) => ({ default: m.AdminDashboardView }))
 );
@@ -129,6 +143,16 @@ const IntegrationsView = React.lazy(() =>
 const AdminIntegrationsView = React.lazy(() =>
   import('./components/admin/AdminIntegrationsView').then((m) => ({ default: m.AdminIntegrationsView }))
 );
+const ClassQueueView = React.lazy(() =>
+  import('./components/admin/ClassQueueView').then((m) => ({ default: m.ClassQueueView }))
+);
+const AdminRevisionQueueView = React.lazy(() =>
+  import('./components/admin/AdminRevisionQueueView').then((m) => ({ default: m.AdminRevisionQueueView }))
+);
+const AdminGeoQueueView = React.lazy(() =>
+  import('./components/admin/AdminGeoQueueView').then((m) => ({ default: m.AdminGeoQueueView }))
+);
+const ContractPage = React.lazy(() => import('./components/contract/ContractPage'));
 
 const UI_CATEGORY_FROM_API: Record<string, string> = {
   logo: 'logo',
@@ -170,7 +194,9 @@ const studentDemo = loadStudentDemoState();
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { loading, authenticated, isAdmin, launchMode, launchAllowed } = useAuth();
+  const { loading, authenticated, isAdmin, launchAllowed, enrollment, contract } = useAuth();
+  const [classPrepComplete, setClassPrepComplete] = useState<boolean | null>(null);
+  const [todayScreen, setTodayScreen] = useState('');
   const parsed = parsePortalPath(location.pathname);
 
   const appMode = parsed.mode;
@@ -181,8 +207,93 @@ export default function App() {
   const activeToolSubTab: ToolSubTab =
     parsed.mode === 'student' ? parsed.toolSubTab : 'catchdomain';
   const urlProjectId = parsed.mode === 'student' ? parsed.projectId : undefined;
+  const contractSubTab =
+    parsed.mode === 'student' ? parsed.contractSubTab || 'write' : ('write' as const);
+  const studentNavTabs = React.useMemo<NavigationTab[]>(() => {
+    if (contract.blocked) {
+      return ['contract', 'notifications', 'help', 'account'];
+    }
+    const tabs: NavigationTab[] = [
+      'dashboard',
+      'projects',
+      'website',
+      'roadmap',
+      'missions',
+      'tools',
+      'reports',
+      'integrations',
+      'curriculum',
+      'slides',
+      'ai_coach',
+      'notifications',
+      'help',
+      'account',
+    ];
+    if (contract.applies) {
+      return ['contract', ...tabs];
+    }
+    return tabs;
+  }, [contract.applies, contract.blocked]);
 
+  useEffect(() => {
+    if (!authenticated || parsed.mode !== 'student') return;
+    let cancelled = false;
+    apiJson<ClassJourney>(API_ENDPOINTS.classJourney)
+      .then((data) => {
+        if (cancelled) return;
+        setClassPrepComplete(Boolean(data.prep?.complete));
+        const screen = classTodayScreen(data);
+        if (screen) setTodayScreen(screen);
+      })
+      .catch(() => {
+        if (!cancelled) setClassPrepComplete(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, parsed.mode]);
+
+  useEffect(() => {
+    if (parsed.mode !== 'student' || classPrepComplete === null) return;
+    if (!studentNavTabs.includes(activeTab)) {
+      if (contract.blocked) openContractPath(navigate, contract);
+      else navigate(studentPath('dashboard'));
+    }
+  }, [classPrepComplete, parsed.mode, activeTab, navigate, studentNavTabs, contract]);
+
+  useEffect(() => {
+    if (!authenticated || parsed.mode !== 'student' || !contract.blocked) return;
+    const allowed: NavigationTab[] = ['contract', 'notifications', 'help', 'account'];
+    if (!allowed.includes(activeTab)) {
+      openContractPath(navigate, contract);
+    }
+  }, [authenticated, parsed.mode, contract, activeTab, navigate]);
+
+  const openTodayScreen = () => {
+    if (todayScreen === 'website') {
+      navigate(studentPath('website', 'order'));
+      return;
+    }
+    const tool: ToolSubTab =
+      todayScreen === 'content' || todayScreen === 'backlink' || todayScreen === 'traffic' || todayScreen === 'catchdomain'
+        ? todayScreen
+        : 'catchdomain';
+    navigate(studentPath('tools', tool));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const setActiveTab = (tab: NavigationTab) => {
+    if (tab === 'contract') {
+      openContractPath(navigate, contract);
+      return;
+    }
+    if (tab === 'tools') {
+      openTodayScreen();
+      return;
+    }
+    if (tab === 'website') {
+      navigate(studentPath('website', 'order'));
+      return;
+    }
     navigate(studentPath(tab));
   };
   const setActiveWebsiteSubTab = (subTab: WebsiteSubTab) => {
@@ -218,15 +329,15 @@ export default function App() {
 
   // Global Keyboard Shortcut for Cmd+K / Ctrl+K
   React.useEffect(() => {
+    if (parsed.mode !== 'student') return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setIsGlobalSearchOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [parsed.mode]);
 
   // Application Data State
   const [projects, setProjects] = useState<Project[]>([]);
@@ -234,6 +345,8 @@ export default function App() {
   const [projectsError, setProjectsError] = useState('');
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [liveOrder, setLiveOrder] = useState<ApiWebsiteOrder | null>(null);
+  const [websiteOrders, setWebsiteOrders] = useState<ApiWebsiteOrder[]>([]);
+  const [draftOrder, setDraftOrder] = useState<ApiWebsiteOrder | null>(null);
   const [liveOrderError, setLiveOrderError] = useState('');
   const [orderSaveError, setOrderSaveError] = useState('');
   const [orderSaveStatus, setOrderSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -243,7 +356,6 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [websiteOrder, setWebsiteOrder] = useState<WebsiteOrder>(studentDemo.websiteOrder);
-  const [revisions, setRevisions] = useState<RevisionTicket[]>(studentDemo.revisions);
   const [roadmapSteps, setRoadmapSteps] = useState<typeof studentDemo.roadmapSteps>([]);
   const [missions, setMissions] = useState<typeof studentDemo.missions>([]);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -288,6 +400,27 @@ export default function App() {
     );
   };
 
+  const applyTaskResults = (results: ApiTaskResult[], roadmap: ApiRoadmap) => {
+    const titleByTask = new Map(
+      roadmap.steps.flatMap((step) => step.tasks.map((task) => [task.id, task.title] as const))
+    );
+    setTaskWorkLogs(
+      results.map((item) => ({
+        id: String(item.id),
+        taskId: item.roadmapTaskId,
+        taskTitle: titleByTask.get(item.roadmapTaskId) || '로드맵 작업',
+        url: item.resultUrl,
+        targetKeyword: item.keyword,
+        publishDate: item.resultDate,
+        notes: item.memo,
+        screenshotFileId: item.screenshotFileId || undefined,
+        relatedTool: (item.relatedTool || 'other') as TaskWorkLog['relatedTool'],
+        status: 'completed' as const,
+        createdAt: item.createdAt,
+      }))
+    );
+  };
+
   const handleSaveTaskLog = async (newLog: Omit<TaskWorkLog, 'id' | 'createdAt' | 'status'>) => {
     if (!activeProject) return;
     const taskId = typeof newLog.taskId === 'number' ? newLog.taskId : parseInt(String(newLog.taskId), 10);
@@ -303,11 +436,20 @@ export default function App() {
       });
       const res = await completeRoadmapTask(Number(activeProject.id), taskId);
       applyRoadmap(res.roadmap);
+      applyTaskResults(await listTaskResults(activeProject.id), res.roadmap);
       const acts = await listActivities(activeProject.id, 20);
       setActivities(mapActivitiesToUi(acts));
     } catch (err) {
       setRoadmapError(err instanceof ApiRequestError ? err.message : '저장 중 문제가 발생했습니다. 다시 시도해주세요.');
     }
+  };
+
+  const handleUploadTaskScreenshot = async (file: File) => {
+    if (!activeProject) {
+      throw new Error('프로젝트를 먼저 선택해주세요.');
+    }
+    const uploaded = await uploadTaskScreenshot(Number(activeProject.id), file);
+    return uploaded.id;
   };
 
   const handleToggleMission = async (missionId: string) => {
@@ -348,19 +490,6 @@ export default function App() {
     }
   };
 
-  const handleAddRevision = (
-    newRev: Omit<RevisionTicket, 'id' | 'createdAt' | 'updatedAt' | 'status'>
-  ) => {
-    const revItem: RevisionTicket = {
-      ...newRev,
-      id: `rev-${String(revisions.length + 1).padStart(2, '0')}`,
-      status: 'pending',
-      createdAt: '2026-08-18 (오늘)',
-      updatedAt: '2026-08-18'
-    };
-    setRevisions([revItem, ...revisions]);
-  };
-
   const handleSubmitNewOrder = (orderData: Partial<WebsiteOrder>) => {
     const updated: WebsiteOrder = {
       ...websiteOrder,
@@ -374,22 +503,127 @@ export default function App() {
     setWebsiteOrder(updated);
   };
 
+  const registerProject = async (projData: Partial<Project>) => {
+    const created = await createProject({
+      name: projData.name || '새 SEO 프로젝트',
+      domain: projData.domain,
+      description: projData.niche,
+    });
+    const mapped = mapApiProjectToUi(created);
+    setProjects((prev) => [mapped, ...prev]);
+    setActiveProject(mapped);
+    writeStoredProjectId(mapped.id);
+    return mapped;
+  };
+
   const handleAddNewProject = async (projData: Partial<Project>) => {
     setProjectsError('');
     try {
-      const created = await createProject({
-        name: projData.name || '새 SEO 프로젝트',
-        domain: projData.domain,
-        description: projData.niche,
-      });
-      const mapped = mapApiProjectToUi(created);
-      setProjects((prev) => [mapped, ...prev]);
-      setActiveProject(mapped);
-      writeStoredProjectId(mapped.id);
+      const mapped = await registerProject(projData);
       navigate(projectPath(mapped.id));
     } catch (err) {
       setProjectsError(err instanceof ApiRequestError ? err.message : '저장 중 문제가 발생했습니다. 다시 시도해주세요.');
     }
+  };
+
+  const handleSaveProjectKeywords = async (project: Project, keywords: string[]) => {
+    setProjectsError('');
+    try {
+      const saved = await updateProject(project.id, { keywords });
+      const mapped = mapApiProjectToUi(saved);
+      setProjects((prev) =>
+        prev.map((item) =>
+          item.id === mapped.id
+            ? {
+                ...item,
+                targetKeywords: mapped.targetKeywords,
+                metrics: { ...item.metrics, registeredKeywords: mapped.targetKeywords?.length || 0 },
+              }
+            : item
+        )
+      );
+      if (activeProject?.id === mapped.id) {
+        setActiveProject((current) =>
+          current
+            ? {
+                ...current,
+                targetKeywords: mapped.targetKeywords,
+                metrics: { ...current.metrics, registeredKeywords: mapped.targetKeywords?.length || 0 },
+              }
+            : mapped
+        );
+        const roadmap = await getRoadmap(mapped.id);
+        applyRoadmap(roadmap);
+      }
+    } catch (err) {
+      const message = err instanceof ApiRequestError ? err.message : '키워드를 저장하지 못했습니다.';
+      setProjectsError(message);
+      throw err instanceof Error ? err : new Error(message);
+    }
+  };
+
+  const handleSaveProjectSettings = async (project: Project, input: Partial<Project>) => {
+    setProjectsError('');
+    try {
+      const saved = await updateProject(project.id, {
+        name: input.name,
+        domain: input.domain,
+        description: input.niche,
+        businessType: input.businessType,
+        primaryRegion: input.primaryRegion,
+        impressionsGoal: input.impressionsGoal,
+        trafficGoal: input.trafficGoal,
+        contentGoal: input.contentGoal,
+        referringDomainGoal: input.referringDomainGoal,
+      });
+      const mapped = mapApiProjectToUi(saved);
+      const mergeSettings = (current: Project): Project => ({
+        ...current,
+        name: mapped.name,
+        domain: mapped.domain,
+        niche: mapped.niche,
+        businessType: mapped.businessType,
+        primaryRegion: mapped.primaryRegion,
+        impressionsGoal: mapped.impressionsGoal,
+        trafficGoal: mapped.trafficGoal,
+        contentGoal: mapped.contentGoal,
+        referringDomainGoal: mapped.referringDomainGoal,
+      });
+      setProjects((prev) => prev.map((item) => (item.id === mapped.id ? mergeSettings(item) : item)));
+      if (activeProject?.id === mapped.id) {
+        setActiveProject((current) => (current ? mergeSettings(current) : mapped));
+        applyRoadmap(await getRoadmap(mapped.id));
+      }
+    } catch (err) {
+      const message = err instanceof ApiRequestError ? err.message : '프로젝트 설정을 저장하지 못했습니다.';
+      setProjectsError(message);
+      throw err instanceof Error ? err : new Error(message);
+    }
+  };
+
+  const handleDeleteProject = async (project: Project) => {
+    setProjectsError('');
+    try {
+      await archiveProject(project.id);
+      const remaining = projects.filter((item) => item.id !== project.id);
+      setProjects(remaining);
+
+      if (activeProject?.id === project.id) {
+        const nextProject = remaining[0] || null;
+        setActiveProject(nextProject);
+        writeStoredProjectId(nextProject?.id || '');
+        navigate(nextProject ? projectPath(nextProject.id) : '/projects', { replace: true });
+      }
+    } catch (err) {
+      const message = err instanceof ApiRequestError ? err.message : '프로젝트를 삭제하지 못했습니다.';
+      setProjectsError(message);
+      throw err instanceof Error ? err : new Error(message);
+    }
+  };
+
+  const handleCreateProjectForHomepage = async (projData: { name: string; domain: string; niche: string }) => {
+    await registerProject(projData);
+    navigate(studentPath('website', 'order'));
   };
 
   const handleWizardComplete = async (payload: ProjectCreateInput) => {
@@ -441,20 +675,29 @@ export default function App() {
     void loadProjects();
   }, [authenticated, loadProjects]);
 
+  const applyWebsiteBundle = React.useCallback((bundle: { order: ApiWebsiteOrder | null; orders: ApiWebsiteOrder[] }) => {
+    setWebsiteOrders(bundle.orders);
+    setLiveOrder(bundle.order);
+    setDraftOrder(bundle.orders.find((item) => isDraftOrderStatus(item.status)) || null);
+  }, []);
+
   const loadWebsiteOrder = React.useCallback(async () => {
     if (!activeProject) {
       setLiveOrder(null);
+      setWebsiteOrders([]);
+      setDraftOrder(null);
       return;
     }
     setLiveOrderError('');
     try {
-      const order = await getCurrentWebsiteOrder(activeProject.id);
-      setLiveOrder(order);
+      applyWebsiteBundle(await getWebsiteOrderBundle(activeProject.id));
     } catch (err) {
       setLiveOrder(null);
+      setWebsiteOrders([]);
+      setDraftOrder(null);
       setLiveOrderError(err instanceof ApiRequestError ? err.message : '불러오기 실패. 다시 시도해주세요.');
     }
-  }, [activeProject]);
+  }, [activeProject, applyWebsiteBundle]);
 
   React.useEffect(() => {
     if (!authenticated || !launchAllowed) return;
@@ -476,8 +719,10 @@ export default function App() {
       const rm = await getRoadmap(pid);
       if (pid !== activeProject.id) return;
       applyRoadmap(rm);
+      applyTaskResults(await listTaskResults(pid), rm);
     } catch (err) {
       setRoadmapSteps([]);
+      setTaskWorkLogs([]);
       setRoadmapError(err instanceof ApiRequestError ? err.message : '불러오기 실패. 다시 시도해주세요.');
     }
     try {
@@ -641,7 +886,12 @@ export default function App() {
     setOrderSaveError('');
     setOrderSaveStatus('saving');
     try {
-      let current = liveOrder;
+      let current =
+        draftOrder && isDraftOrderStatus(draftOrder.status)
+          ? draftOrder
+          : liveOrder && isDraftOrderStatus(liveOrder.status)
+            ? liveOrder
+            : null;
       while (orderSavePendingRef.current) {
         const next = orderSavePendingRef.current;
         orderSavePendingRef.current = null;
@@ -652,7 +902,9 @@ export default function App() {
           ...(next as WebsiteOrderSaveInput),
         });
         current = saved;
-        setLiveOrder(saved);
+        setDraftOrder(saved);
+        setWebsiteOrders((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
+        if (!liveOrder || isDraftOrderStatus(liveOrder.status)) setLiveOrder(saved);
       }
       setOrderSaveStatus('saved');
     } catch (err) {
@@ -667,16 +919,41 @@ export default function App() {
   };
 
   const handleSubmitWebsiteLive = async (payload: Record<string, unknown>) => {
-    if (!activeProject) return;
     setOrderSaveError('');
     try {
-      const draft = liveOrder || (await ensureWebsiteDraft(activeProject.id));
+      let project = activeProject;
+      if (!project) {
+        const created = await createProject({
+          name: String(payload.siteName || payload.brandName || '홈페이지 제작'),
+          domain: String(payload.domain || ''),
+          businessType: String(payload.industry || payload.siteType || ''),
+          description: String(payload.businessDescription || ''),
+          primaryRegion: String(payload.region || ''),
+        });
+        project = mapApiProjectToUi(created);
+        setProjects((prev) => [project!, ...prev.filter((item) => item.id !== project!.id)]);
+        setActiveProject(project);
+        writeStoredProjectId(project.id);
+      }
+      const editable =
+        draftOrder && isDraftOrderStatus(draftOrder.status)
+          ? draftOrder
+          : liveOrder && isDraftOrderStatus(liveOrder.status)
+            ? liveOrder
+            : null;
+      const draft = editable || (await ensureWebsiteDraft(project.id));
       const saved = await submitWebsiteOrder({
-        projectId: Number(activeProject.id),
+        projectId: Number(project.id),
         orderId: draft.id,
         ...(payload as WebsiteOrderSaveInput),
       });
+      const orderNo = saved.orderNo || '';
+      if (saved.status !== 'submitted' || !/^WEB-\d{4}-\d{6}$/.test(orderNo)) {
+        throw new Error('주문이 저장되지 않았습니다. 다시 제출해주세요.');
+      }
+      setDraftOrder(null);
       setLiveOrder(saved);
+      setWebsiteOrders((prev) => [saved, ...prev.filter((item) => item.id !== saved.id && item.id !== draft.id)]);
       setWebsiteOrder((prev) => ({
         ...prev,
         id: String(saved.id),
@@ -684,23 +961,56 @@ export default function App() {
         currentStageName: '접수완료',
         progress: saved.progress,
       }));
-      navigate(studentPath('website', 'status'));
+      return { id: saved.id, orderNo, status: saved.status };
     } catch (err) {
-      setOrderSaveError(err instanceof ApiRequestError ? err.message : '저장 중 문제가 발생했습니다. 다시 시도해주세요.');
+      const message = err instanceof ApiRequestError ? err.message : '저장 중 문제가 발생했습니다. 다시 시도해주세요.';
+      setOrderSaveError(message);
+      throw err instanceof Error ? err : new Error(message);
     }
   };
 
-  const handleUploadWebsiteFiles = async (categoryId: string, list: FileList) => {
+  const handleStartNewWebsiteOrder = async () => {
     if (!activeProject) return;
+    setOrderSaveError('');
+    const draft = await ensureWebsiteDraft(activeProject.id);
+    setDraftOrder(draft);
+    setWebsiteOrders((prev) => [draft, ...prev.filter((item) => item.id !== draft.id)]);
+    if (!liveOrder || isDraftOrderStatus(liveOrder.status)) setLiveOrder(draft);
+  };
+
+  const refreshWebsiteBundle = async (projectId: string | number) => {
+    applyWebsiteBundle(await getWebsiteOrderBundle(projectId));
+  };
+
+  const handleUploadWebsiteFiles = async (categoryId: string, list: FileList, orderId?: number) => {
+    const files = Array.from(list);
+    if (files.length === 0) return;
     setUploadError('');
+    setUploading(true);
+    setUploadProgress(0);
     try {
-      const draft = liveOrder || (await ensureWebsiteDraft(activeProject.id));
-      setUploading(true);
-      for (const file of Array.from(list)) {
+      let project = activeProject || projects[0] || null;
+      if (!project) {
+        const created = await createProject({ name: '홈페이지 제작' });
+        project = mapApiProjectToUi(created);
+        setProjects((prev) => [project!, ...prev.filter((item) => item.id !== project!.id)]);
+      }
+      const editable =
+        draftOrder && isDraftOrderStatus(draftOrder.status)
+          ? draftOrder
+          : liveOrder && isDraftOrderStatus(liveOrder.status)
+            ? liveOrder
+            : null;
+      const targetId = orderId || editable?.id;
+      const draft = targetId ? { id: targetId } : await ensureWebsiteDraft(project.id);
+      for (const file of files) {
         await uploadWebsiteFile(draft.id, API_CATEGORY_FROM_UI[categoryId] || categoryId, file, '', setUploadProgress);
       }
-      const fresh = await getCurrentWebsiteOrder(activeProject.id);
-      setLiveOrder(fresh);
+      await refreshWebsiteBundle(project.id);
+      if (!activeProject || activeProject.id !== project.id) {
+        setActiveProject(project);
+        writeStoredProjectId(project.id);
+      }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : '파일 업로드에 실패했습니다. 다시 시도해주세요.');
     } finally {
@@ -713,10 +1023,7 @@ export default function App() {
     setUploadError('');
     try {
       await deleteWebsiteFile(id);
-      if (activeProject) {
-        const fresh = await getCurrentWebsiteOrder(activeProject.id);
-        setLiveOrder(fresh);
-      }
+      if (activeProject) await refreshWebsiteBundle(activeProject.id);
     } catch (err) {
       setUploadError(err instanceof ApiRequestError ? err.message : '삭제 중 문제가 발생했습니다. 다시 시도해주세요.');
     }
@@ -726,10 +1033,7 @@ export default function App() {
     setUploadError('');
     try {
       await updateWebsiteFile(id, { memo });
-      if (activeProject) {
-        const fresh = await getCurrentWebsiteOrder(activeProject.id);
-        setLiveOrder(fresh);
-      }
+      if (activeProject) await refreshWebsiteBundle(activeProject.id);
     } catch (err) {
       setUploadError(err instanceof ApiRequestError ? err.message : '메모 저장에 실패했습니다. 다시 시도해주세요.');
     }
@@ -740,10 +1044,7 @@ export default function App() {
     try {
       setUploading(true);
       await replaceWebsiteFile(id, file, '', setUploadProgress);
-      if (activeProject) {
-        const fresh = await getCurrentWebsiteOrder(activeProject.id);
-        setLiveOrder(fresh);
-      }
+      if (activeProject) await refreshWebsiteBundle(activeProject.id);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : '파일 교체에 실패했습니다. 다시 시도해주세요.');
     } finally {
@@ -762,6 +1063,48 @@ export default function App() {
       setSelectedCardForModal(mapOrderToKanbanCard(saved));
     } catch (err) {
       setAdminError(err instanceof ApiRequestError ? err.message : '추가자료 요청에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  const handleAdminSaveChecklist = async (
+    orderId: number,
+    checklist: { board: Record<string, string>; program: Record<string, string> }
+  ) => {
+    const saved = await adminSaveRequestChecklist(orderId, checklist);
+    const mapped = mapOrderToKanbanCard(saved);
+    setKanbanCards((prev) => prev.map((c) => (c.id === String(saved.id) ? mapped : c)));
+    setSelectedCardForModal(mapped);
+  };
+
+  const handleAdminSavePreviewUrl = async (orderId: number, previewUrl: string) => {
+    const saved = await adminSavePreviewUrl(orderId, previewUrl);
+    const mapped = mapOrderToKanbanCard(saved);
+    setKanbanCards((prev) => prev.map((c) => (c.id === String(saved.id) ? mapped : c)));
+    setSelectedCardForModal(mapped);
+  };
+
+  const handleAppendWebsiteMaterials = async (payload: {
+    orderId?: number;
+    businessInfoNote?: string;
+    extraRequest?: string;
+    boardRequests?: string[];
+    programRequests?: string[];
+    references?: Array<string | { url: string; memo?: string }>;
+  }) => {
+    const targetId = payload.orderId || liveOrder?.id;
+    if (!activeProject || !targetId) return;
+    setOrderSaveError('');
+    try {
+      const saved = await appendWebsiteMaterials({
+        orderId: targetId,
+        projectId: Number(activeProject.id),
+        ...payload,
+      });
+      setWebsiteOrders((prev) => prev.map((item) => (item.id === saved.id ? saved : item)));
+      if (!liveOrder || liveOrder.id === saved.id) setLiveOrder(saved);
+    } catch (err) {
+      setOrderSaveError(err instanceof ApiRequestError ? err.message : '자료 추가에 실패했습니다. 다시 시도해주세요.');
+      throw err;
     }
   };
 
@@ -790,7 +1133,7 @@ export default function App() {
 
   const pendingMissionsCount = missions.filter((m) => !m.isCompleted).length;
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
-  const urgentInboxCount = adminPriorityItems.length;
+  const urgentInboxCount = adminPriorityItems.filter((it) => it.urgentLevel === 'urgent').length;
 
   const handleUpdateKanbanCard = async (updated: WebsiteKanbanCard) => {
     const previous = kanbanCards;
@@ -825,11 +1168,12 @@ export default function App() {
     return <AuthLoadingScreen />;
   }
 
-  if (!launchAllowed) {
-    if (!authenticated && launchMode !== 'off') {
-      return <LoginRequiredScreen />;
-    }
-    return <LaunchPreparingScreen />;
+  if (isEduAuthPath(location.pathname)) {
+    return <EduAuthScreen />;
+  }
+
+  if (enrollment.required && !enrollment.access) {
+    return <EnrollmentBlockedScreen status={enrollment.status} />;
   }
 
   if (!authenticated) {
@@ -905,6 +1249,7 @@ export default function App() {
                   kanbanCards={kanbanCards}
                   onOpenStudentDetail={handleOpenStudentDetail}
                   onOpenWebsiteOrder={handleOpenWebsiteOrder}
+                  onNavigateTab={setAdminTab}
                 />
               )}
 
@@ -914,6 +1259,8 @@ export default function App() {
                   onUpdateCard={handleUpdateKanbanCard}
                   onOpenCardDetail={handleOpenWebsiteOrder}
                   onRequestMoreInfo={(orderId, payload) => void handleAdminRequestMoreInfo(orderId, payload)}
+                  onSaveChecklist={(orderId, checklist) => handleAdminSaveChecklist(orderId, checklist)}
+                  onSavePreviewUrl={(orderId, previewUrl) => handleAdminSavePreviewUrl(orderId, previewUrl)}
                 />
               )}
 
@@ -924,6 +1271,9 @@ export default function App() {
                 />
               )}
 
+              {adminTab === 'classes' && <ClassQueueView />}
+              {adminTab === 'revisions' && <AdminRevisionQueueView />}
+              {adminTab === 'geo' && <AdminGeoQueueView />}
               {adminTab === 'integrations' && <AdminIntegrationsView />}
               </React.Suspense>
             </main>
@@ -957,6 +1307,7 @@ export default function App() {
             onOpenNewProjectModal={() => setIsOnboardingWizardOpen(true)}
             onSwitchToAdminMode={isAdmin ? () => setAppMode('admin') : undefined}
             projectCount={projects.length}
+            allowedTabs={studentNavTabs}
           />
 
           {/* Mobile Navigation Drawer */}
@@ -967,6 +1318,7 @@ export default function App() {
             setActiveTab={setActiveTab}
             activeProject={activeProject}
             pendingMissionsCount={pendingMissionsCount}
+            allowedTabs={studentNavTabs}
           />
 
           {/* Main Content Area — banner in main column only (sidebar logo stays fully visible) */}
@@ -976,8 +1328,14 @@ export default function App() {
             }`}
           >
             {connectionBanner}
+            {contract.requires && contract.graceActive ? (
+              <div className="mx-4 sm:mx-6 lg:mx-8 mt-3 rounded-2xl border border-amber-300/80 bg-amber-50 px-4 py-3 text-sm text-amber-950 [word-break:keep-all]">
+                서비스 계약 체결이 필요합니다. 유예 기간 중입니다 — 기한 내 계약을 완료해 주세요.
+              </div>
+            ) : null}
             {/* Top Header */}
             <Header
+              activeTab={activeTab}
               activeProject={activeProject}
               projects={projects}
               onSelectProject={handleSelectProject}
@@ -1032,7 +1390,6 @@ export default function App() {
                   missions={missions}
                   onToggleMission={handleToggleMission}
                   onNavigate={handleNavigate}
-                  coachInsight={studentDemo.coachInsights[0]}
                   activities={activities}
                   onOpenOnboarding={() => setIsOnboardingWizardOpen(true)}
                   metricsSummary={metricsSummary}
@@ -1048,6 +1405,9 @@ export default function App() {
                   activeProject={activeProject}
                   onSelectProject={handleSelectProject}
                   onAddNewProject={handleAddNewProject}
+                  onSaveKeywords={handleSaveProjectKeywords}
+                  onSaveSettings={handleSaveProjectSettings}
+                  onDeleteProject={handleDeleteProject}
                   onNavigate={handleNavigate}
                 />
               )}
@@ -1057,27 +1417,33 @@ export default function App() {
                   activeSubTab={activeWebsiteSubTab}
                   setActiveSubTab={setActiveWebsiteSubTab}
                   order={websiteOrder}
-                  revisions={revisions}
                   project={activeProject}
-                  onAddRevision={handleAddRevision}
+                  projects={projects}
+                  onSelectProject={handleSelectProject}
+                  onCreateProject={handleCreateProjectForHomepage}
                   onSubmitNewOrder={handleSubmitNewOrder}
                   liveOrder={liveOrder}
+                  orders={websiteOrders}
+                  draftOrder={draftOrder}
                   liveError={liveOrderError}
                   onRetryLive={() => void loadWebsiteOrder()}
                   onSaveDraft={handleSaveWebsiteDraft}
                   onSubmitLive={handleSubmitWebsiteLive}
-                  wizardFiles={(liveOrder?.files || []).map((f) => ({
+                  onStartNewOrder={handleStartNewWebsiteOrder}
+                  onAppendMaterials={handleAppendWebsiteMaterials}
+                  wizardFiles={((draftOrder && isDraftOrderStatus(draftOrder.status) ? draftOrder : liveOrder && isDraftOrderStatus(liveOrder.status) ? liveOrder : null)?.files || []).map((f) => ({
                     id: String(f.id),
                     categoryId: UI_CATEGORY_FROM_API[f.category] || f.category,
                     fileName: f.originalName,
                     fileSize: formatFileSize(f.fileSize),
                     uploadedAt: f.createdAt,
                     memo: f.memo,
+                    previewUrl: websiteImagePreviewUrl(f),
                   }))}
                   uploading={uploading}
                   uploadProgress={uploadProgress}
                   uploadError={uploadError}
-                  onUploadFiles={handleUploadWebsiteFiles}
+                  onUploadFiles={(categoryId, files, orderId) => void handleUploadWebsiteFiles(categoryId, files, orderId)}
                   onDeleteFile={handleDeleteWebsiteFile}
                   onUpdateFileMemo={handleUpdateWebsiteFileMemo}
                   onReplaceFile={handleReplaceWebsiteFile}
@@ -1092,11 +1458,7 @@ export default function App() {
                   taskWorkLogs={taskWorkLogs}
                   onToggleChecklistItem={handleToggleChecklistItem}
                   onSaveTaskLog={handleSaveTaskLog}
-                  onUploadScreenshot={async (file) => {
-                    if (!activeProject) throw new Error('프로젝트를 선택해주세요.');
-                    const uploaded = await uploadTaskScreenshot(Number(activeProject.id), file);
-                    return uploaded.id;
-                  }}
+                  onUploadScreenshot={handleUploadTaskScreenshot}
                   onNavigate={handleNavigate}
                   onOpenOnboarding={() => setIsOnboardingWizardOpen(true)}
                 />
@@ -1112,6 +1474,7 @@ export default function App() {
 
               {activeTab === 'tools' && activeProject && (
                 <ToolsView
+                  onBack={() => handleNavigate('dashboard')}
                   activeSubTab={activeToolSubTab}
                   setActiveSubTab={setActiveToolSubTab}
                   project={activeProject}
@@ -1119,6 +1482,9 @@ export default function App() {
                   tools={toolStatus}
                   onReloadTools={() => void loadUnified()}
                 />
+              )}
+              {activeTab === 'tools' && !activeProject && (
+                <p className="text-sm text-slate-500">먼저 사업 이름을 저장하면 오늘 열 화면이 열립니다.</p>
               )}
 
               {activeTab === 'reports' && activeProject && (
@@ -1148,7 +1514,15 @@ export default function App() {
                 <IntegrationsView projectId={activeProject ? activeProject.id : null} projectDomain={activeProject?.domain} />
               )}
 
-              {activeTab === 'curriculum' && <CurriculumView />}
+              {activeTab === 'curriculum' && (
+                <CurriculumView
+                  onOpenSlides={(lessonId) =>
+                    lessonId ? navigate(`/slides/${encodeURIComponent(lessonId)}/1`) : handleNavigate('slides')
+                  }
+                />
+              )}
+
+              {activeTab === 'slides' && <EducationSlideLibraryView onNavigate={handleNavigate} />}
 
               {activeTab === 'ai_coach' && activeProject && (
                 <AiCoachView project={activeProject} onNavigate={handleNavigate} />
@@ -1165,6 +1539,10 @@ export default function App() {
               {activeTab === 'help' && <HelpView />}
 
               {activeTab === 'account' && <AccountView />}
+
+              {activeTab === 'contract' && (
+                <ContractPage subTab={contractSubTab} />
+              )}
               </React.Suspense>
             </main>
 
@@ -1174,6 +1552,7 @@ export default function App() {
               setActiveTab={setActiveTab}
               pendingMissionsCount={pendingMissionsCount}
               aiCoachBadge={false}
+              allowedTabs={studentNavTabs}
             />
           </div>
         </>
@@ -1205,6 +1584,16 @@ export default function App() {
         onRequestMoreInfo={
           selectedCardForModal
             ? (payload) => void handleAdminRequestMoreInfo(Number(selectedCardForModal.id), payload)
+            : undefined
+        }
+        onSaveChecklist={
+          selectedCardForModal
+            ? (checklist) => handleAdminSaveChecklist(Number(selectedCardForModal.id), checklist)
+            : undefined
+        }
+        onSavePreviewUrl={
+          selectedCardForModal
+            ? (previewUrl) => handleAdminSavePreviewUrl(Number(selectedCardForModal.id), previewUrl)
             : undefined
         }
       />
@@ -1267,13 +1656,13 @@ export default function App() {
               value={newProjDomain}
               onChange={(e) => setNewProjDomain(e.target.value)}
               placeholder="jejustay365.com"
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">타겟 니치</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">업종</label>
             <input
               type="text"
               value={newProjNiche}

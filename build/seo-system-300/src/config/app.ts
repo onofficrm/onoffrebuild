@@ -1,5 +1,12 @@
-/** Public URL prefix. Must match Apache directory + Vite `base`. */
-export const SEO_SYSTEM_300_BASENAME = '/seo-system-300';
+/** Public URL prefix. Must match Apache directory + Vite `base`. Empty on edu.icrm.co.kr. */
+const rawBase = import.meta.env.BASE_URL || '/seo-system-300/';
+export const SEO_SYSTEM_300_BASENAME = rawBase === '/' ? '' : rawBase.replace(/\/$/, '');
+
+export function isEduHost(): boolean {
+  if (import.meta.env.VITE_EDU_HOST === 'true') return true;
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname === 'edu.icrm.co.kr';
+}
 
 /**
  * Member / project / website order: GNUBoard live APIs.

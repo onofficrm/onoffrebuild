@@ -1143,6 +1143,108 @@
   color: var(--color-muted);
 }
 
+.site-main .content-card__initial,
+.page-template .content-card__initial,
+.board-view .content-card__initial,
+.site-main .board-thumb__initial,
+.page-template .board-thumb__initial,
+.board-view .board-thumb__initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 90px;
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-weight: 800;
+  line-height: 1;
+  user-select: none;
+}
+
+.site-main .content-card__initial-char,
+.page-template .content-card__initial-char,
+.board-view .content-card__initial-char,
+.site-main .board-thumb__initial-char,
+.page-template .board-thumb__initial-char,
+.board-view .board-thumb__initial-char {
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  letter-spacing: -0.04em;
+}
+
+.site-main .content-card__initial--blue,
+.page-template .content-card__initial--blue,
+.board-view .content-card__initial--blue,
+.site-main .board-thumb__initial--blue,
+.page-template .board-thumb__initial--blue,
+.board-view .board-thumb__initial--blue {
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1d4ed8;
+}
+
+.site-main .content-card__initial--indigo,
+.page-template .content-card__initial--indigo,
+.board-view .content-card__initial--indigo,
+.site-main .board-thumb__initial--indigo,
+.page-template .board-thumb__initial--indigo,
+.board-view .board-thumb__initial--indigo {
+  background: linear-gradient(145deg, #eef2ff 0%, #e0e7ff 100%);
+  color: #4338ca;
+}
+
+.site-main .content-card__initial--violet,
+.page-template .content-card__initial--violet,
+.board-view .content-card__initial--violet,
+.site-main .board-thumb__initial--violet,
+.page-template .board-thumb__initial--violet,
+.board-view .board-thumb__initial--violet {
+  background: linear-gradient(145deg, #f5f3ff 0%, #ede9fe 100%);
+  color: #6d28d9;
+}
+
+.site-main .content-card__initial--sky,
+.page-template .content-card__initial--sky,
+.board-view .content-card__initial--sky,
+.site-main .board-thumb__initial--sky,
+.page-template .board-thumb__initial--sky,
+.board-view .board-thumb__initial--sky {
+  background: linear-gradient(145deg, #f0f9ff 0%, #e0f2fe 100%);
+  color: #0369a1;
+}
+
+.site-main .content-card__initial--emerald,
+.page-template .content-card__initial--emerald,
+.board-view .content-card__initial--emerald,
+.site-main .board-thumb__initial--emerald,
+.page-template .board-thumb__initial--emerald,
+.board-view .board-thumb__initial--emerald {
+  background: linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #047857;
+}
+
+.site-main .content-card__initial--slate,
+.page-template .content-card__initial--slate,
+.board-view .content-card__initial--slate,
+.site-main .board-thumb__initial--slate,
+.page-template .board-thumb__initial--slate,
+.board-view .board-thumb__initial--slate {
+  background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+  color: #334155;
+}
+
+.site-main .board-thumb--initial,
+.page-template .board-thumb--initial,
+.board-view .board-thumb--initial {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.site-main .content-list--list .content-card__initial-char,
+.page-template .content-list--list .content-card__initial-char,
+.board-view .content-list--list .content-card__initial-char {
+  font-size: 1.35rem;
+}
+
 .site-main .content-card__body,
 .page-template .content-card__body,
 .board-view .content-card__body {

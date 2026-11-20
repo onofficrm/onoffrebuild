@@ -8,10 +8,12 @@ export type NavigationTab =
   | 'reports'
   | 'integrations'
   | 'curriculum'
+  | 'slides'
   | 'ai_coach'
   | 'notifications'
   | 'help'
-  | 'account';
+  | 'account'
+  | 'contract';
 
 export type WebsiteSubTab = 'order' | 'status' | 'revision';
 
@@ -28,6 +30,7 @@ export interface Project {
   overallProgress: number; // 0-100
   currentStep: string;
   currentStepNumber?: number;
+  currentStepTitle?: string;
   nextGoal: string;
   moduleProgress: {
     website: number;
@@ -48,6 +51,13 @@ export interface Project {
   };
   gscConnected: boolean;
   gaConnected: boolean;
+  targetKeywords?: string[];
+  businessType?: string;
+  primaryRegion?: string;
+  impressionsGoal?: number;
+  trafficGoal?: number;
+  contentGoal?: number;
+  referringDomainGoal?: number;
   createdAt: string;
   websiteStatusLabel?: string;
   metricsAreDemo?: boolean;
@@ -93,6 +103,19 @@ export interface RevisionTicket {
   devReply?: string;
 }
 
+/** @deprecated Prefer ApiRevisionTicket from revisionService */
+export type LegacyRevisionTicket = RevisionTicket;
+
+export type AdminTab =
+  | 'dashboard'
+  | 'inbox'
+  | 'kanban'
+  | 'students'
+  | 'classes'
+  | 'revisions'
+  | 'geo'
+  | 'integrations';
+
 export interface RoadmapStep {
   id: number;
   stepNumber: number;
@@ -106,10 +129,15 @@ export interface RoadmapStep {
   durationEst: string;
   checklist: {
     id: string;
+    taskKey?: string;
     text: string;
+    description?: string;
     completed: boolean;
     required: boolean;
     helpTip?: string;
+    estimatedMinutes?: number;
+    relatedTool?: string;
+    completionType?: string;
   }[];
   lectureModuleId?: number;
 }
@@ -265,8 +293,6 @@ export interface NotificationItem {
   actionSubTab?: string;
 }
 
-export type AdminTab = 'dashboard' | 'inbox' | 'kanban' | 'students' | 'integrations';
-
 export type WebsiteKanbanStage =
   | 'new_order'
   | 'awaiting_materials'
@@ -288,8 +314,10 @@ export interface AdminPriorityItem {
   urgentLevel: 'urgent' | 'warning' | 'normal' | 'success';
   ctaText: string;
   relatedProjectId: string;
-  actionType: 'open_materials' | 'open_student' | 'open_review' | 'open_seo' | 'send_guide';
+  actionType: 'open_materials' | 'open_student' | 'open_review' | 'open_seo' | 'send_guide' | 'open_geo';
 }
+
+export type RequestChecklistStatus = 'pending' | 'included' | 'quote' | 'done' | 'skip';
 
 export interface WebsiteKanbanCard {
   id: string;
@@ -312,11 +340,22 @@ export interface WebsiteKanbanCard {
     referenceUrls: string[];
     features: string[];
     keywords: string[];
+    businessDescription?: string;
+    businessInfoNote?: string;
+    extraRequest?: string;
+    boardRequests?: string[];
+    programRequests?: string[];
+    requestChecklist?: {
+      board: Record<string, RequestChecklistStatus | string>;
+      program: Record<string, RequestChecklistStatus | string>;
+    };
+    contacts?: Record<string, string>;
   };
   notes: { id: string; author: string; date: string; content: string }[];
   files?: Array<{ id: number; originalName: string; downloadUrl: string; category: string; memo: string }>;
   orderNo?: string;
   mbId?: string;
+  previewUrl?: string;
 }
 
 export interface StudentSummary {

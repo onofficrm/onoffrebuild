@@ -46,8 +46,64 @@ function g5b_fallback_img_html($type = 'image', $class = 'board-fallback__img')
         return '';
     }
     $src = g5b_fallback_file_url($type);
-    $label = ($type === 'youtube') ? 'NO VIDEO' : 'NO IMAGE';
     $class = preg_replace('/[^a-zA-Z0-9_\- ]/', '', $class);
 
     return '<img src="'.htmlspecialchars($src, ENT_QUOTES, 'UTF-8').'" alt="" role="presentation" class="'.htmlspecialchars(trim($class), ENT_QUOTES, 'UTF-8').' board-thumb__img--placeholder" loading="lazy" decoding="async">';
+}
+
+/**
+ * 제목 앞 글자 1자 (한글·영문)
+ *
+ * @param string $subject
+ * @return string
+ */
+function g5b_subject_initial_char($subject)
+{
+    $text = trim(strip_tags((string) $subject));
+    if ($text === '') {
+        return '?';
+    }
+    if (function_exists('mb_substr')) {
+        return mb_substr($text, 0, 1, 'UTF-8');
+    }
+
+    return substr($text, 0, 1);
+}
+
+/**
+ * @param string $subject
+ * @return string blue|indigo|violet|sky|emerald|slate
+ */
+function g5b_subject_initial_tone($subject)
+{
+    $tones = array('blue', 'indigo', 'violet', 'sky', 'emerald', 'slate');
+    $idx = abs((int) crc32((string) $subject)) % count($tones);
+
+    return $tones[$idx];
+}
+
+/**
+ * 썸네일 없을 때 제목 첫 글자 플레이스홀더
+ *
+ * @param string $subject
+ * @param string $block_prefix content-card|board-thumb
+ * @return string
+ */
+function g5b_subject_initial_thumb_html($subject, $block_prefix = 'content-card')
+{
+    $block_prefix = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $block_prefix);
+    if ($block_prefix === '') {
+        $block_prefix = 'content-card';
+    }
+
+    $char = g5b_subject_initial_char($subject);
+    $tone = g5b_subject_initial_tone($subject);
+    $label = get_text(strip_tags((string) $subject));
+
+    return '<span class="' . htmlspecialchars($block_prefix, ENT_QUOTES, 'UTF-8') . '__initial '
+        . htmlspecialchars($block_prefix, ENT_QUOTES, 'UTF-8') . '__initial--' . htmlspecialchars($tone, ENT_QUOTES, 'UTF-8') . '"'
+        . ' role="img" aria-label="' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '">'
+        . '<span class="' . htmlspecialchars($block_prefix, ENT_QUOTES, 'UTF-8') . '__initial-char" aria-hidden="true">'
+        . htmlspecialchars($char, ENT_QUOTES, 'UTF-8')
+        . '</span></span>';
 }

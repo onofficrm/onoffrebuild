@@ -1,0 +1,18 @@
+# edu.icrm.co.kr document root (this folder).
+# Parent GNUBoard tree must stay readable (open_basedir includes the repo root).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  RewriteRule ^plugin/seo-system-300/(.+)$ bridge.php?__edu_script=$1 [QSA,END]
+
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  RewriteRule ^ index.html [END]
+</IfModule>

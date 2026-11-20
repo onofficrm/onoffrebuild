@@ -4,6 +4,7 @@ import {
   Inbox,
   LayoutTemplate,
   Users,
+  CalendarDays,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
@@ -66,6 +67,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       icon: <Users className="w-4 h-4" />,
       badge: `${ADMIN_KPIS.totalStudents}명`,
       badgeColor: 'slate'
+    },
+    {
+      id: 'classes' as AdminTab,
+      label: '다음 수업',
+      subLabel: 'Meet · 화면 · 남은 단계',
+      icon: <CalendarDays className="w-4 h-4" />
     },
     {
       id: 'integrations' as AdminTab,

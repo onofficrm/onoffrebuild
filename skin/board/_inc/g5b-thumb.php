@@ -4,7 +4,7 @@ if (!defined('_GNUBOARD_')) exit;
 include_once(G5_SKIN_PATH.'/board/_inc/g5b-fallback.php');
 
 /**
- * 목록 썸네일 HTML (첨부 → 본문 첫 이미지 → /img/common/no-image.svg → empty 박스)
+ * 목록 썸네일 HTML (첨부 → 본문 첫 이미지 → 제목 첫 글자 → empty 
  */
 function g5b_list_thumb_html($bo_table, $wr_id, $width, $height, $subject = '', $is_secret = false, $is_notice = false, $is_crop = true)
 {
@@ -33,10 +33,10 @@ function g5b_list_thumb_html($bo_table, $wr_id, $width, $height, $subject = '', 
         return '<span class="board-thumb board-thumb--has-img">'.$tag.'</span>';
     }
 
-    if (g5b_fallback_file_exists('image')) {
-        return '<span class="board-thumb board-thumb--fallback">'
-            .g5b_fallback_img_html('image', 'board-thumb__img board-thumb__img--placeholder')
-            .'</span>';
+    if (function_exists('g5b_subject_initial_thumb_html')) {
+        return '<span class="board-thumb board-thumb--initial">'
+            . g5b_subject_initial_thumb_html($subject, 'board-thumb')
+            . '</span>';
     }
 
     return '<span class="board-thumb board-thumb--empty" aria-hidden="true"></span>';

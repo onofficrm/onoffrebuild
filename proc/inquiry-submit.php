@@ -4,6 +4,7 @@
  * URL: /proc/inquiry-submit.php (POST, JSON 응답)
  */
 include_once dirname(__FILE__) . '/../common.php';
+include_once G5_LIB_PATH . '/onoff-inquiry-services.lib.php';
 
 if (!defined('_GNUBOARD_')) {
     header('Content-Type: application/json; charset=utf-8');
@@ -11,8 +12,53 @@ if (!defined('_GNUBOARD_')) {
     exit;
 }
 
-if (is_file(G5_PATH . '/_site.config.php')) {
+$onoff_site_config_basename = getenv('ONOFF_SITE_CONFIG_BASENAME');
+if ($onoff_site_config_basename !== false && $onoff_site_config_basename !== '') {
+    $onoff_site_config_basename = basename($onoff_site_config_basename);
+    if (is_file(G5_PATH . '/' . $onoff_site_config_basename)) {
+        include_once G5_PATH . '/' . $onoff_site_config_basename;
+    }
+} elseif (is_file(G5_PATH . '/_site.config.php')) {
     include_once G5_PATH . '/_site.config.php';
+}
+
+function onoff_inquiry_current_member_id()
+{
+    global $member;
+
+    if (!empty($member['mb_id'])) {
+        return (string) $member['mb_id'];
+    }
+
+    $bootstrap = G5_PATH . '/lib/branded-auth/bootstrap.php';
+    if (!is_file($bootstrap)) {
+        return '';
+    }
+    include_once $bootstrap;
+
+    $config_class = '\\OnoffMarketing\\BrandedAuth\\BrandedAuthConfig';
+    $service_class = '\\OnoffMarketing\\BrandedAuth\\PlatformAuthService';
+    $cookie_class = '\\OnoffMarketing\\BrandedAuth\\CookieJar';
+    if (!class_exists($config_class) || !class_exists($service_class)) {
+        return '';
+    }
+    if (!$config_class::isEnabled() || !$config_class::isPlatformAuthEnabled() || !$config_class::isConfigured()) {
+        return '';
+    }
+
+    try {
+        $cookies = isset($_SERVER['HTTP_COOKIE']) ? (string) $_SERVER['HTTP_COOKIE'] : '';
+        $session = $service_class::getSession($cookies);
+        if (class_exists($cookie_class) && !empty($session['setCookies'])) {
+            $cookie_class::forwardToBrowser($session['setCookies']);
+        }
+        if (empty($session['authenticated']) || empty($session['data']) || !is_array($session['data'])) {
+            return '';
+        }
+        return (string) ($session['data']['member_id'] ?? $session['data']['mb_id'] ?? $session['data']['mbId'] ?? '');
+    } catch (Throwable $e) {
+        return '';
+    }
 }
 
 /**
@@ -134,6 +180,102 @@ function onoff_inquiry_is_valid_phone($phone)
     return (bool) preg_match('/^[0-9+\-\s().]+$/u', $phone);
 }
 
+function onoff_inquiry_ensure_board($bo_table)
+{
+    global $g5;
+
+    $bo_table = preg_replace('/[^a-z0-9_]/i', '', (string) $bo_table);
+    if ($bo_table === '') {
+        return null;
+    }
+
+    $board = sql_fetch(" select * from {$g5['board_table']} where bo_table = '" . sql_real_escape_string($bo_table) . "' ");
+    if (is_array($board) && !empty($board['bo_table'])) {
+        return $board;
+    }
+
+    $group = sql_fetch(" select gr_id from {$g5['board_table']} where gr_id <> '' order by bo_table asc limit 1 ");
+    $gr_id = is_array($group) && !empty($group['gr_id']) ? (string) $group['gr_id'] : 'community';
+    $skin = is_dir(G5_PATH . '/skin/board/onoff-inquiry') ? 'onoff-inquiry' : 'basic';
+
+    $sql = " insert into {$g5['board_table']}
+                set bo_table = '" . sql_real_escape_string($bo_table) . "',
+                    gr_id = '" . sql_real_escape_string($gr_id) . "',
+                    bo_subject = '상담문의',
+                    bo_mobile_subject = '상담문의',
+                    bo_device = 'both',
+                    bo_admin = '',
+                    bo_list_level = '10',
+                    bo_read_level = '10',
+                    bo_write_level = '1',
+                    bo_reply_level = '10',
+                    bo_comment_level = '10',
+                    bo_upload_level = '10',
+                    bo_download_level = '10',
+                    bo_html_level = '1',
+                    bo_link_level = '1',
+                    bo_count_delete = '1',
+                    bo_count_modify = '1',
+                    bo_read_point = '0',
+                    bo_write_point = '0',
+                    bo_comment_point = '0',
+                    bo_download_point = '0',
+                    bo_use_category = '0',
+                    bo_category_list = '',
+                    bo_use_sideview = '0',
+                    bo_use_file_content = '0',
+                    bo_use_secret = '1',
+                    bo_use_dhtml_editor = '0',
+                    bo_use_rss_view = '0',
+                    bo_use_good = '0',
+                    bo_use_nogood = '0',
+                    bo_use_name = '1',
+                    bo_use_signature = '0',
+                    bo_use_ip_view = '0',
+                    bo_use_list_view = '0',
+                    bo_use_list_file = '0',
+                    bo_use_list_content = '0',
+                    bo_table_width = '100',
+                    bo_subject_len = '80',
+                    bo_mobile_subject_len = '60',
+                    bo_page_rows = '20',
+                    bo_mobile_page_rows = '20',
+                    bo_new = '24',
+                    bo_hot = '100',
+                    bo_image_width = '800',
+                    bo_skin = '" . sql_real_escape_string($skin) . "',
+                    bo_mobile_skin = '" . sql_real_escape_string($skin) . "',
+                    bo_include_head = '',
+                    bo_include_tail = '',
+                    bo_content_head = '',
+                    bo_mobile_content_head = '',
+                    bo_content_tail = '',
+                    bo_mobile_content_tail = '',
+                    bo_sort_field = 'wr_num, wr_reply',
+                    bo_insert_content = '',
+                    bo_gallery_cols = '4',
+                    bo_gallery_width = '200',
+                    bo_gallery_height = '150',
+                    bo_mobile_gallery_width = '125',
+                    bo_mobile_gallery_height = '100',
+                    bo_upload_size = '10485760',
+                    bo_reply_order = '1',
+                    bo_use_search = '1',
+                    bo_order = '0',
+                    bo_count_write = '0',
+                    bo_count_comment = '0' ";
+    sql_query($sql, false);
+
+    $write_table = $g5['write_prefix'] . $bo_table;
+    $template = sql_fetch(" select bo_table from {$g5['board_table']} where bo_table <> '" . sql_real_escape_string($bo_table) . "' order by bo_table asc limit 1 ");
+    if (is_array($template) && !empty($template['bo_table'])) {
+        $source = $g5['write_prefix'] . preg_replace('/[^a-z0-9_]/i', '', (string) $template['bo_table']);
+        sql_query(" create table if not exists {$write_table} like {$source} ", false);
+    }
+
+    return sql_fetch(" select * from {$g5['board_table']} where bo_table = '" . sql_real_escape_string($bo_table) . "' ");
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     onoff_inquiry_json_response(false, '잘못된 요청입니다.');
 }
@@ -155,7 +297,10 @@ onoff_inquiry_check_ip_rate_limit(false);
 /* CSRF 토큰 */
 $token = isset($_POST['onoff_inquiry_token']) ? trim($_POST['onoff_inquiry_token']) : '';
 $session_token = get_session('onoff_inquiry_token');
-if ($token === '' || $session_token === '' || $token !== $session_token) {
+$cookie_token = isset($_COOKIE['onoff_inquiry_token']) ? trim((string) $_COOKIE['onoff_inquiry_token']) : '';
+$token_matches_session = ($session_token !== '' && $token === $session_token);
+$token_matches_cookie = ($cookie_token !== '' && hash_equals($cookie_token, $token));
+if ($token === '' || (!$token_matches_session && !$token_matches_cookie)) {
     onoff_inquiry_json_response(false, '보안 토큰이 만료되었습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
 }
 
@@ -176,6 +321,85 @@ $email = isset($_POST['email']) ? trim(strip_tags($_POST['email'])) : '';
 $message = isset($_POST['message']) ? trim(strip_tags($_POST['message'])) : '';
 $privacy = !empty($_POST['privacy_agree']) ? '동의' : '미동의';
 $referer_page = isset($_POST['referer_page']) ? trim(strip_tags($_POST['referer_page'])) : '';
+$inquiry_channel = isset($_POST['inquiry_channel']) ? trim(strip_tags($_POST['inquiry_channel'])) : '';
+if ($inquiry_channel !== 'google_meet' && $inquiry_channel !== 'phone') {
+    $inquiry_channel = '';
+}
+$is_google_meet = ($inquiry_channel === 'google_meet');
+$terms_agree = !empty($_POST['terms_agree']) ? '동의' : '미동의';
+$contract_package = isset($_POST['contract_package']) ? trim(strip_tags($_POST['contract_package'])) : '';
+$contract_package = preg_replace('/[^a-z0-9_\-]/i', '', $contract_package);
+if (function_exists('mb_strlen') ? mb_strlen($contract_package, 'UTF-8') > 40 : strlen($contract_package) > 40) {
+    $contract_package = '';
+}
+$allowed_contract_packages = array('general', 'education', 'marketing', 'education-marketing', 'backlink', 'traffic', 'content', 'domain', 'geo');
+if ($contract_package !== '' && !in_array($contract_package, $allowed_contract_packages, true)) {
+    onoff_inquiry_json_response(false, '신청 패키지가 올바르지 않습니다.');
+}
+$signature_raw = isset($_POST['signature_data']) ? (string) $_POST['signature_data'] : '';
+$signature_path = '';
+$signature_url = '';
+
+/**
+ * 사이트 내 서명(PNG base64) 저장 — SaaS 없이 자체 서명
+ *
+ * @param string $raw data URL 또는 raw base64
+ * @return array{ok:bool, path?:string, url?:string, message?:string}
+ */
+function onoff_inquiry_save_signature($raw)
+{
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return array('ok' => true, 'path' => '', 'url' => '');
+    }
+
+    if (preg_match('#^data:image/png;base64,#i', $raw)) {
+        $raw = preg_replace('#^data:image/png;base64,#i', '', $raw);
+    } elseif (preg_match('#^data:image/#i', $raw)) {
+        return array('ok' => false, 'message' => '서명 이미지는 PNG만 지원합니다.');
+    }
+
+    $raw = preg_replace('/\s+/', '', $raw);
+    $bin = base64_decode($raw, true);
+    if ($bin === false || strlen($bin) < 100) {
+        return array('ok' => false, 'message' => '서명 데이터가 올바르지 않습니다.');
+    }
+    /* ~350KB 제한 */
+    if (strlen($bin) > 350000) {
+        return array('ok' => false, 'message' => '서명 이미지가 너무 큽니다. 다시 서명해 주세요.');
+    }
+    /* PNG magic */
+    if (substr($bin, 0, 8) !== "\x89PNG\r\n\x1a\n") {
+        return array('ok' => false, 'message' => '서명 이미지가 PNG 형식이 아닙니다.');
+    }
+
+    if (!defined('G5_DATA_PATH') || !defined('G5_DATA_URL')) {
+        return array('ok' => false, 'message' => '서명 저장 경로를 준비하지 못했습니다.');
+    }
+
+    $ym = date('Ym');
+    $dir = G5_DATA_PATH . '/inquiry_sign/' . $ym;
+    if (!is_dir($dir) && !@mkdir($dir, G5_DIR_PERMISSION, true)) {
+        return array('ok' => false, 'message' => '서명 저장 폴더를 만들 수 없습니다.');
+    }
+
+    /* 서명 파일 직접 열람/실행 차단 */
+    $ht = G5_DATA_PATH . '/inquiry_sign/.htaccess';
+    $ht_contents = is_file($ht) ? (string) @file_get_contents($ht) : '';
+    if (strpos($ht_contents, 'Require all denied') === false) {
+        @file_put_contents($ht, "Options -Indexes\nRequire all denied\nDeny from all\n");
+    }
+
+    $filename = 'sig_' . date('Ymd_His') . '_' . substr(md5(uniqid((string) mt_rand(), true)), 0, 10) . '.png';
+    $full = $dir . '/' . $filename;
+    if (@file_put_contents($full, $bin, LOCK_EX) === false) {
+        return array('ok' => false, 'message' => '서명 파일 저장에 실패했습니다.');
+    }
+    @chmod($full, G5_FILE_PERMISSION);
+
+    $rel = 'inquiry_sign/' . $ym . '/' . $filename;
+    return array('ok' => true, 'path' => $rel, 'url' => '');
+}
 
 if ($name === '') {
     onoff_inquiry_json_response(false, '이름을 입력해 주세요.');
@@ -189,7 +413,12 @@ if ($phone === '') {
 if (function_exists('mb_strlen') ? mb_strlen($phone, 'UTF-8') > 30 : strlen($phone) > 30) {
     onoff_inquiry_json_response(false, '연락처가 너무 깁니다. 30자 이내로 입력해 주세요.');
 }
-if (!onoff_inquiry_is_valid_phone($phone)) {
+$phone_digits = preg_replace('/[^0-9]/', '', $phone);
+if ($is_google_meet) {
+    if ($phone_digits !== '01000000000' && !onoff_inquiry_is_valid_phone($phone)) {
+        onoff_inquiry_json_response(false, '연락처 형식을 확인해 주세요.');
+    }
+} elseif (!onoff_inquiry_is_valid_phone($phone)) {
     onoff_inquiry_json_response(false, '연락처 형식을 확인해 주세요.');
 }
 if ($message === '') {
@@ -205,11 +434,36 @@ if ($msg_len > 3000) {
 if (empty($_POST['privacy_agree'])) {
     onoff_inquiry_json_response(false, '개인정보 수집·이용에 동의해 주세요.');
 }
+$has_contract_request = ($contract_package !== '' || !empty($_POST['terms_agree']) || trim($signature_raw) !== '');
+if ($has_contract_request && empty($_POST['terms_agree'])) {
+    onoff_inquiry_json_response(false, '이용약관·표준계약 안내에 동의해 주세요.');
+}
+if ($has_contract_request && trim($signature_raw) === '') {
+    onoff_inquiry_json_response(false, '서명을 입력해 주세요.');
+}
 if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     onoff_inquiry_json_response(false, '이메일 형식이 올바르지 않습니다.');
 }
+if ($email === '') {
+    $contact_boot = G5_PATH . '/lib/branded-auth/bootstrap.php';
+    if (is_file($contact_boot)) {
+        include_once $contact_boot;
+    }
+    $contact_mb_id = onoff_inquiry_current_member_id();
+    $store_class = '\\OnoffMarketing\\BrandedAuth\\MemberContactStore';
+    if ($contact_mb_id !== '' && class_exists($store_class)) {
+        $stored = $store_class::find($contact_mb_id, '');
+        $stored_email = isset($stored['email']) ? trim((string) $stored['email']) : '';
+        if ($stored_email !== '' && filter_var($stored_email, FILTER_VALIDATE_EMAIL)) {
+            $email = $stored_email;
+        }
+    }
+}
 if ($email !== '' && (function_exists('mb_strlen') ? mb_strlen($email, 'UTF-8') > 100 : strlen($email) > 100)) {
     onoff_inquiry_json_response(false, '이메일이 너무 깁니다. 100자 이내로 입력해 주세요.');
+}
+if ($is_google_meet && $email === '') {
+    onoff_inquiry_json_response(false, '화상 상담은 이메일을 입력해 주세요.');
 }
 if (onoff_inquiry_has_banned_word($name . ' ' . $message)) {
     onoff_inquiry_json_response(false, '접수할 수 없는 내용이 포함되어 있습니다.');
@@ -222,15 +476,59 @@ if ($bo_table === '') {
     $bo_table = 'inquiry';
 }
 
-$board = sql_fetch(" select * from {$g5['board_table']} where bo_table = '" . sql_real_escape_string($bo_table) . "' ");
-if (!$board['bo_table']) {
+$board = onoff_inquiry_ensure_board($bo_table);
+if (!is_array($board) || empty($board['bo_table'])) {
     onoff_inquiry_json_response(false, '문의 게시판이 준비되지 않았습니다. 관리자에게 문의해 주세요.');
 }
 
 $write_table = $g5['write_prefix'] . $bo_table;
 
+/* 게시판 준비 확인 후 서명 저장 */
+$signature_save = onoff_inquiry_save_signature($signature_raw);
+if (empty($signature_save['ok'])) {
+    onoff_inquiry_json_response(false, isset($signature_save['message']) ? $signature_save['message'] : '서명 저장에 실패했습니다.');
+}
+$signature_path = isset($signature_save['path']) ? $signature_save['path'] : '';
+$signature_url = isset($signature_save['url']) ? $signature_save['url'] : '';
+
+/* 관심 서비스 (wr_10 · 제목 prefix) */
+$interest_labels_inline = '';
+$interest_slugs = array();
+if (isset($_POST['interest_services'])) {
+    $interest_slugs = onoff_inquiry_normalize_service_slugs((string) $_POST['interest_services']);
+}
+if (empty($interest_slugs) && function_exists('onoff_inquiry_extract_interest_from_message')) {
+    $from_msg = onoff_inquiry_extract_interest_from_message($message);
+    if ($from_msg !== '') {
+        $interest_labels_inline = $from_msg;
+    }
+}
+if (empty($interest_slugs) && function_exists('onoff_inquiry_slugs_from_referer')) {
+    $interest_slugs = onoff_inquiry_slugs_from_referer($referer_page);
+}
+$interest_labels = !empty($interest_labels_inline)
+    ? $interest_labels_inline
+    : onoff_inquiry_labels_from_slugs($interest_slugs);
+if ($interest_labels === '' && function_exists('onoff_inquiry_extract_interest_from_message')) {
+    $interest_labels = onoff_inquiry_extract_interest_from_message($message);
+}
+$interest_labels_stored = $interest_labels;
+if (function_exists('cut_str') && $interest_labels_stored !== '') {
+    $interest_labels_stored = cut_str($interest_labels_stored, 200);
+} elseif (strlen($interest_labels_stored) > 200) {
+    $interest_labels_stored = substr($interest_labels_stored, 0, 200);
+}
+
 /* 제목·본문 */
-$wr_subject_raw = '[상담] ' . $name;
+$phone_stored = $phone;
+if ($is_google_meet) {
+    $phone_stored = 'Google Meet (이메일)';
+}
+$wr_subject_raw = ($is_google_meet ? '[화상상담] ' : '[상담] ');
+if ($interest_labels !== '') {
+    $wr_subject_raw .= '[' . $interest_labels . '] ';
+}
+$wr_subject_raw .= $name;
 if (function_exists('cut_str')) {
     $wr_subject_raw = cut_str($wr_subject_raw, 255);
 } else {
@@ -238,13 +536,28 @@ if (function_exists('cut_str')) {
 }
 $wr_content = "■ 상담 문의 (웹 폼 접수)\n\n";
 $wr_content .= "이름: {$name}\n";
-$wr_content .= "연락처: {$phone}\n";
+$wr_content .= "연락처: {$phone_stored}\n";
 if ($email !== '') {
     $wr_content .= "이메일: {$email}\n";
 }
+if ($is_google_meet) {
+    $wr_content .= "상담 채널: Google Meet 1:1 화상 상담\n";
+}
 $wr_content .= "개인정보 동의: {$privacy}\n";
+$wr_content .= "약관·계약 동의: {$terms_agree}\n";
+if ($contract_package !== '') {
+    $wr_content .= "신청 패키지: {$contract_package}\n";
+}
 if ($referer_page !== '') {
     $wr_content .= "접수 페이지: {$referer_page}\n";
+}
+if ($interest_labels !== '') {
+    $wr_content .= "관심 항목(요약): {$interest_labels}\n";
+}
+if ($signature_path !== '') {
+    $wr_content .= "전자서명 파일: {$signature_path}\n";
+} else {
+    $wr_content .= "전자서명: 없음\n";
 }
 $wr_content .= "\n--- 문의내용 ---\n\n";
 $wr_content .= $message;
@@ -253,14 +566,17 @@ $wr_subject = sql_real_escape_string($wr_subject_raw);
 $wr_content = sql_real_escape_string($wr_content);
 $wr_name = sql_real_escape_string($name);
 $wr_email_sql = $email !== '' ? sql_real_escape_string($email) : '';
-$wr_1 = sql_real_escape_string($phone);
+$wr_1 = sql_real_escape_string($phone_stored);
 $wr_2 = $wr_email_sql;
 $wr_3 = sql_real_escape_string($referer_page);
 $wr_4 = sql_real_escape_string($privacy);
 $wr_ip = sql_real_escape_string(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '');
 $wr_5 = $wr_ip;
 $wr_6 = sql_real_escape_string('신규');
-
+$wr_7 = sql_real_escape_string($signature_path);
+$wr_8 = sql_real_escape_string($contract_package);
+$wr_9_channel = $is_google_meet ? 'google_meet' : '';
+$wr_10 = sql_real_escape_string($interest_labels_stored);
 $wr_option = '';
 if (!empty($board['bo_use_secret'])) {
     $wr_option = 'secret';
@@ -274,7 +590,8 @@ if (!$member['mb_id'] && $wr_option === 'secret') {
 /* wr_seo_title은 wr_id 확정 후 icrm_ensure_wr_seo_title()로 설정 (중복 제목 -1, -2 처리) */
 $wr_seo_title = '';
 
-$mb_id_sql = isset($member['mb_id']) ? sql_real_escape_string($member['mb_id']) : '';
+$current_mb_id = onoff_inquiry_current_member_id();
+$mb_id_sql = sql_real_escape_string($current_mb_id);
 
 $sql = " insert into {$write_table}
             set wr_num = (SELECT IFNULL(MIN(wr_num) - 1, -1) FROM {$write_table} as sq),
@@ -306,19 +623,25 @@ $sql = " insert into {$write_table}
                  wr_4 = '{$wr_4}',
                  wr_5 = '{$wr_5}',
                  wr_6 = '{$wr_6}',
-                 wr_7 = '',
-                 wr_8 = '',
-                 wr_9 = '',
-                 wr_10 = '' ";
+                 wr_7 = '{$wr_7}',
+                 wr_8 = '{$wr_8}',
+                 wr_9 = '" . sql_real_escape_string($wr_9_channel) . "',
+                 wr_10 = '{$wr_10}' ";
 
 $result = sql_query($sql, false);
 
 if (!$result) {
+    if ($signature_path !== '' && defined('G5_DATA_PATH')) {
+        @unlink(G5_DATA_PATH . '/' . $signature_path);
+    }
     onoff_inquiry_json_response(false, '문의 접수 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
 }
 
 $wr_id = sql_insert_id();
 if (!$wr_id) {
+    if ($signature_path !== '' && defined('G5_DATA_PATH')) {
+        @unlink(G5_DATA_PATH . '/' . $signature_path);
+    }
     onoff_inquiry_json_response(false, '문의 접수 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
 }
 
@@ -331,6 +654,35 @@ if (is_file(G5_LIB_PATH . '/icrm.lib.php')) {
     include_once G5_LIB_PATH . '/icrm.lib.php';
     if (function_exists('icrm_ensure_wr_seo_title')) {
         icrm_ensure_wr_seo_title($bo_table, (int) $wr_id);
+    }
+}
+
+$education_enrollment_id = 0;
+$enrollment_map = array(
+    'education' => array('seo-geo-master'),
+    'marketing' => array('marketing-service'),
+    'education-marketing' => array('seo-geo-master', 'marketing-service'),
+);
+if (isset($enrollment_map[$contract_package])) {
+    $education_lib = G5_LIB_PATH . '/onoff-education.lib.php';
+    if (is_file($education_lib)) {
+        include_once $education_lib;
+        if (function_exists('onoff_education_create_pending_enrollment')) {
+            foreach ($enrollment_map[$contract_package] as $course_id) {
+                $created_id = (int) onoff_education_create_pending_enrollment(array(
+                    'course_id' => $course_id,
+                    'mb_id' => $current_mb_id,
+                    'applicant_name' => $name,
+                    'phone' => $phone,
+                    'email' => $email,
+                    'contract_bo_table' => $bo_table,
+                    'contract_wr_id' => (int) $wr_id,
+                ));
+                if ($created_id > 0 && $education_enrollment_id < 1) {
+                    $education_enrollment_id = $created_id;
+                }
+            }
+        }
     }
 }
 
@@ -350,6 +702,10 @@ if (function_exists('get_pretty_url')) {
         $admin_url = $pretty;
     }
 }
+$signature_view_url = '';
+if ($signature_path !== '') {
+    $signature_view_url = rtrim(G5_URL, '/') . '/proc/inquiry-signature.php?bo_table=' . rawurlencode($bo_table) . '&wr_id=' . (int) $wr_id;
+}
 
 $inquiry_data = array(
     'site_name'      => $site_name,
@@ -359,6 +715,11 @@ $inquiry_data = array(
     'message'        => $message,
     'referer_page'   => $referer_page,
     'privacy_agree'  => $privacy,
+    'terms_agree'    => $terms_agree,
+    'contract_package' => $contract_package,
+    'signature_path' => $signature_path,
+    'signature_view_url' => $signature_view_url,
+    'education_enrollment_id' => $education_enrollment_id,
     'ip'             => isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '',
     'created_at'     => G5_TIME_YMDHIS,
     'admin_url'      => $admin_url,

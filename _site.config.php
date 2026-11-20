@@ -20,7 +20,7 @@ $site_config = array(
     'primary_color'       => '#2563eb',
     'secondary_color'     => '#64748b',
     'logo_path'           => '/img/logo/logo.png',
-    'logo_white_path'     => '/img/logo/logo-white.png',
+    'logo_white_path'     => '/img/logo/logo-pc-white.png',
     'og_image'            => '/img/common/og-image.jpg',
     /* 파비콘 — /data/seo/favicon (3boon 동일 경로 패턴) */
     'favicon_path'        => '/data/seo/favicon',
@@ -44,6 +44,21 @@ $site_config = array(
     /* 웹훅 알림 (Slack/Discord 등) — 추후 확장 */
     'inquiry_notify_webhook_enabled' => false,
     'inquiry_notify_webhook_url'     => '',
+    /*
+     * 카카오 알림톡 — 카카오 비즈니스센터 템플릿 승인 후 공식 비즈메시지 발송사 API/릴레이 입력
+     * provider_url/token/sender_key는 운영 서버에서만 입력하고 외부 공유 금지
+     */
+    'inquiry_notify_kakao_enabled' => false,
+    'inquiry_notify_kakao_provider_url' => '',
+    'inquiry_notify_kakao_provider_token' => '',
+    'inquiry_notify_kakao_sender_key' => '',
+    'inquiry_notify_kakao_channel_id' => '@onoffmarketing',
+    'inquiry_notify_kakao_admin_receiver' => '',
+    'inquiry_notify_kakao_template_inquiry' => 'ONOFF_INQUIRY_ADMIN',
+    'inquiry_notify_kakao_template_education_active' => 'ONOFF_EDU_ACTIVE',
+    /* 수업 전날/다음날만. 변수 name, screen, meet_at, memo, classroom_url. 템플릿 승인 전에도 코드만 둔다. */
+    'inquiry_notify_kakao_template_class_before' => 'ONOFF_EDU_CLASS_BEFORE',
+    'inquiry_notify_kakao_template_class_after' => 'ONOFF_EDU_CLASS_AFTER',
     /* 문의 접수 완료 페이지 (상대 경로) */
     'inquiry_thanks_url'      => '/page/inquiry-thanks.php',
     /* 전환·방문 추적 ID — 비우면 출력 안 함 */
@@ -116,6 +131,9 @@ $site_config = array(
     'icrm_hub_geo_button'       => true,
     /* onoff-builder-bridge — 루트 / 를 빌더 페이지로 (project_id) */
     'home_builder_bridge_id'    => 'onoffmarketing',
+    /* ONOFF Builder official SPA dual-routing gate (canary 승인 전 false 유지) */
+    'official_builder_routes_enabled' => true,
+    'official_builder_bridge_id'      => 'onoff-builder-official',
 );
 
 /**
@@ -236,3 +254,26 @@ if (!function_exists('g5site_tel_link')) {
         return $digits !== '' ? 'tel:' . $digits : '#';
     }
 }
+
+/*
+ * CRM 계약·강의승인 API 토큰 (동일 토큰)
+ * - api/crm/contracts.php  — 서버-to-서버 전용 (Origin 있으면 403 browser_not_allowed, CORS 없음)
+ * - api/crm/education.php  — 목록/pending/approve (+ CRM Origin CORS 허용)
+ * Auth: Bearer ONOFF_CRM_CONTRACT_API_TOKEN
+ *       또는 X-ONOFF-Contract-Token / X-Api-Token (Cafe24 Authorization 제거 시 권장)
+ *       education만 GNUBoard super-admin 세션 허용
+ * 토큰 미설정 시 CRM API는 503 not_configured.
+ * CRM BFF는 쿠키 없이 X-ONOFF-Contract-Token 으로 호출할 것.
+ *
+ * 운영: data/onoff-crm-contract.local.php 에만 두고 저장소에 실토큰을 커밋하지 마세요.
+ * if (!defined('ONOFF_CRM_CONTRACT_API_TOKEN')) {
+ *     define('ONOFF_CRM_CONTRACT_API_TOKEN', '');
+ * }
+ */
+
+// OnOff CRM contract/education API token (server-local; do not commit)
+$__onoff_crm_local = __DIR__ . '/data/onoff-crm-contract.local.php';
+if (is_file($__onoff_crm_local)) {
+    require_once $__onoff_crm_local;
+}
+unset($__onoff_crm_local);

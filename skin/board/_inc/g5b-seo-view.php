@@ -298,6 +298,11 @@ if (!function_exists('g5b_seo_view_footer')) {
             $related_exclude_wr_id = (int) $wr_id;
             $related_title = $related_title;
             $related_limit = max(1, min(8, $related_limit));
+            if (!empty($opts['related_layout']) && $opts['related_layout'] === 'list') {
+                $related_layout = 'list';
+            } elseif (!empty($opts['related_layout']) && $opts['related_layout'] === 'card') {
+                $related_layout = 'card';
+            }
             include_once $related_file;
             echo '</div>';
         }

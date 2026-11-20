@@ -17,10 +17,6 @@ if(G5_COMMUNITY_USE === false) {
 ?>
 
     </div>
-    <div id="aside">
-        <?php echo outlogin(function_exists('onoff_platform_outlogin_skin_for_page') ? onoff_platform_outlogin_skin_for_page('theme/basic') : 'theme/basic'); ?>
-        <?php echo poll('theme/basic'); // 설문조사, 테마의 스킨을 사용하려면 스킨을 theme/basic 과 같이 지정 ?>
-    </div>
 </div>
 
 </div>
@@ -29,38 +25,29 @@ if(G5_COMMUNITY_USE === false) {
 <hr>
 
 <!-- 하단 시작 { -->
-<div id="ft">
-
-    <div id="ft_wr">
-        <div id="ft_link" class="ft_cnt">
-            <a href="<?php echo get_pretty_url('content', 'company'); ?>">회사소개</a>
+<div id="ft" class="oh-footer">
+    <div class="oh-footer__inner">
+        <div class="oh-footer__brand">
+            <a href="<?php echo G5_URL; ?>/">
+                <img class="oh-footer__logo" src="<?php echo G5_URL; ?>/img/logo/logo-pc-white.png" alt="온오프마케팅 ONOFF MARKETING" width="210" height="70">
+            </a>
+            <p>홈페이지 하나로, 운영까지.</p>
+        </div>
+        <nav class="oh-footer__links" aria-label="하단 메뉴">
+            <?php
+            include_once(G5_LIB_PATH.'/onoff-builder-chrome-nav.inc.php');
+            foreach (onoff_builder_chrome_footer_nav_links() as $oh_flink) {
+            ?>
+            <a href="<?php echo $oh_flink['href']; ?>"><?php echo $oh_flink['label']; ?></a>
+            <?php } ?>
+        </nav>
+        <div class="oh-footer__legal">
             <a href="<?php echo get_pretty_url('content', 'privacy'); ?>">개인정보처리방침</a>
             <a href="<?php echo get_pretty_url('content', 'provision'); ?>">서비스이용약관</a>
-            <a href="<?php echo get_device_change_url(); ?>">모바일버전</a>
+            <a href="<?php echo get_pretty_url('content', 'company'); ?>">회사소개</a>
         </div>
-        <div id="ft_company" class="ft_cnt">
-        	<h2>사이트 정보</h2>
-	        <p class="ft_info">
-	        	회사명 : 회사명 / 대표 : 대표자명<br>
-				주소  : OO도 OO시 OO구 OO동 123-45<br>
-				사업자 등록번호  : 123-45-67890<br>
-				전화 :  02-123-4567  팩스  : 02-123-4568<br>
-				통신판매업신고번호 :  제 OO구 - 123호<br>
-				개인정보관리책임자 :  정보책임자명<br>
-			</p>
-	    </div>
-        <?php
-        //공지사항
-        // 이 함수가 바로 최신글을 추출하는 역할을 합니다.
-        // 사용방법 : latest(스킨, 게시판아이디, 출력라인, 글자수);
-        // 테마의 스킨을 사용하려면 theme/basic 과 같이 지정
-        echo latest('theme/notice', 'notice', 4, 13);
-        ?>
-        
-		<?php echo visit('theme/basic'); // 접속자집계, 테마의 스킨을 사용하려면 스킨을 theme/basic 과 같이 지정 ?>
-	</div>      
-        <!-- <div id="ft_catch"><img src="<?php echo G5_IMG_URL; ?>/ft_logo.png" alt="<?php echo G5_VERSION ?>"></div> -->
-        <div id="ft_copy">Copyright &copy; <b>소유하신 도메인.</b> All rights reserved.</div>
+        <p class="oh-footer__copy">Copyright &copy; <?php echo date('Y'); ?> 온오프마케팅. All rights reserved.</p>
+    </div>
     
     
     <button type="button" id="top_btn">

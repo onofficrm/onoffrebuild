@@ -90,8 +90,14 @@ if (!function_exists('g5b_inquiry_phone_tel')) {
         if ($phone === '') {
             return '';
         }
+        if (stripos($phone, 'Google Meet') !== false) {
+            return '';
+        }
 
         $digits = preg_replace('/[^0-9+]/', '', $phone);
+        if (preg_replace('/[^0-9]/', '', $phone) === '01000000000') {
+            return '';
+        }
 
         return $digits !== '' ? 'tel:' . $digits : '';
     }
@@ -138,8 +144,14 @@ if (!function_exists('g5b_inquiry_mask_phone')) {
         if ($phone === '') {
             return '—';
         }
+        if (stripos($phone, 'Google Meet') !== false) {
+            return $phone;
+        }
 
         $digits = preg_replace('/[^0-9]/', '', $phone);
+        if ($digits === '01000000000') {
+            return 'Google Meet (이메일)';
+        }
         $len = strlen($digits);
 
         if ($len >= 10) {
@@ -151,6 +163,27 @@ if (!function_exists('g5b_inquiry_mask_phone')) {
         }
 
         return g5b_inquiry_short_text($phone, 12);
+    }
+}
+
+if (!function_exists('g5b_inquiry_interest_summary')) {
+    /**
+     * wr_10 또는 본문 [관심 기능·서비스] 줄
+     *
+     * @param array $row
+     * @return string
+     */
+    function g5b_inquiry_interest_summary($row)
+    {
+        $wr10 = g5b_inquiry_get_extra($row, 'wr_10');
+        if ($wr10 !== '') {
+            return $wr10;
+        }
+        $content = isset($row['wr_content']) ? (string) $row['wr_content'] : '';
+        if ($content !== '' && preg_match('/\[관심 기능·서비스\]\s*(.+?)(?:\n|$)/u', $content, $m)) {
+            return trim($m[1]);
+        }
+        return '';
     }
 }
 

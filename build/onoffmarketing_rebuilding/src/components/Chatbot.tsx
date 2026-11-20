@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User, Loader2 } from 'lucide-react';
+import ClassroomEntryFab from './ClassroomEntryFab';
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -51,7 +52,9 @@ export default function Chatbot() {
 
   return (
     <>
-      <div className="fixed bottom-20 right-4 sm:bottom-8 sm:right-8 z-50 flex flex-col items-end">
+      <div className="fixed bottom-20 right-4 sm:bottom-8 sm:right-8 z-50 flex flex-col items-end gap-3">
+        {/* Classroom shortcut — only when enrollment is pending/active */}
+        <ClassroomEntryFab />
         {/* KakaoTalk 1:1 Consultation Floating Button */}
         <a
           href="http://pf.kakao.com/_MTlNK/chat"

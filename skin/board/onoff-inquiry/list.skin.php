@@ -8,7 +8,7 @@ include_once dirname(__FILE__) . '/inquiry-helper.php';
 include_once(G5_SKIN_PATH.'/_inc/onoff-platform.php');
 onoff_platform_board_styles($board_skin_url);
 
-$colspan = 8;
+$colspan = 9;
 if ($is_checkbox) {
     $colspan++;
 }
@@ -78,6 +78,7 @@ if ($is_checkbox) {
             <th scope="col" class="inquiry-table__name">문의자</th>
             <th scope="col" class="inquiry-table__phone">연락처</th>
             <th scope="col" class="inquiry-table__email">이메일</th>
+            <th scope="col" class="inquiry-table__interest">관심 항목</th>
             <th scope="col" class="inquiry-table__subject">제목</th>
             <th scope="col" class="inquiry-table__page">접수 페이지</th>
             <th scope="col" class="inquiry-table__date"><?php echo subject_sort_link('wr_datetime', $qstr2, 1) ?>접수일</a></th>
@@ -95,6 +96,7 @@ if ($is_checkbox) {
             $phone = g5b_inquiry_get_extra($list[$i], 'wr_1');
             $email = g5b_inquiry_get_extra($list[$i], 'wr_2');
             $page_url = g5b_inquiry_get_extra($list[$i], 'wr_3');
+            $interest = g5b_inquiry_interest_summary($list[$i]);
             $ip = g5b_inquiry_get_extra($list[$i], 'wr_5');
             if ($ip === '' && !empty($list[$i]['wr_ip'])) {
                 $ip = $list[$i]['wr_ip'];
@@ -131,6 +133,13 @@ if ($is_checkbox) {
             <td class="inquiry-table__cell-email" data-label="이메일">
                 <?php if ($email !== '') { ?>
                 <span class="inquiry-table__email"><?php echo get_text(g5b_inquiry_short_text($email, 28)) ?></span>
+                <?php } else { ?>
+                <span class="inquiry-table__muted">—</span>
+                <?php } ?>
+            </td>
+            <td class="inquiry-table__cell-interest" data-label="관심 항목">
+                <?php if ($interest !== '') { ?>
+                <span class="inquiry-table__interest"><?php echo get_text(g5b_inquiry_short_text($interest, 36)) ?></span>
                 <?php } else { ?>
                 <span class="inquiry-table__muted">—</span>
                 <?php } ?>

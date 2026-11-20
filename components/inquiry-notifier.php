@@ -12,6 +12,10 @@ if (!function_exists('g5site_cfg') && is_file(G5_PATH . '/_site.config.php')) {
     include_once G5_PATH . '/_site.config.php';
 }
 
+if (defined('G5_LIB_PATH') && is_file(G5_LIB_PATH . '/onoff-notification-preferences.lib.php')) {
+    include_once G5_LIB_PATH . '/onoff-notification-preferences.lib.php';
+}
+
 /**
  * 알림 사용 여부 (_site.config.php inquiry_notify_enabled)
  *
@@ -123,6 +127,12 @@ if (!function_exists('onoff_build_inquiry_email_body')) {
         $message = nl2br($message);
         $referer = onoff_inquiry_mail_escape(isset($inquiry_data['referer_page']) ? $inquiry_data['referer_page'] : '');
         $privacy = onoff_inquiry_mail_escape(isset($inquiry_data['privacy_agree']) ? $inquiry_data['privacy_agree'] : '');
+        $terms = onoff_inquiry_mail_escape(isset($inquiry_data['terms_agree']) ? $inquiry_data['terms_agree'] : '');
+        $contract_package = onoff_inquiry_mail_escape(isset($inquiry_data['contract_package']) ? $inquiry_data['contract_package'] : '');
+        $signature_path = onoff_inquiry_mail_escape(isset($inquiry_data['signature_path']) ? $inquiry_data['signature_path'] : '');
+        $signature_view_url_raw = isset($inquiry_data['signature_view_url']) ? (string) $inquiry_data['signature_view_url'] : '';
+        $signature_view_url = onoff_inquiry_mail_escape($signature_view_url_raw);
+        $education_enrollment_id = (int) (isset($inquiry_data['education_enrollment_id']) ? $inquiry_data['education_enrollment_id'] : 0);
         $ip = onoff_inquiry_mail_escape(isset($inquiry_data['ip']) ? $inquiry_data['ip'] : '');
         $created = onoff_inquiry_mail_escape(isset($inquiry_data['created_at']) ? $inquiry_data['created_at'] : '');
         $admin_url = onoff_inquiry_mail_escape(isset($inquiry_data['admin_url']) ? $inquiry_data['admin_url'] : '');
@@ -136,6 +146,18 @@ if (!function_exists('onoff_build_inquiry_email_body')) {
         $html .= '<tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top;">문의내용</th><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">' . $message . '</td></tr>';
         $html .= '<tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;">접수 페이지</th><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">' . ($referer !== '' ? $referer : '-') . '</td></tr>';
         $html .= '<tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;">개인정보 동의</th><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">' . $privacy . '</td></tr>';
+        if ($contract_package !== '' || $signature_path !== '') {
+            $html .= '<tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;">신청 패키지</th><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">' . ($contract_package !== '' ? $contract_package : '-') . '</td></tr>';
+            $html .= '<tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;">약관·계약 동의</th><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">' . ($terms !== '' ? $terms : '-') . '</td></tr>';
+            $signature_cell = $signature_path !== '' ? $signature_path : '-';
+            if ($signature_view_url !== '') {
+                $signature_cell .= '<br><a href="' . $signature_view_url . '">관리자 전용 서명 보기</a>';
+            }
+            $html .= '<tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;">전자서명</th><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">' . $signature_cell . '</td></tr>';
+            if ($education_enrollment_id > 0) {
+                $html .= '<tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;">교육 수강권</th><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">입금대기 #' . $education_enrollment_id . '</td></tr>';
+            }
+        }
         $html .= '<tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;">접수 일시</th><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">' . $created . '</td></tr>';
         $html .= '<tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;">접수 IP</th><td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">' . $ip . '</td></tr>';
         $html .= '</table>';
@@ -223,6 +245,230 @@ if (!function_exists('onoff_send_inquiry_email_notification')) {
 }
 
 /**
+ * 카카오 알림톡 설정 — 실제 발송은 공식 비즈메시지 발송사/릴레이 API에 위임
+ *
+ * 필수 site_config:
+ * - inquiry_notify_kakao_enabled
+ * - inquiry_notify_kakao_provider_url
+ * - inquiry_notify_kakao_provider_token
+ * - inquiry_notify_kakao_sender_key
+ * - inquiry_notify_kakao_template_*
+ */
+if (!function_exists('onoff_kakao_alimtalk_is_enabled')) {
+    function onoff_kakao_alimtalk_is_enabled()
+    {
+        if (function_exists('g5site_cfg_bool')) {
+            return g5site_cfg_bool('inquiry_notify_kakao_enabled', false);
+        }
+        return false;
+    }
+}
+
+if (!function_exists('onoff_kakao_alimtalk_config_summary')) {
+    function onoff_kakao_alimtalk_config_summary()
+    {
+        $provider_url = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_provider_url', '')) : '';
+        $provider_token = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_provider_token', '')) : '';
+        $sender_key = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_sender_key', '')) : '';
+        $template_inquiry = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_template_inquiry', '')) : '';
+        $template_education_active = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_template_education_active', '')) : '';
+
+        return array(
+            'enabled' => onoff_kakao_alimtalk_is_enabled(),
+            'provider_url' => $provider_url !== '',
+            'provider_token' => $provider_token !== '',
+            'sender_key' => $sender_key !== '',
+            'template_inquiry' => $template_inquiry !== '',
+            'template_education_active' => $template_education_active !== '',
+        );
+    }
+}
+
+if (!function_exists('onoff_kakao_normalize_phone')) {
+    function onoff_kakao_normalize_phone($phone)
+    {
+        return preg_replace('/[^0-9]/', '', (string) $phone);
+    }
+}
+
+if (!function_exists('onoff_kakao_alimtalk_send')) {
+    function onoff_kakao_alimtalk_send($template_code, $receiver_phone, array $variables, array $buttons = array())
+    {
+        if (!onoff_kakao_alimtalk_is_enabled()) {
+            return array('ok' => false, 'message' => 'Kakao AlimTalk disabled');
+        }
+
+        $provider_url = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_provider_url', '')) : '';
+        $provider_token = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_provider_token', '')) : '';
+        $sender_key = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_sender_key', '')) : '';
+        $channel_id = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_channel_id', '')) : '';
+        $receiver_phone = onoff_kakao_normalize_phone($receiver_phone);
+        $template_code = trim((string) $template_code);
+
+        if ($provider_url === '' || !preg_match('#^https://#i', $provider_url)) {
+            return array('ok' => false, 'message' => 'Kakao provider URL missing');
+        }
+        if ($provider_token === '' || $sender_key === '' || $template_code === '' || $receiver_phone === '') {
+            return array('ok' => false, 'message' => 'Kakao required config missing');
+        }
+        if (!function_exists('curl_init')) {
+            return array('ok' => false, 'message' => 'php-curl extension missing');
+        }
+
+        $payload = array(
+            'type' => 'alimtalk',
+            'senderKey' => $sender_key,
+            'channelId' => $channel_id,
+            'templateCode' => $template_code,
+            'receiver' => $receiver_phone,
+            'variables' => $variables,
+            'buttons' => $buttons,
+        );
+
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
+        $ch = curl_init($provider_url);
+        if ($ch === false) {
+            return array('ok' => false, 'message' => 'curl init failed');
+        }
+
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $provider_token,
+        ));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+        $response = @curl_exec($ch);
+        $http_code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_error = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false || $http_code < 200 || $http_code >= 300) {
+            return array('ok' => false, 'message' => $curl_error !== '' ? $curl_error : 'HTTP ' . $http_code);
+        }
+
+        $decoded = json_decode((string) $response, true);
+        if (is_array($decoded) && isset($decoded['ok'])) {
+            return !empty($decoded['ok'])
+                ? array('ok' => true, 'message' => '')
+                : array('ok' => false, 'message' => (string) ($decoded['message'] ?? $decoded['error'] ?? 'Kakao send failed'));
+        }
+
+        return array('ok' => true, 'message' => '');
+    }
+}
+
+if (!function_exists('onoff_send_inquiry_kakao_notification')) {
+    function onoff_send_inquiry_kakao_notification($inquiry_data)
+    {
+        if (!onoff_kakao_alimtalk_is_enabled()) {
+            return false;
+        }
+
+        $template_code = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_template_inquiry', '')) : '';
+        if ($template_code === '') {
+            return false;
+        }
+
+        $receivers = array();
+        $admin_phone = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_admin_receiver', '')) : '';
+        $admin_phone = function_exists('onoff_notification_normalize_phone') ? onoff_notification_normalize_phone($admin_phone) : onoff_kakao_normalize_phone($admin_phone);
+        if ($admin_phone !== '') {
+            $receivers[$admin_phone] = $admin_phone;
+        }
+        if (function_exists('onoff_notification_get_admin_kakao_receivers')) {
+            foreach (onoff_notification_get_admin_kakao_receivers() as $receiver) {
+                $phone = isset($receiver['phone']) ? onoff_kakao_normalize_phone($receiver['phone']) : '';
+                if ($phone !== '') {
+                    $receivers[$phone] = $phone;
+                }
+            }
+        }
+        if (empty($receivers)) {
+            return false;
+        }
+
+        $message = isset($inquiry_data['message']) ? trim((string) $inquiry_data['message']) : '';
+        if (function_exists('mb_substr')) {
+            $message = mb_substr($message, 0, 80, 'UTF-8');
+        } else {
+            $message = substr($message, 0, 80);
+        }
+
+        $variables = array(
+            'site_name' => isset($inquiry_data['site_name']) ? (string) $inquiry_data['site_name'] : '',
+            'name' => isset($inquiry_data['name']) ? (string) $inquiry_data['name'] : '',
+            'phone' => isset($inquiry_data['phone']) ? (string) $inquiry_data['phone'] : '',
+            'contract_package' => isset($inquiry_data['contract_package']) ? (string) $inquiry_data['contract_package'] : '-',
+            'education_enrollment_id' => (string) (isset($inquiry_data['education_enrollment_id']) ? (int) $inquiry_data['education_enrollment_id'] : 0),
+            'message_preview' => $message,
+            'admin_url' => isset($inquiry_data['admin_url']) ? (string) $inquiry_data['admin_url'] : '',
+        );
+
+        $sent_any = false;
+        foreach ($receivers as $phone) {
+            $result = onoff_kakao_alimtalk_send($template_code, $phone, $variables);
+            if (!empty($result['ok'])) {
+                $sent_any = true;
+            }
+        }
+
+        return $sent_any;
+    }
+}
+
+if (!function_exists('onoff_send_education_active_kakao_notification')) {
+    function onoff_send_education_active_kakao_notification($enrollment)
+    {
+        if (!is_array($enrollment) || !onoff_kakao_alimtalk_is_enabled()) {
+            return array('ok' => false, 'message' => 'Kakao AlimTalk disabled');
+        }
+        if (!empty($enrollment['kakao_active_sent_at'])) {
+            return array('ok' => true, 'message' => 'already sent');
+        }
+
+        $mb_id = isset($enrollment['mb_id']) ? (string) $enrollment['mb_id'] : '';
+        $preference_phone = '';
+        if ($mb_id !== '' && function_exists('onoff_notification_get_preferences')) {
+            $preferences = onoff_notification_get_preferences($mb_id);
+            if (is_array($preferences)) {
+                if (empty($preferences['kakao_enabled']) || empty($preferences['education_active_enabled'])) {
+                    return array('ok' => true, 'skipped' => true, 'message' => 'user notification disabled');
+                }
+                $preference_phone = isset($preferences['phone']) ? (string) $preferences['phone'] : '';
+            }
+        }
+
+        $template_code = function_exists('g5site_cfg') ? trim(g5site_cfg('inquiry_notify_kakao_template_education_active', '')) : '';
+        $phone = $preference_phone !== '' ? $preference_phone : (isset($enrollment['phone']) ? (string) $enrollment['phone'] : '');
+        if ($template_code === '' || $phone === '') {
+            return array('ok' => false, 'message' => 'Kakao education template or phone missing');
+        }
+
+        $classroom_url = rtrim(defined('G5_URL') ? G5_URL : '', '/') . '/education/classroom';
+        return onoff_kakao_alimtalk_send($template_code, $phone, array(
+            'name' => isset($enrollment['applicant_name']) ? (string) $enrollment['applicant_name'] : '',
+            'course_name' => 'SEO·GEO 마스터 클래스',
+            'course_id' => isset($enrollment['course_id']) ? (string) $enrollment['course_id'] : 'seo-geo-master',
+            'starts_at' => isset($enrollment['starts_at']) && $enrollment['starts_at'] !== '' ? (string) $enrollment['starts_at'] : '-',
+            'ends_at' => isset($enrollment['ends_at']) && $enrollment['ends_at'] !== '' ? (string) $enrollment['ends_at'] : '-',
+            'classroom_url' => $classroom_url,
+        ), array(
+            array(
+                'name' => '강의실 입장',
+                'type' => 'WL',
+                'urlMobile' => $classroom_url,
+                'urlPc' => $classroom_url,
+            ),
+        ));
+    }
+}
+
+/**
  * 알림 통합 진입점 (저장 성공 후)
  *
  * @param array $inquiry_data
@@ -249,6 +495,12 @@ if (!function_exists('onoff_send_inquiry_notifications')) {
 
         try {
             onoff_send_inquiry_webhook_notification($inquiry_data);
+        } catch (Exception $e) {
+            /* 알림 실패 무시 */
+        }
+
+        try {
+            onoff_send_inquiry_kakao_notification($inquiry_data);
         } catch (Exception $e) {
             /* 알림 실패 무시 */
         }
@@ -295,6 +547,11 @@ if (!function_exists('onoff_build_inquiry_telegram_message')) {
         $email = isset($inquiry_data['email']) ? $inquiry_data['email'] : '';
         $message = isset($inquiry_data['message']) ? $inquiry_data['message'] : '';
         $referer = isset($inquiry_data['referer_page']) ? $inquiry_data['referer_page'] : '';
+        $terms = isset($inquiry_data['terms_agree']) ? $inquiry_data['terms_agree'] : '';
+        $contract_package = isset($inquiry_data['contract_package']) ? $inquiry_data['contract_package'] : '';
+        $signature_path = isset($inquiry_data['signature_path']) ? $inquiry_data['signature_path'] : '';
+        $signature_view_url = isset($inquiry_data['signature_view_url']) ? $inquiry_data['signature_view_url'] : '';
+        $education_enrollment_id = (int) (isset($inquiry_data['education_enrollment_id']) ? $inquiry_data['education_enrollment_id'] : 0);
         $created = isset($inquiry_data['created_at']) ? $inquiry_data['created_at'] : '';
         $admin_url = isset($inquiry_data['admin_url']) ? $inquiry_data['admin_url'] : '';
 
@@ -310,6 +567,18 @@ if (!function_exists('onoff_build_inquiry_telegram_message')) {
         $lines[] = $message;
         $lines[] = '';
         $lines[] = '접수 페이지: ' . ($referer !== '' ? $referer : '-');
+        if ($contract_package !== '' || $signature_path !== '') {
+            $lines[] = '신청 패키지: ' . ($contract_package !== '' ? $contract_package : '-');
+            $lines[] = '약관·계약 동의: ' . ($terms !== '' ? $terms : '-');
+            $lines[] = '전자서명 파일: ' . ($signature_path !== '' ? $signature_path : '-');
+            if ($signature_view_url !== '') {
+                $lines[] = '서명 보기(관리자):';
+                $lines[] = $signature_view_url;
+            }
+            if ($education_enrollment_id > 0) {
+                $lines[] = '교육 수강권: 입금대기 #' . $education_enrollment_id;
+            }
+        }
         $lines[] = '접수 일시: ' . $created;
 
         if ($admin_url !== '') {
@@ -435,6 +704,11 @@ if (!function_exists('onoff_send_inquiry_webhook_notification')) {
             'phone'  => isset($inquiry_data['phone']) ? $inquiry_data['phone'] : '',
             'email'  => isset($inquiry_data['email']) ? $inquiry_data['email'] : '',
             'message'=> isset($inquiry_data['message']) ? $inquiry_data['message'] : '',
+            'terms_agree' => isset($inquiry_data['terms_agree']) ? $inquiry_data['terms_agree'] : '',
+            'contract_package' => isset($inquiry_data['contract_package']) ? $inquiry_data['contract_package'] : '',
+            'signature_path' => isset($inquiry_data['signature_path']) ? $inquiry_data['signature_path'] : '',
+            'signature_view_url' => isset($inquiry_data['signature_view_url']) ? $inquiry_data['signature_view_url'] : '',
+            'education_enrollment_id' => isset($inquiry_data['education_enrollment_id']) ? $inquiry_data['education_enrollment_id'] : 0,
             'created_at' => isset($inquiry_data['created_at']) ? $inquiry_data['created_at'] : '',
             'admin_url'  => isset($inquiry_data['admin_url']) ? $inquiry_data['admin_url'] : '',
         );

@@ -11,6 +11,28 @@ export type PortalUser = {
 
 export type LaunchMode = 'off' | 'admin' | 'pilot' | 'all';
 
+export type EnrollmentState = {
+  required: boolean;
+  access: boolean;
+  status: string;
+  courseId: string;
+};
+
+export type ContractAccessState = {
+  applies: boolean;
+  signed: boolean;
+  blocked: boolean;
+  graceActive: boolean;
+  requires: boolean;
+  hasSignedHistory: boolean;
+  viewable: boolean;
+  status: string;
+  courseId: string;
+  path: string;
+  version: string;
+  rejectionReason: string;
+};
+
 export type SessionPayload = {
   authenticated: boolean;
   isAdmin: boolean;
@@ -19,7 +41,43 @@ export type SessionPayload = {
   csrfToken?: string;
   launchMode: LaunchMode;
   launchAllowed: boolean;
+  enrollment: EnrollmentState;
+  contract: ContractAccessState;
 };
+
+const DEFAULT_CONTRACT: ContractAccessState = {
+  applies: false,
+  signed: true,
+  blocked: false,
+  graceActive: false,
+  requires: false,
+  hasSignedHistory: false,
+  viewable: false,
+  status: '',
+  courseId: '',
+  path: '/seo-system-300/contract',
+  version: '',
+  rejectionReason: '',
+};
+
+function normalizeContract(raw: unknown): ContractAccessState {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_CONTRACT };
+  const c = raw as Record<string, unknown>;
+  return {
+    applies: c.applies === true,
+    signed: c.signed !== false,
+    blocked: c.blocked === true,
+    graceActive: c.graceActive === true,
+    requires: c.requires === true,
+    hasSignedHistory: c.hasSignedHistory === true,
+    viewable: c.viewable === true,
+    status: String(c.status ?? ''),
+    courseId: String(c.courseId ?? ''),
+    path: String(c.path ?? DEFAULT_CONTRACT.path),
+    version: String(c.version ?? ''),
+    rejectionReason: String(c.rejectionReason ?? ''),
+  };
+}
 
 function emptyPayload(): SessionPayload {
   return {
@@ -30,6 +88,8 @@ function emptyPayload(): SessionPayload {
     csrfToken: '',
     launchMode: 'all',
     launchAllowed: true,
+    enrollment: { required: false, access: true, status: '', courseId: '' },
+    contract: { ...DEFAULT_CONTRACT },
   };
 }
 
@@ -69,6 +129,18 @@ function normalize(raw: unknown): SessionPayload {
   const hasLaunch = Object.prototype.hasOwnProperty.call(data, 'launchAllowed');
   const launchMode = hasLaunch ? asLaunchMode(data.launchMode) : 'all';
   const launchAllowed = hasLaunch ? data.launchAllowed === true : true;
+  const enrollmentRaw = data.enrollment;
+  const enrollment: EnrollmentState =
+    enrollmentRaw && typeof enrollmentRaw === 'object'
+      ? {
+          required: (enrollmentRaw as EnrollmentState).required === true,
+          access: (enrollmentRaw as EnrollmentState).access !== false,
+          status: String((enrollmentRaw as EnrollmentState).status || ''),
+          courseId: String((enrollmentRaw as EnrollmentState).courseId || ''),
+        }
+      : { required: false, access: true, status: '', courseId: '' };
+
+  const contract = normalizeContract(data.contract);
 
   return {
     authenticated,
@@ -78,6 +150,8 @@ function normalize(raw: unknown): SessionPayload {
     csrfToken: String(data.csrfToken ?? ''),
     launchMode,
     launchAllowed,
+    enrollment,
+    contract,
   };
 }
 

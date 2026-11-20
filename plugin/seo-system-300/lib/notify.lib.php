@@ -11,6 +11,38 @@ function seosys300_notifications_tables_ready()
     }
     $table = seosys300_esc($g5['seosys300_notifications_table']);
     $row = seosys300_fetch("SHOW TABLES LIKE '{$table}'");
+    if (!empty($row)) {
+        return true;
+    }
+    static $creating = false;
+    if ($creating) {
+        return false;
+    }
+    $creating = true;
+    $rawTable = $g5['seosys300_notifications_table'];
+    seosys300_query("CREATE TABLE IF NOT EXISTS `{$rawTable}` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `mb_id` varchar(20) NOT NULL DEFAULT '',
+        `project_id` int(11) NOT NULL DEFAULT 0,
+        `order_id` int(11) NOT NULL DEFAULT 0,
+        `event_type` varchar(60) NOT NULL DEFAULT '',
+        `title` varchar(191) NOT NULL DEFAULT '',
+        `body` varchar(500) NOT NULL DEFAULT '',
+        `action_tab` varchar(40) NOT NULL DEFAULT '',
+        `action_sub_tab` varchar(40) NOT NULL DEFAULT '',
+        `severity` varchar(20) NOT NULL DEFAULT 'info',
+        `is_read` tinyint(1) NOT NULL DEFAULT 0,
+        `email_sent` tinyint(1) NOT NULL DEFAULT 0,
+        `created_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+        `read_at` datetime DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `mb_created` (`mb_id`,`created_at`),
+        KEY `mb_unread` (`mb_id`,`is_read`),
+        KEY `project_id` (`project_id`),
+        KEY `order_id` (`order_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+    $creating = false;
+    $row = seosys300_fetch("SHOW TABLES LIKE '{$table}'");
     return !empty($row);
 }
 
@@ -141,6 +173,28 @@ function seosys300_notify_build_message($event, $payload, $order)
         );
     }
 
+    if ($event === 'WEBSITE_CUSTOMER_FEEDBACK') {
+        $message = isset($payload['message']) ? trim((string) $payload['message']) : '';
+        if ($message === '') {
+            $message = '제작 피드백이 등록되었습니다.';
+        }
+        return array(
+            'title' => '홈페이지 제작 피드백이 도착했습니다',
+            'body' => substr($message, 0, 500),
+            'action_tab' => 'website',
+            'action_sub_tab' => 'status',
+            'severity' => 'info',
+            'send_email' => true,
+            'email_subject' => '[SEO SYSTEM 300] 홈페이지 제작 피드백',
+            'email_body' => '<p>안녕하세요.</p><p><strong>' . htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8')
+                . '</strong> 제작 피드백이 등록되었습니다.</p><p>'
+                . nl2br(htmlspecialchars($message, ENT_QUOTES, 'UTF-8'))
+                . '</p><p><a href="'
+                . htmlspecialchars(G5_URL . $portal . '/website/status', ENT_QUOTES, 'UTF-8')
+                . '">제작 현황에서 확인</a></p>',
+        );
+    }
+
     if ($event === 'WEBSITE_STATUS_CHANGED') {
         $to = isset($payload['to']) ? (string) $payload['to'] : (string) $order['status'];
         // Materials path already sends a richer email.
@@ -171,6 +225,139 @@ function seosys300_notify_build_message($event, $payload, $order)
                 . '</strong> 로 변경되었습니다.</p><p><a href="'
                 . htmlspecialchars(G5_URL . $portal . '/website/status', ENT_QUOTES, 'UTF-8')
                 . '">Control Center에서 확인</a></p>',
+        );
+    }
+
+    $ticketTitle = isset($payload['ticket_title']) ? (string) $payload['ticket_title'] : '홈페이지 수정';
+    $revLink = htmlspecialchars(G5_URL . $portal . '/website/revisions', ENT_QUOTES, 'UTF-8');
+
+    if ($event === 'REVISION_REQUESTED') {
+        return array(
+            'title' => '접수',
+            'body' => $ticketTitle,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'info',
+            'send_email' => true,
+            'email_subject' => '[ONOFF] 홈페이지 수정 · 접수',
+            'email_body' => '<p>안녕하세요.</p><p>「' . htmlspecialchars($ticketTitle, ENT_QUOTES, 'UTF-8')
+                . '」 수정 요청이 <strong>접수</strong>되었습니다.</p><p><a href="'
+                . $revLink . '">수정 요청 보기</a></p>',
+        );
+    }
+    if ($event === 'REVISION_NEED_INFO') {
+        $memo = isset($payload['memo']) ? (string) $payload['memo'] : '';
+        return array(
+            'title' => '진행',
+            'body' => $memo !== '' ? $memo : $ticketTitle,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'warning',
+            'send_email' => true,
+            'email_subject' => '[ONOFF] 홈페이지 수정 · 진행',
+            'email_body' => '<p>안녕하세요.</p><p>「' . htmlspecialchars($ticketTitle, ENT_QUOTES, 'UTF-8')
+                . '」 수정이 <strong>진행</strong> 중입니다. 자료를 보내 주세요.</p>'
+                . ($memo !== '' ? '<p>' . htmlspecialchars($memo, ENT_QUOTES, 'UTF-8') . '</p>' : '')
+                . '<p><a href="' . $revLink . '">수정 요청 보기</a></p>',
+        );
+    }
+    if ($event === 'REVISION_FREE') {
+        return array(
+            'title' => '진행',
+            'body' => $ticketTitle,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'success',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
+        );
+    }
+    if ($event === 'REVISION_QUOTE') {
+        $pts = isset($payload['quote_points']) ? (int) $payload['quote_points'] : 0;
+        return array(
+            'title' => '진행',
+            'body' => $ticketTitle . ($pts > 0 ? ' · ' . number_format($pts) . 'P' : ''),
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'warning',
+            'send_email' => true,
+            'email_subject' => '[ONOFF] 홈페이지 수정 · 진행',
+            'email_body' => '<p>안녕하세요.</p><p>「' . htmlspecialchars($ticketTitle, ENT_QUOTES, 'UTF-8')
+                . '」 수정이 <strong>진행</strong> 단계입니다.'
+                . ($pts > 0 ? ' 견적 ' . number_format($pts) . 'P.' : '')
+                . '</p><p><a href="' . $revLink . '">수정 요청 보기</a></p>',
+        );
+    }
+    if ($event === 'REVISION_PAID') {
+        return array(
+            'title' => '진행',
+            'body' => $ticketTitle,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'success',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
+        );
+    }
+    if ($event === 'REVISION_FEEDBACK') {
+        $feedbackUrl = isset($payload['feedback_url']) ? trim((string) $payload['feedback_url']) : '';
+        $body = $ticketTitle;
+        if ($feedbackUrl !== '') {
+            $body .= ' · ' . $feedbackUrl;
+        }
+        $emailExtra = $feedbackUrl !== ''
+            ? '<p><a href="' . htmlspecialchars($feedbackUrl, ENT_QUOTES, 'UTF-8') . '">'
+                . htmlspecialchars($feedbackUrl, ENT_QUOTES, 'UTF-8') . '</a></p>'
+            : '';
+        return array(
+            'title' => '확인',
+            'body' => substr($body, 0, 500),
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'info',
+            'send_email' => true,
+            'email_subject' => '[ONOFF] 홈페이지 수정 · 확인',
+            'email_body' => '<p>안녕하세요.</p><p>「' . htmlspecialchars($ticketTitle, ENT_QUOTES, 'UTF-8')
+                . '」 수정이 <strong>확인</strong> 단계입니다.</p>' . $emailExtra
+                . '<p><a href="' . $revLink . '">수정 요청 보기</a></p>',
+        );
+    }
+    if ($event === 'REVISION_INFO_RETURNED') {
+        return array(
+            'title' => '진행',
+            'body' => $ticketTitle,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'info',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
+        );
+    }
+    if ($event === 'REVISION_REOPENED') {
+        return array(
+            'title' => '접수',
+            'body' => $ticketTitle,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'info',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
+        );
+    }
+    if ($event === 'REVISION_COMPLETED') {
+        return array(
+            'title' => '완료',
+            'body' => $ticketTitle,
+            'action_tab' => 'website',
+            'action_sub_tab' => 'revision',
+            'severity' => 'success',
+            'send_email' => false,
+            'email_subject' => '',
+            'email_body' => '',
         );
     }
 
@@ -268,6 +455,26 @@ function seosys300_notify_admin_new_order($order, $built)
     }
 }
 
+function seosys300_notifications_mb_in_sql($mb_id)
+{
+    if (function_exists('seosys300_customer_mb_in_sql')) {
+        return seosys300_customer_mb_in_sql($mb_id);
+    }
+    if (function_exists('seosys300_revision_customer_mb_ids')) {
+        $parts = array();
+        foreach (seosys300_revision_customer_mb_ids($mb_id) as $candidate) {
+            $safe = seosys300_esc(substr((string) $candidate, 0, 100));
+            if ($safe !== '') {
+                $parts[] = "'{$safe}'";
+            }
+        }
+        if ($parts) {
+            return implode(',', $parts);
+        }
+    }
+    return "'" . seosys300_esc(substr((string) $mb_id, 0, 100)) . "'";
+}
+
 function seosys300_notifications_list($mb_id, $limit = 40)
 {
     global $g5;
@@ -275,10 +482,10 @@ function seosys300_notifications_list($mb_id, $limit = 40)
         return array();
     }
     $limit = max(1, min(100, (int) $limit));
-    $mb = seosys300_esc($mb_id);
+    $in = seosys300_notifications_mb_in_sql($mb_id);
     $table = $g5['seosys300_notifications_table'];
     $rows = seosys300_fetch_all(
-        "SELECT * FROM `{$table}` WHERE mb_id = '{$mb}' ORDER BY id DESC LIMIT {$limit}"
+        "SELECT * FROM `{$table}` WHERE mb_id IN ({$in}) ORDER BY id DESC LIMIT {$limit}"
     );
     $out = array();
     foreach ($rows as $r) {
@@ -293,9 +500,9 @@ function seosys300_notifications_unread_count($mb_id)
     if (!seosys300_notifications_tables_ready()) {
         return 0;
     }
-    $mb = seosys300_esc($mb_id);
+    $in = seosys300_notifications_mb_in_sql($mb_id);
     $table = $g5['seosys300_notifications_table'];
-    $row = seosys300_fetch("SELECT COUNT(*) AS cnt FROM `{$table}` WHERE mb_id = '{$mb}' AND is_read = 0");
+    $row = seosys300_fetch("SELECT COUNT(*) AS cnt FROM `{$table}` WHERE mb_id IN ({$in}) AND is_read = 0");
     return $row ? (int) $row['cnt'] : 0;
 }
 
@@ -305,7 +512,7 @@ function seosys300_notifications_mark_read($mb_id, $ids = array())
     if (!seosys300_notifications_tables_ready()) {
         return 0;
     }
-    $mb = seosys300_esc($mb_id);
+    $in = seosys300_notifications_mb_in_sql($mb_id);
     $table = $g5['seosys300_notifications_table'];
     $now = seosys300_now();
     if (is_array($ids) && count($ids) > 0) {
@@ -319,13 +526,13 @@ function seosys300_notifications_mark_read($mb_id, $ids = array())
         if (!$clean) {
             return 0;
         }
-        $in = implode(',', $clean);
+        $idIn = implode(',', $clean);
         seosys300_query(
-            "UPDATE `{$table}` SET is_read = 1, read_at = '{$now}' WHERE mb_id = '{$mb}' AND is_read = 0 AND id IN ({$in})"
+            "UPDATE `{$table}` SET is_read = 1, read_at = '{$now}' WHERE mb_id IN ({$in}) AND is_read = 0 AND id IN ({$idIn})"
         );
     } else {
         seosys300_query(
-            "UPDATE `{$table}` SET is_read = 1, read_at = '{$now}' WHERE mb_id = '{$mb}' AND is_read = 0"
+            "UPDATE `{$table}` SET is_read = 1, read_at = '{$now}' WHERE mb_id IN ({$in}) AND is_read = 0"
         );
     }
     return seosys300_notifications_unread_count($mb_id);

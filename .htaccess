@@ -11,15 +11,34 @@
   RewriteRule ^robots\.txt$ /robots.php [L]
   RewriteRule ^sitemap\.xml$ /sitemap.php [L]
 
+  # edu.icrm.co.kr — student platform at site root. Same tree, separate host.
+  # Create data/EDU_HOST_LIVE after the vhost answers, to send /seo-system-300 here.
+  RewriteCond %{HTTP_HOST} !^edu\.icrm\.co\.kr$ [NC]
+  RewriteCond %{DOCUMENT_ROOT}/data/EDU_HOST_LIVE -f
+  RewriteRule ^seo-system-300/?(.*)$ https://edu.icrm.co.kr/$1 [R=302,L,QSA]
+
+  RewriteCond %{HTTP_HOST} ^edu\.icrm\.co\.kr$ [NC]
+  RewriteRule ^assets/(.*)$ edu/assets/$1 [END]
+
+  RewriteCond %{HTTP_HOST} ^edu\.icrm\.co\.kr$ [NC]
+  RewriteCond %{REQUEST_URI} !^/(plugin|api|bbs|adm|data|lib|theme|skin|install|shop|mobile|edu|js|img|css|extend)/
+  RewriteRule ^ edu/index.html [END]
+
+  # Soft-redirect classic GNUBoard member entry → branded AuthShell SPA
+  # Must run BEFORE the existing-file pass-through (bbs/login.php is a real file).
+  RewriteRule ^bbs/login\.php$ /login [L,R=302,QSA]
+  RewriteRule ^bbs/register\.php$ /signup [L,R=302,QSA]
+
+  # The former standalone SEO landing is consolidated into the homepage.
+  # Keep old backlinks/bookmarks and send visitors to the unified system section.
+  RewriteRule ^seo-system/?$ / [R=301,L]
+
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
   # SEO SYSTEM 300 Control Center SPA (do not collide with /seo-system landing)
   RewriteRule ^seo-system-300(/.*)?$ /seo-system-300/index.html [QSA,L]
-
-  # SEO SYSTEM 300 landing (static SPA). QSA keeps UTM query params.
-  RewriteRule ^seo-system/?$ /seo-system/index.html [QSA,L]
 
   # Community boards (pretty URLs)
   RewriteRule ^notice/?$ /bbs/board.php?bo_table=notice&rewrite=1 [QSA,L]
@@ -33,6 +52,42 @@
   RewriteRule ^youtube/?$ /bbs/board.php?bo_table=youtube&rewrite=1 [QSA,L]
   RewriteRule ^youtube/write$ /bbs/write.php?bo_table=youtube&rewrite=1 [QSA,L]
   RewriteRule ^youtube/([0-9]+)$ /bbs/board.php?bo_table=youtube&wr_id=$1&rewrite=1 [QSA,L]
+
+  # BEGIN ONOFF BRANDED AUTH SPA ROUTES
+  # Must stay BEFORE GNUBoard board catch-all ^([0-9a-zA-Z_]+)$
+  RewriteRule ^(login|signup|session-expired)/?$ /index.php [L,QSA]
+  RewriteRule ^password/forgot/?$ /index.php [L,QSA]
+  RewriteRule ^auth/callback/?$ /index.php [L,QSA]
+  RewriteRule ^account(/.*)?$ /index.php [L,QSA]
+  # END ONOFF BRANDED AUTH SPA ROUTES
+
+  # Legacy "GEO 홈페이지 제작" URL → 공식 상담 (홈페이지 제작)
+  RewriteRule ^request/?$ /contact?service=website [R=301,L,QSA]
+
+  # BEGIN ONOFF RENEWAL PRETTY ROUTES
+  # Exact-match renewal SPA entry → index.php (home builder bridge renders SPA)
+  RewriteRule ^education/classroom/?$ /index.php [L,QSA]
+  RewriteRule ^education/contract/?$ /index.php [L,QSA]
+  RewriteRule ^home1/?$ /index.php [L,QSA]
+  RewriteRule ^(geo|domain|backlink|traffic|education|community|portfolio)/?$ /index.php [L,QSA]
+  # /content exact only — do NOT match /content/{co_id} (GNUBoard content)
+  RewriteRule ^content/?$ /index.php [L,QSA]
+  # END ONOFF RENEWAL PRETTY ROUTES
+
+  # BEGIN ONOFF BUILDER OFFICIAL ROUTES
+  # Official marketing SPA (onoff-builder-official) — BEFORE GNUBoard catch-all.
+  # Never capture: bbs/adm/api/plugin/data/seo-system-300/notice/faq/youtube/login/account/…
+  # Alias 301s (canonical feature URLs)
+  RewriteRule ^features/stepmail/?$ /features/step-mail [R=301,L]
+  RewriteRule ^features/sns/?$ /features/sns-poster [R=301,L]
+  RewriteRule ^features/ai-dev/?$ /features/ai-development [R=301,L]
+  # Nested feature routes
+  RewriteRule ^features/(routine|step-mail|sns-poster|auto-comment|easy-edit|ai-development)/?$ /index.php [L,QSA]
+  RewriteRule ^features/?$ /index.php [L,QSA]
+  # /seo — GNUBoard bo_table=seo (교육 게시판, catch-all). 공식 SEO 상세는 /services/seo
+  RewriteRule ^services/seo/?$ /index.php [L,QSA]
+  RewriteRule ^(website|management|use-cases|pricing|contact|community)/?$ /index.php [L,QSA]
+  # END ONOFF BUILDER OFFICIAL ROUTES
 
   #### GNUBOARD5 rewrite BEGIN #####
   RewriteRule ^content/([0-9a-zA-Z_]+)$ bbs/content.php?co_id=$1&rewrite=1 [QSA,L]

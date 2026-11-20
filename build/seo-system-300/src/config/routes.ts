@@ -10,10 +10,12 @@ export const STUDENT_PATH: Record<NavigationTab, string> = {
   reports: '/report',
   integrations: '/integrations',
   curriculum: '/lessons',
+  slides: '/slides/lesson-1',
   ai_coach: '/ai-coach',
   notifications: '/notifications',
   help: '/help',
   account: '/account',
+  contract: '/contract',
 };
 
 export const WEBSITE_SUB_PATH: Record<WebsiteSubTab, string> = {
@@ -34,6 +36,9 @@ export const ADMIN_PATH: Record<AdminTab, string> = {
   inbox: '/admin/inbox',
   kanban: '/admin/kanban',
   students: '/admin/students',
+  classes: '/admin/classes',
+  revisions: '/admin/revisions',
+  geo: '/admin/geo',
   integrations: '/admin/integrations',
 };
 
@@ -44,7 +49,23 @@ export function studentPath(tab: NavigationTab, subTab?: string): string {
   if (tab === 'tools') {
     return TOOL_SUB_PATH[(subTab as ToolSubTab) || 'catchdomain'] || TOOL_SUB_PATH.catchdomain;
   }
+  if (tab === 'contract') {
+    if (subTab === 'view') return '/contract/view';
+    if (subTab === 'complete') return '/contract/complete';
+    return STUDENT_PATH.contract;
+  }
   return STUDENT_PATH[tab] || STUDENT_PATH.dashboard;
+}
+
+export function contractPathFor(contract: {
+  status?: string;
+  viewable?: boolean;
+  requires?: boolean;
+  applies?: boolean;
+}): string {
+  if (contract.status === 'review_pending') return '/contract/complete';
+  if (contract.applies && contract.viewable) return '/contract/view';
+  return '/contract';
 }
 
 export function projectPath(projectId: string): string {
@@ -58,6 +79,7 @@ export type ParsedPortalPath =
       websiteSubTab: WebsiteSubTab;
       toolSubTab: ToolSubTab;
       projectId?: string;
+      contractSubTab?: 'write' | 'view' | 'complete';
     }
   | {
       mode: 'admin';
@@ -77,7 +99,13 @@ export function parsePortalPath(pathname: string): ParsedPortalPath {
           ? 'kanban'
           : sub === 'students'
             ? 'students'
-            : sub === 'integrations'
+            : sub === 'classes'
+              ? 'classes'
+              : sub === 'revisions' || sub === 'revision'
+                ? 'revisions'
+                : sub === 'geo' || sub === 'missions'
+                  ? 'geo'
+              : sub === 'integrations'
               ? 'integrations'
               : 'dashboard';
     return { mode: 'admin', adminTab };
@@ -116,6 +144,19 @@ export function parsePortalPath(pathname: string): ParsedPortalPath {
     };
   }
 
+  if (parts[0] === 'contract') {
+    const sub = parts[1];
+    const contractSubTab: 'write' | 'view' | 'complete' =
+      sub === 'view' ? 'view' : sub === 'complete' ? 'complete' : 'write';
+    return {
+      mode: 'student',
+      tab: 'contract',
+      websiteSubTab,
+      toolSubTab,
+      contractSubTab,
+    };
+  }
+
   const first = parts[0] || 'dashboard';
   const tabBySegment: Record<string, NavigationTab> = {
     dashboard: 'dashboard',
@@ -130,10 +171,12 @@ export function parsePortalPath(pathname: string): ParsedPortalPath {
     integrations: 'integrations',
     lessons: 'curriculum',
     curriculum: 'curriculum',
+    slides: 'slides',
     'ai-coach': 'ai_coach',
     notifications: 'notifications',
     help: 'help',
     account: 'account',
+    contract: 'contract',
   };
 
   return {

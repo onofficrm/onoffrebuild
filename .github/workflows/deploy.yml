@@ -45,6 +45,7 @@ jobs:
             data/dbconfig.local.php
             data/icrm.config.php
             data/onoff_private_keys.php
+            data/onoff-crm-contract.local.php
             data/cache/**
             data/session/**
             data/file/**
@@ -57,3 +58,13 @@ jobs:
             .env
             .env.*
             plugin/auto_comment/packages/**
+
+      # exFAT 700 sync (esp. .htaccess) → Apache 403 on entire /seo-system-300/ tree
+      - name: Fix seo-system-300 web permissions
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
+          FTP_REMOTE_ROOT: /public_html
+        run: python3 scripts/ftp-chmod-tree.py seo-system-300
