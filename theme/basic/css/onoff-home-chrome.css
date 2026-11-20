@@ -14,12 +14,22 @@
   position: sticky;
   top: 0;
   z-index: 1000;
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid #f1f5f9;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
   font-size: 16px;
   line-height: 1.4;
   color: #0f172a;
+}
+
+/* default.css #hd { background:#212020 } 등 레거시 테마 규칙 무력화 */
+#hd.oh-header.oh-header--builder {
+  background: rgba(255, 255, 255, 0.95) !important;
+  height: auto;
+  min-height: 0;
 }
 
 .oh-skip a {
@@ -36,14 +46,20 @@
 }
 
 .oh-header__bar {
-  max-width: 90rem;
+  max-width: 80rem;
   margin: 0 auto;
-  padding: 0 1.5rem;
-  height: 80px;
+  padding: 0 1.25rem;
+  height: 68px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .oh-header__bar {
+    padding: 0 1.5rem;
+  }
 }
 
 .oh-logo {
@@ -56,45 +72,70 @@
 
 .oh-logo img {
   display: block;
-  height: 44px;
+  height: 40px;
   width: auto;
 }
 
-.oh-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.15rem;
-  min-width: 0;
-  overflow: visible;
+@media (min-width: 640px) {
+  .oh-logo img {
+    height: 44px;
+  }
 }
 
-.oh-pill {
+.oh-nav {
+  display: none;
+  align-items: center;
+  gap: 1.25rem;
+  min-width: 0;
+  overflow: visible;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+}
+
+@media (min-width: 1024px) {
+  .oh-nav {
+    display: flex;
+  }
+}
+
+@media (min-width: 1280px) {
+  .oh-nav {
+    gap: 1.75rem;
+    font-size: 15px;
+  }
+}
+
+/* SPA Header와 동일: 텍스트 링크형 (pill 배경 없음) */
+.oh-header--builder .oh-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.4rem 0.55rem;
+  padding: 0.5rem 0;
   border: 0;
   background: transparent;
-  border-radius: 999px;
+  border-radius: 0;
   color: #475569;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: inherit;
+  font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
   font-family: inherit;
+  transition: color 0.15s ease;
 }
 
-.oh-pill:hover,
-.oh-services.is-open > .oh-pill {
-  color: #0f172a;
-  background: #f8fafc;
+.oh-header--builder .oh-pill:hover,
+.oh-header--builder .oh-services.is-open > .oh-pill {
+  color: #020617;
+  background: transparent;
 }
 
-.oh-pill.is-active {
-  color: #1d4ed8;
-  background: #eff6ff;
-  box-shadow: inset 0 0 0 1px #dbeafe;
+.oh-header--builder .oh-pill.is-active {
+  color: #2563eb;
+  font-weight: 600;
+  background: transparent;
+  box-shadow: none;
 }
 
 .oh-chevron {
@@ -232,10 +273,11 @@
   justify-content: center;
   padding: 0.45rem 0.7rem;
   border-radius: 0.5rem;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 .oh-text-btn {
@@ -243,19 +285,24 @@
 }
 
 .oh-text-btn:hover {
-  color: #0f172a;
+  color: #020617;
   background: #f8fafc;
 }
 
 .oh-text-btn--line {
   border: 1px solid #e2e8f0;
-  color: #334155;
+  color: #475569;
 }
 
 .oh-cta {
   background: #2563eb;
   color: #fff;
-  padding: 0.5rem 0.85rem;
+  min-height: 40px;
+  padding: 0.5rem 1rem;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);
 }
 
 .oh-cta:hover {
@@ -264,14 +311,27 @@
 }
 
 .oh-burger {
-  display: none;
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 0.6rem;
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
   position: relative;
   cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.oh-burger:hover {
+  background: #f8fafc;
+}
+
+@media (min-width: 1024px) {
+  .oh-burger {
+    display: none;
+  }
 }
 
 .oh-burger::before,
@@ -481,6 +541,26 @@
   height: 68px;
 }
 
+.oh-header--builder .oh-text-btn {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .oh-header--builder .oh-text-btn {
+    display: inline-flex;
+    border: 1px solid #e2e8f0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .oh-header--builder .oh-cta {
+    display: inline-flex !important;
+  }
+}
+
 .oh-services--features .oh-services__panel,
 .oh-features__panel {
   width: min(35rem, calc(100vw - 2rem));
@@ -573,18 +653,16 @@
   text-decoration: none;
 }
 
-@media (max-width: 1180px) {
-  .oh-nav,
-  .oh-text-btn,
-  .oh-cta {
-    display: none;
-  }
-
-  .oh-burger {
-    display: inline-block;
-  }
-
+@media (max-width: 1023px) {
   .oh-mobile:not([hidden]) {
     display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 68px;
+    bottom: 0;
+    z-index: 999;
+    overflow-y: auto;
+    padding-bottom: 2.5rem;
   }
 }

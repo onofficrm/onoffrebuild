@@ -7,6 +7,10 @@ if (!defined('_GNUBOARD_')) {
     exit;
 }
 
+if (is_file(G5_SKIN_PATH . '/board/_inc/g5b-fallback.php')) {
+    include_once G5_SKIN_PATH . '/board/_inc/g5b-fallback.php';
+}
+
 if (!function_exists('g5b_content_sanitize_bo_table')) {
     function g5b_content_sanitize_bo_table($bo_table)
     {
@@ -94,13 +98,6 @@ if (!function_exists('g5b_content_thumb_html')) {
     {
         $is_secret = (strpos((string) $wr_option, 'secret') !== false);
 
-        if (is_file(G5_SKIN_PATH . '/board/_inc/g5b-thumb.php')) {
-            include_once G5_SKIN_PATH . '/board/_inc/g5b-thumb.php';
-            if (function_exists('g5b_list_thumb_html')) {
-                return g5b_list_thumb_html($bo_table, $wr_id, 400, 260, $subject, $is_secret, false, true);
-            }
-        }
-
         if (!function_exists('get_list_thumbnail')) {
             include_once G5_LIB_PATH . '/thumbnail.lib.php';
         }
@@ -116,8 +113,8 @@ if (!function_exists('g5b_content_thumb_html')) {
             return '<img src="' . htmlspecialchars($thumb['src'], ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '" class="content-card__img" loading="lazy" decoding="async">';
         }
 
-        if (is_file(G5_PATH . '/img/common/no-image.svg')) {
-            return '<img src="' . htmlspecialchars(G5_URL . '/img/common/no-image.svg', ENT_QUOTES, 'UTF-8') . '" alt="" class="content-card__img content-card__img--placeholder" loading="lazy" decoding="async">';
+        if (function_exists('g5b_subject_initial_thumb_html')) {
+            return g5b_subject_initial_thumb_html($subject, 'content-card');
         }
 
         return '<span class="content-card__no-image" aria-hidden="true"></span>';

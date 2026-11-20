@@ -108,8 +108,8 @@ function onoff_builder_chrome_render_header()
     ?>
 
     <div class="oh-header__bar">
-        <a class="oh-logo" href="<?php echo G5_URL; ?>/" aria-label="ONOFF Builder 홈으로 이동">
-            <img src="<?php echo $logo_src; ?>" alt="ONOFF Builder" width="182" height="54">
+        <a class="oh-logo" href="<?php echo G5_URL; ?>/" aria-label="ONOFF Builder 홈">
+            <img src="<?php echo $logo_src; ?>" alt="온오프마케팅 ONOFF MARKETING" width="182" height="54" decoding="async">
         </a>
 
         <nav id="oh-nav" class="oh-nav" aria-label="메인메뉴">
@@ -196,8 +196,8 @@ function onoff_builder_chrome_render_header()
             <a class="oh-text-btn" href="<?php echo G5_URL; ?>/signup">회원가입</a>
             <?php } ?>
             <a class="oh-cta" href="<?php echo G5_URL; ?>/contact">상담하기</a>
-            <button type="button" class="oh-burger" id="oh-burger" aria-controls="oh-mobile" aria-expanded="false">
-                <span class="sound_only">메뉴</span>
+            <button type="button" class="oh-burger" id="oh-burger" aria-controls="oh-mobile" aria-expanded="false" aria-label="메뉴 열기">
+                <span class="sound_only">메뉴 열기</span>
             </button>
         </div>
     </div>
