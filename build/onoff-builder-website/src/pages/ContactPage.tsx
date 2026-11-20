@@ -73,7 +73,7 @@ export function ContactPage() {
     if (!planQuery) return;
     const plan = HOMEPAGE_PRICING_PLANS.find((p) => p.id === planQuery);
     if (!plan) return;
-    const prefix = `관심 요금제: ${plan.name} (${plan.priceLabel}, ${plan.pointLabel})\n\n`;
+    const prefix = `관심 요금제: ${plan.name} (제작비 ${plan.priceLabel}, 서비스 포인트 ${plan.pointAmountLabel})\n\n`;
     setForm((prev) => {
       if (prev.brief.trim().startsWith('관심 요금제:')) return prev;
       if (prev.brief.trim().length > 0) return prev;

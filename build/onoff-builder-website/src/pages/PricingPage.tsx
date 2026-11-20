@@ -314,16 +314,15 @@ export function PricingPage() {
                 <br className="hidden sm:inline" /> 마케팅 자동화까지
               </DisplayHeading>
               <LeadText className="mt-3.5 max-w-[600px]">
-                완성도 높은 홈페이지는 모두 동일하게. 필요한 자동화 기능과 서비스 포인트에 맞춰
-                선택하세요.
+                제작 품질은 동일합니다. 제작비와 함께 드리는 서비스 포인트 혜택에 맞춰 선택하세요.
               </LeadText>
               <p className="mt-3 text-[14px] leading-[1.6] text-slate-600">
-                모든 요금제에 AI 기반 제작 · 반응형 모바일 최적화 · 쉬운 홈페이지 관리 제공
+                AI 기반 제작 · 모바일 최적화 · 기본 SEO는 모든 상품 동일 제공
               </p>
 
               <div className="mt-7 flex flex-wrap items-center gap-3">
                 <Button href="#homepage-plans" size="lg" className="w-full sm:w-auto">
-                  <span>요금제 비교하기</span>
+                  <span>요금제 보기</span>
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
                 <Button
