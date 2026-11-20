@@ -176,7 +176,7 @@ export const ROUTE_SEO_LIST: RouteSeoMeta[] = [
     path: '/pricing',
     title: '요금안내 — STARTER·BUSINESS·PREMIUM 홈페이지 제작 | ONOFF Builder 2.0',
     description:
-      '홈페이지 제작비 STARTER 150만·BUSINESS 200만·PREMIUM 300만 원. 제작 품질은 동일하며 마케팅 자동화 범위와 서비스 포인트(30만·70만·120만 원)로 선택합니다. 월 운영관리비·부가세·맞춤 개발은 별도 상담.',
+      '홈페이지 제작비 STARTER 150만·BUSINESS 200만·PREMIUM 300만 원. 제작 품질은 동일하며 서비스 포인트 30만·70만·120만 원 혜택으로 선택. 백링크·트래픽·콘텐츠 등 마케팅 서비스 이용 안내. 월 운영관리비·부가세 별도.',
     canonical: `${SITE_ORIGIN}/pricing`,
     ogType: 'website',
     robots: 'index, follow',
