@@ -1,12 +1,18 @@
+import { CORE_CAPABILITIES, OPERATIONAL_STATUS_META, type CoreCapabilitySlug } from './platformCapabilities';
+
 export type HomepagePlanId = 'starter' | 'business' | 'premium';
+
+export interface PlanCoreFeature {
+  slug: CoreCapabilitySlug;
+  label: string;
+  statusNote: string;
+}
 
 export interface HomepagePlan {
   id: HomepagePlanId;
   name: string;
   priceLabel: string;
   priceAmount: number;
-  /** 카드용 짧은 한 줄 (고객 관점) */
-  audienceDescription: string;
   /** 포인트 강조 표기 (예: 30만 원) */
   pointAmountLabel: string;
   pointAmount: number;
@@ -14,6 +20,32 @@ export interface HomepagePlan {
   contactPlanQuery: HomepagePlanId;
   /** BUSINESS 등 시각적 강조 */
   highlighted?: boolean;
+  /** 하위 요금제 기능 포함 (BUSINESS·PREMIUM) */
+  includesNote?: string;
+  coreFeatures: [PlanCoreFeature, PlanCoreFeature];
+}
+
+function cap(slug: CoreCapabilitySlug) {
+  return CORE_CAPABILITIES.find((c) => c.slug === slug);
+}
+
+function statusNoteForSlug(slug: CoreCapabilitySlug): string {
+  const item = cap(slug);
+  if (!item) return '';
+  if (item.operationalStatus === 'integration_in_progress') {
+    return OPERATIONAL_STATUS_META.integration_in_progress.shortLabel;
+  }
+  if (slug === 'ai-dev') {
+    return '프로젝트별 견적';
+  }
+  if (slug === 'easy-edit') {
+    return '운영 연계 제공';
+  }
+  return OPERATIONAL_STATUS_META[item.operationalStatus].shortLabel;
+}
+
+function coreFeature(slug: CoreCapabilitySlug, label: string): PlanCoreFeature {
+  return { slug, label, statusNote: statusNoteForSlug(slug) };
 }
 
 export const HOMEPAGE_QUALITY_NOTE =
@@ -27,9 +59,12 @@ export const HOMEPAGE_PRICING_PLANS: HomepagePlan[] = [
     priceAmount: 1_500_000,
     pointAmountLabel: '30만 원',
     pointAmount: 300_000,
-    audienceDescription: '홈페이지를 쉽고 편리하게 운영하고 싶은 사업자',
     ctaLabel: '150만 원 상품 상담하기',
     contactPlanQuery: 'starter',
+    coreFeatures: [
+      coreFeature('easy-edit', '쉬운 홈페이지 수정'),
+      coreFeature('ai-dev', 'AI 개발'),
+    ],
   },
   {
     id: 'business',
@@ -38,10 +73,14 @@ export const HOMEPAGE_PRICING_PLANS: HomepagePlan[] = [
     priceAmount: 2_000_000,
     pointAmountLabel: '70만 원',
     pointAmount: 700_000,
-    audienceDescription: '콘텐츠 운영과 반복 업무를 자동화하고 싶은 사업자',
     ctaLabel: '200만 원 상품 상담하기',
     contactPlanQuery: 'business',
     highlighted: true,
+    includesNote: 'STARTER의 모든 기능 포함',
+    coreFeatures: [
+      coreFeature('routine', '루틴 자동발행'),
+      coreFeature('auto-comment', '자동댓글'),
+    ],
   },
   {
     id: 'premium',
@@ -50,9 +89,13 @@ export const HOMEPAGE_PRICING_PLANS: HomepagePlan[] = [
     priceAmount: 3_000_000,
     pointAmountLabel: '120만 원',
     pointAmount: 1_200_000,
-    audienceDescription: '고객 관리와 마케팅 자동화까지 활용하고 싶은 사업자',
     ctaLabel: '300만 원 상품 상담하기',
     contactPlanQuery: 'premium',
+    includesNote: 'BUSINESS의 모든 기능 포함',
+    coreFeatures: [
+      coreFeature('stepmail', '스텝메일'),
+      coreFeature('sns-marketing', 'SNS 자동배포'),
+    ],
   },
 ];
 
@@ -70,7 +113,7 @@ export const HOMEPAGE_PLAN_FAQ = [
   {
     question: '포인트는 어디에 쓸 수 있나요?',
     answer:
-      '운영 안내 기준으로 콘텐츠·백링크·트래픽 등 온오프마케팅 서비스 요금에 사용할 수 있습니다. 차감 단위·유효기간·환불 규정은 회원 포인트 정책과 상담으로 확인해 주세요.',
+      '운영 안내 기준으로 트래픽·백링크·콘텐츠 등 서비스 요금에 사용할 수 있습니다. GEO 등 일부 전문 서비스는 포인트 차감 범위를 상담·회원 정책으로 확인해 주세요. 유효기간·환불 규정도 동일하게 상담으로 안내합니다.',
   },
   {
     question: '월 유지관리비·부가세는 어떻게 되나요?',

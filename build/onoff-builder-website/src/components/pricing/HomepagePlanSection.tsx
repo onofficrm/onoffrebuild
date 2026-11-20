@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, FileText, Link2, TrendingUp } from 'lucide-react';
+import { ArrowRight, Check, Link2, MousePointerClick, Sparkles } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -20,13 +20,13 @@ import { FadeIn } from '../ui/FadeIn';
 import { SectionHeading, SectionKicker } from '../ui/Typography';
 
 const SERVICE_ICONS: Record<string, LucideIcon> = {
+  traffic: MousePointerClick,
   backlink: Link2,
-  traffic: TrendingUp,
-  content: FileText,
+  geo: Sparkles,
 };
 
 function ServiceIcon({ id }: { id: string }) {
-  const Icon = SERVICE_ICONS[id] ?? FileText;
+  const Icon = SERVICE_ICONS[id] ?? Sparkles;
   return <Icon className="h-5 w-5 text-blue-600" aria-hidden="true" />;
 }
 
@@ -40,11 +40,14 @@ function PointRedeemCard({ item }: { item: PointRedeemServiceCard }) {
         <h4 className="text-[15px] font-bold text-slate-950">{item.name}</h4>
       </div>
       <p className="mt-3 flex-1 text-[14px] leading-[1.6] text-slate-600">{item.effect}</p>
+      {item.redeemClarification ? (
+        <p className="mt-2 text-[12.5px] leading-[1.5] text-slate-500">{item.redeemClarification}</p>
+      ) : null}
       <Link
         to={item.path}
         className="mt-4 inline-flex items-center gap-1.5 text-[14px] font-semibold text-blue-600 hover:text-blue-700"
       >
-        서비스 자세히 보기
+        자세히 보기
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
       </Link>
     </article>
@@ -75,24 +78,60 @@ export function HomepagePlanSection() {
               {HOMEPAGE_PRICING_PLANS.map((plan) => (
                 <article
                   key={plan.id}
-                  className={`flex h-full flex-col rounded-[18px] border bg-white p-6 shadow-[var(--shadow-subtle)] ${
+                  className={`flex h-full min-h-[420px] flex-col rounded-[18px] border bg-white p-6 shadow-[var(--shadow-subtle)] ${
                     plan.highlighted
                       ? 'border-[#2563EB]/50 ring-2 ring-[#2563EB]/20 md:-translate-y-0.5'
                       : 'border-slate-200'
                   }`}
                 >
-                  <p className="text-[13px] font-bold tracking-wide text-blue-600">{plan.name}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[13px] font-bold tracking-wide text-blue-600">{plan.name}</p>
+                    {plan.highlighted ? (
+                      <span className="rounded-full bg-blue-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                        추천
+                      </span>
+                    ) : null}
+                  </div>
 
                   <p className="mt-4 text-[38px] font-bold leading-none tracking-[-0.03em] text-slate-950 tabular-metrics">
                     {plan.priceLabel}
                   </p>
                   <p className="mt-1 text-[13px] font-medium text-slate-500">홈페이지 제작비 (VAT 별도 상담)</p>
 
+                  <div className="mt-5 flex flex-1 flex-col gap-2">
+                    <p className="text-[12px] font-semibold text-slate-500">핵심 기능</p>
+                    <ul className="space-y-2">
+                      {plan.coreFeatures.map((feature) => (
+                        <li
+                          key={`${plan.id}-${feature.slug}`}
+                          className="flex items-start gap-2.5 rounded-[12px] border border-slate-200 bg-slate-50/80 px-3.5 py-3"
+                        >
+                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
+                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[14px] font-semibold text-slate-950">{feature.label}</span>
+                            {feature.statusNote ? (
+                              <span className="mt-0.5 block text-[12px] font-medium text-slate-500">
+                                {feature.statusNote}
+                              </span>
+                            ) : null}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p
+                      className={`min-h-[1.25rem] text-[12.5px] font-medium text-slate-500 ${plan.includesNote ? '' : 'invisible'}`}
+                    >
+                      {plan.includesNote ?? 'placeholder'}
+                    </p>
+                  </div>
+
                   <div
                     className={`mt-5 rounded-[14px] px-4 py-4 ${
                       plan.highlighted
                         ? 'border border-blue-200 bg-gradient-to-br from-blue-50 to-white'
-                        : 'border border-slate-200 bg-slate-50'
+                        : 'border border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 to-white'
                     }`}
                   >
                     <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
@@ -102,16 +141,14 @@ export function HomepagePlanSection() {
                       {plan.pointAmountLabel}
                     </p>
                     <p className="mt-1.5 text-[12.5px] leading-[1.55] text-slate-600">
-                      제작비 할인이 아닌, 마케팅 서비스 이용 혜택
+                      총 지급 혜택 · 제작비 할인 아님
                     </p>
                   </div>
-
-                  <p className="mt-5 text-[15px] leading-[1.6] text-slate-700">{plan.audienceDescription}</p>
 
                   <Button
                     to={planContactPath(plan.contactPlanQuery)}
                     size="md"
-                    className="mt-6 w-full"
+                    className="mt-5 w-full"
                     variant={plan.highlighted ? 'primary' : 'secondary'}
                   >
                     <span>{plan.ctaLabel}</span>
@@ -135,11 +172,9 @@ export function HomepagePlanSection() {
             <SectionHeading id="service-point-guide-heading" className="mt-2.5 max-w-[640px]">
               {SERVICE_POINT_SECTION.title}
             </SectionHeading>
-            {SERVICE_POINT_SECTION.lead.map((line) => (
-              <p key={line} className="mt-2 max-w-[640px] text-[15px] leading-[1.65] text-slate-600">
-                {line}
-              </p>
-            ))}
+            <p className="mt-2 max-w-[640px] text-[15px] leading-[1.65] text-slate-600">
+              {SERVICE_POINT_SECTION.lead}
+            </p>
             <p className="mt-4 max-w-[680px] text-[13.5px] leading-[1.6] text-slate-500">
               {SERVICE_POINT_SECTION.pointBenefitNote}
             </p>
