@@ -131,6 +131,9 @@ $site_config = array(
     'icrm_hub_geo_button'       => true,
     /* onoff-builder-bridge — 루트 / 를 빌더 페이지로 (project_id) */
     'home_builder_bridge_id'    => 'onoffmarketing',
+    /* ONOFF Builder official SPA dual-routing gate (canary 승인 전 false 유지) */
+    'official_builder_routes_enabled' => true,
+    'official_builder_bridge_id'      => 'onoff-builder-official',
 );
 
 /**
