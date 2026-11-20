@@ -72,7 +72,12 @@ if (!function_exists('g5b_content_post_href')) {
 if (!function_exists('g5b_content_excerpt')) {
     function g5b_content_excerpt($content, $len = 80)
     {
-        $plain = trim(preg_replace('/\s+/', ' ', strip_tags((string) $content)));
+        $raw = (string) $content;
+        if (function_exists('html_entity_decode')) {
+            $raw = html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+        $raw = preg_replace('/\x{00A0}/u', ' ', $raw);
+        $plain = trim(preg_replace('/\s+/', ' ', strip_tags($raw)));
         if ($plain === '') {
             return '';
         }
