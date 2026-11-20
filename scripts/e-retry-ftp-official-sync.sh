@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# E-RETRY: assets/src first, then HTML. No --delete.
+# E-RETRY: assets+img+src first, then HTML. No --delete.
+# Never upload index.html alone after a new Vite build — hashed /assets/*.js must match HTML or SPA shows a blank screen.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOCAL="$ROOT/plugin/onoff-builder-bridge/imports/onoff-builder-official"
@@ -23,6 +24,19 @@ mirror -R --overwrite --no-perms --exclude-glob '._*' $LOCAL/img $REMOTE/img
 mirror -R --overwrite --no-perms --exclude-glob '._*' $LOCAL/src $REMOTE/src
 bye
 EOF
+
+log "[e-retry-sync] phase1b ensure route dirs exist"
+{
+  echo "set ftp:ssl-allow no"
+  echo "set net:timeout 180"
+  echo "cd $REMOTE_ROOT"
+  while IFS= read -r rel; do
+    dir=$(dirname "$rel")
+    [[ "$dir" == "." ]] && continue
+    echo "mkdir -p -f $REMOTE/$dir"
+  done < <(find "$LOCAL" -name '*.html' -type f ! -name '._*' | sed "s#^$LOCAL/##" | sort -u)
+  echo "bye"
+} | lftp -u "$FTP_USERNAME","$FTP_PASSWORD" -p "$PORT" "$FTP_SERVER"
 
 log "[e-retry-sync] phase2 html only (per-file put; avoid mirror include-glob skip)"
 {
