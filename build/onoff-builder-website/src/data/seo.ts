@@ -1,3 +1,5 @@
+import { HOMEPAGE_PLAN_FAQ } from './homepagePricingPlans';
+
 export const SITE_ORIGIN = 'https://onoff.icrm.co.kr';
 export const SITE_NAME = 'ONOFF Builder 2.0';
 
@@ -172,34 +174,26 @@ export const ROUTE_SEO_LIST: RouteSeoMeta[] = [
   },
   {
     path: '/pricing',
-    title: '요금안내 — 홈페이지와 함께 기본 제공하는 강력한 운영 도구 | ONOFF Builder 2.0',
+    title: '요금안내 — STARTER·BUSINESS·PREMIUM 홈페이지 제작 | ONOFF Builder 2.0',
     description:
-      '온오프빌더 고객에게 루틴·스텝메일·오토포스터(SNS 마케팅) 자체 기능은 ONOFF Builder 기본 제공(별도 솔루션 구독료 0원)이며, 홈페이지 초기 제작비·월 홈페이지 운영관리비 및 제3자 발송·유료 SNS API 실비·대행·사용량 정책·맞춤 개발비를 투명하게 구분해 안내합니다.',
+      '홈페이지 제작비 STARTER 150만·BUSINESS 200만·PREMIUM 300만 원. 제작 품질은 동일하며 마케팅 자동화 범위와 서비스 포인트(30만·70만·120만 원)로 선택합니다. 월 운영관리비·부가세·맞춤 개발은 별도 상담.',
     canonical: `${SITE_ORIGIN}/pricing`,
     ogType: 'website',
     robots: 'index, follow',
     changefreq: 'monthly',
     priority: '0.85',
-    keywords: ['ONOFF Builder 요금', '홈페이지 제작 견적', '별도 솔루션 구독료 0원', '월 홈페이지 운영관리비'],
+    keywords: [
+      '홈페이지 제작 요금',
+      'STARTER BUSINESS PREMIUM',
+      '마케팅 서비스 포인트',
+      '홈페이지 자동화',
+    ],
     internalLinks: [
+      { label: '홈페이지 제작', path: '/website' },
       { label: '기본 기능 안내', path: '/features' },
-      { label: '루틴 자동발행', path: '/features/routine' },
-      { label: '스텝메일', path: '/features/step-mail' },
-      { label: '오토포스터 (SNS 마케팅)', path: '/features/sns-poster' },
-      { label: '상담하기', path: '/contact' },
+      { label: '상담하기', path: '/contact?service=website' },
     ],
-    faqSchema: [
-      {
-        question: '루틴·스텝메일·오토포스터(SNS 마케팅)는 홈페이지에 기본 제공되나요?',
-        answer:
-          '네. 온오프빌더 고객에게 루틴·스텝메일·오토포스터(SNS 마케팅) 자체 기능은 ONOFF Builder 기본 제공이며 별도 솔루션 구독료는 0원입니다. 월 홈페이지 운영관리비와는 서로 다른 항목이며, 플랫폼 직접 자동 연동은 현재 연동 준비 중입니다. 제3자 발송 실비, 유료 SNS API, 대행, 사용량 정책, 맞춤 기능 개발비는 별도 구분됩니다.',
-      },
-      {
-        question: '확정된 정액 요금표 대신 개별 견적을 산정하는 이유는 무엇인가요?',
-        answer:
-          '업종, 페이지 구성 규모, 월 홈페이지 운영관리 범위, 맞춤 기능 개발 여부가 기업마다 다르기 때문입니다. 불필요한 항목을 묶지 않고 필요한 구성만 항목별 견적으로 안내합니다.',
-      },
-    ],
+    faqSchema: [...HOMEPAGE_PLAN_FAQ],
   },
   {
     path: '/community',

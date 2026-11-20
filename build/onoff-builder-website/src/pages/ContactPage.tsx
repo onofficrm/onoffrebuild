@@ -7,6 +7,8 @@ import {
   parseQueryServices,
 } from '../data/contactForm';
 import type { InquiryServiceSlug } from '../data/navigation';
+import type { HomepagePlanId } from '../data/homepagePricingPlans';
+import { HOMEPAGE_PRICING_PLANS } from '../data/homepagePricingPlans';
 import {
   CONSULTATION_COPY,
   KAKAO_CHANNEL_CHAT_URL,
@@ -47,6 +49,7 @@ function todayDateInputMin(): string {
 export function ContactPage() {
   const [searchParams] = useSearchParams();
   const serviceQuery = searchParams.get('service');
+  const planQuery = searchParams.get('plan') as HomepagePlanId | null;
   const queryServices = useMemo(() => parseQueryServices(serviceQuery), [serviceQuery]);
   const hasQueryServices = queryServices.length > 0;
 
@@ -65,6 +68,18 @@ export function ContactPage() {
     setInterestTouched(false);
     setInterestServices([]);
   }, [serviceQuery]);
+
+  useEffect(() => {
+    if (!planQuery) return;
+    const plan = HOMEPAGE_PRICING_PLANS.find((p) => p.id === planQuery);
+    if (!plan) return;
+    const prefix = `관심 요금제: ${plan.name} (${plan.priceLabel}, ${plan.pointLabel})\n\n`;
+    setForm((prev) => {
+      if (prev.brief.trim().startsWith('관심 요금제:')) return prev;
+      if (prev.brief.trim().length > 0) return prev;
+      return { ...prev, brief: prefix };
+    });
+  }, [planQuery]);
 
   const pageHeading = useMemo(() => {
     if (effectiveInterest.length === 1) {

@@ -12,6 +12,7 @@ import {
   SectionKicker,
 } from '../components/ui/Typography';
 import { ConsultationFaqSection } from '../components/shared/ConsultationFaqSection';
+import { HomepagePlanSection } from '../components/pricing/HomepagePlanSection';
 
 interface CostPillar {
   number: string;
@@ -307,19 +308,22 @@ export function PricingPage() {
         <Container>
           <FadeIn immediate>
             <div className="max-w-[740px]">
-              <SectionKicker>요금안내 · 상품 정책</SectionKicker>
+              <SectionKicker>요금안내 · 홈페이지 제작 상품</SectionKicker>
               <DisplayHeading className="mt-3">
-                홈페이지 제작·운영에,
-                <br className="hidden sm:inline" /> 기본 도구를 더합니다.
+                홈페이지 제작부터
+                <br className="hidden sm:inline" /> 마케팅 자동화까지
               </DisplayHeading>
               <LeadText className="mt-3.5 max-w-[600px]">
-                초기 제작비·월 운영관리비(별도 견적), 기본 도구(자체 구독료 0원), 선택 비용을
-                세 영역으로 명확히 구분해 안내합니다.
+                완성도 높은 홈페이지는 모두 동일하게. 필요한 자동화 기능과 서비스 포인트에 맞춰
+                선택하세요.
               </LeadText>
+              <p className="mt-3 text-[14px] leading-[1.6] text-slate-600">
+                모든 요금제에 AI 기반 제작 · 반응형 모바일 최적화 · 쉬운 홈페이지 관리 제공
+              </p>
 
               <div className="mt-7 flex flex-wrap items-center gap-3">
-                <Button to="/contact" size="lg" className="w-full sm:w-auto">
-                  <span>견적 상담하기</span>
+                <Button href="#homepage-plans" size="lg" className="w-full sm:w-auto">
+                  <span>요금제 비교하기</span>
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
                 <Button
@@ -484,13 +488,17 @@ export function PricingPage() {
 
             {/* Clear Non-Free Anti-Misunderstanding Banner */}
             <div className="mt-5 rounded-[14px] border border-slate-200 bg-slate-950 px-5 py-3.5 text-[13px] leading-[1.6] text-slate-200">
-              <strong className="font-semibold text-white">안내:</strong> 전체 홈페이지 무료 제공이
-              아닙니다. <strong className="font-semibold text-[#93C5FD]">홈페이지 초기 제작비와 월 운영관리비는 별도 견적</strong>
-              이며, 기본 도구(루틴·스텝메일·오토포스터·자동 댓글)의 자체 솔루션 구독료만 0원입니다.
+              <strong className="font-semibold text-white">안내:</strong> STARTER·BUSINESS·PREMIUM은
+              아래 홈페이지 제작 패키지 요금입니다.{' '}
+              <strong className="font-semibold text-[#93C5FD]">월 운영관리비·맞춤 개발·외부 실비</strong>
+              는 별도 견적이며, 자동화 도구의 자체 솔루션 구독료 0원 정책은 약관 섹션에서 구분해
+              안내합니다.
             </div>
           </FadeIn>
         </Container>
       </section>
+
+      <HomepagePlanSection />
 
       {/* 2. Collapsible Detailed Policies, Terms & Comparison Matrix */}
       <section
