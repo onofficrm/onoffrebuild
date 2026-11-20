@@ -202,6 +202,23 @@ export const ROUTE_SEO_LIST: RouteSeoMeta[] = [
     ],
   },
   {
+    path: '/community',
+    title: '커뮤니티 — 공지 · FAQ · 유튜브 | ONOFF Builder 2.0',
+    description:
+      'ONOFF Builder 공지사항·자주 묻는 질문·유튜브 콘텐츠 게시판으로 연결됩니다. 기존 GNUBoard 데이터와 권한은 그대로 유지됩니다.',
+    canonical: `${SITE_ORIGIN}/community`,
+    ogType: 'website',
+    robots: 'index, follow',
+    changefreq: 'weekly',
+    priority: '0.75',
+    keywords: ['ONOFF Builder 커뮤니티', '공지사항', 'FAQ', '유튜브'],
+    internalLinks: [
+      { label: '공지사항', path: '/notice' },
+      { label: '자주 묻는 질문', path: '/faq' },
+      { label: '상담하기', path: '/contact' },
+    ],
+  },
+  {
     path: '/contact',
     title: '상담하기 — 홈페이지 · 기본 기능 · 카카오·화상 문의 | ONOFF Builder 2.0',
     description:

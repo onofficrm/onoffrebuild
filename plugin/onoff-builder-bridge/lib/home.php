@@ -69,7 +69,6 @@ if (!function_exists('onoff_builder_legacy_spa_path_prefixes')) {
             '/education',
             '/marketing',
             '/service',
-            '/community',
             '/consult',
             '/seo-platform',
             '/seo-aeo',
@@ -119,6 +118,7 @@ if (!function_exists('onoff_builder_official_spa_paths')) {
             '/portfolio',
             '/pricing',
             '/contact',
+            '/community',
         );
     }
 }

@@ -38,7 +38,6 @@ const LEGACY_PREFIXES = [
   '/education',
   '/marketing',
   '/service',
-  '/community',
   '/consult',
   '/seo-platform',
   '/seo-aeo',
@@ -74,6 +73,7 @@ const OFFICIAL_EXACT = new Set([
   '/portfolio',
   '/pricing',
   '/contact',
+  '/community',
 ]);
 
 const MIME = {

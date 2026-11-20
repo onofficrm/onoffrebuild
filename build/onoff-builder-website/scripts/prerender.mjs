@@ -140,6 +140,12 @@ const ROUTES = [
     description:
       '카카오톡 즉시 상담과 Google Meet 1:1 화상 상담 예약을 이용할 수 있습니다. 홈페이지 제작·운영, 루틴·스텝메일·SNS, 쉬운 수정, AI 기능 개발 문의를 남겨 주세요.',
   },
+  {
+    path: '/community',
+    title: '커뮤니티 — 공지 · FAQ · 유튜브 | ONOFF Builder 2.0',
+    description:
+      'ONOFF Builder 공지사항·자주 묻는 질문·유튜브 콘텐츠 게시판으로 연결됩니다. 기존 GNUBoard 데이터와 권한은 그대로 유지됩니다.',
+  },
 ];
 
 function escapeAttr(value) {

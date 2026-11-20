@@ -20,6 +20,7 @@ import { UseCasesPage } from './pages/UseCasesPage';
 import { PortfolioPage } from './pages/PortfolioPage';
 import { PricingPage } from './pages/PricingPage';
 import { ContactPage } from './pages/ContactPage';
+import { CommunityPage } from './pages/CommunityPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export default function App() {
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="/portfolio" element={<PortfolioPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/community" element={<CommunityPage />} />
 
           {/* 404 Not Found */}
           <Route path="*" element={<NotFoundPage />} />

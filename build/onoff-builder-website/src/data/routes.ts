@@ -228,6 +228,17 @@ export const APP_ROUTES: AppRouteSpec[] = [
       '기존 URL 유지 · 홈페이지+기본 운영 도구 정책과 실제 가용성·발송량·외부 API·맞춤 개발 비용 구분 반영',
   },
   {
+    path: '/community',
+    canonical: `${SITE_ORIGIN}/community`,
+    name: '커뮤니티',
+    component: 'CommunityPage',
+    category: 'platform',
+    routeStatus: 'active',
+    sitemapIncluded: true,
+    gnuboardIntegrationNote:
+      'GNUBoard notice/faq/youtube 게시판과 API(/api/community.php) 연동 · 글 본문·권한은 기존 유지',
+  },
+  {
     path: '/contact',
     canonical: `${SITE_ORIGIN}/contact`,
     name: '상담하기',

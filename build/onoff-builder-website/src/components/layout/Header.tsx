@@ -398,12 +398,17 @@ export function Header() {
               요금안내
             </Link>
 
-            <a
-              href={COMMUNITY_URL}
-              className="py-2 text-slate-600 hover:text-slate-950 transition-colors duration-150 whitespace-nowrap shrink-0"
+            <Link
+              to={COMMUNITY_URL}
+              aria-current={location.pathname === COMMUNITY_URL ? 'page' : undefined}
+              className={`py-2 whitespace-nowrap shrink-0 transition-colors duration-150 ${
+                location.pathname === COMMUNITY_URL
+                  ? 'text-blue-600 font-semibold'
+                  : 'text-slate-600 hover:text-slate-950'
+              }`}
             >
               커뮤니티
-            </a>
+            </Link>
           </nav>
 
           {/* Zone 3: Single Primary Action & Mobile Drawer Trigger */}
@@ -626,12 +631,17 @@ export function Header() {
                 >
                   요금안내
                 </Link>
-                <a
-                  href={COMMUNITY_URL}
-                  className="flex min-h-[48px] items-center rounded-lg px-2 text-[16px] font-medium text-slate-950 hover:bg-slate-50"
+                <Link
+                  to={COMMUNITY_URL}
+                  aria-current={location.pathname === COMMUNITY_URL ? 'page' : undefined}
+                  className={`flex min-h-[48px] items-center rounded-lg px-2 text-[16px] font-medium ${
+                    location.pathname === COMMUNITY_URL
+                      ? 'text-blue-600 bg-blue-50 font-semibold'
+                      : 'text-slate-950 hover:bg-slate-50'
+                  }`}
                 >
                   커뮤니티
-                </a>
+                </Link>
               </div>
 
               <HeaderAuthLinks layout="mobile" onNavigate={() => setMobileMenuOpen(false)} />

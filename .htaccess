@@ -83,7 +83,7 @@
   RewriteRule ^features/?$ /index.php [L,QSA]
   # /seo — GNUBoard bo_table=seo (교육 게시판, catch-all). 공식 SEO 상세는 /services/seo
   RewriteRule ^services/seo/?$ /index.php [L,QSA]
-  RewriteRule ^(website|management|use-cases|pricing|contact)/?$ /index.php [L,QSA]
+  RewriteRule ^(website|management|use-cases|pricing|contact|community)/?$ /index.php [L,QSA]
   # END ONOFF BUILDER OFFICIAL ROUTES
 
   #### GNUBOARD5 rewrite BEGIN #####

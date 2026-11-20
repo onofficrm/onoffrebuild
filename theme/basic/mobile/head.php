@@ -29,56 +29,27 @@ include_once(G5_LIB_PATH.'/popular.lib.php');
     <div id="hd_wrapper">
 
         <div id="logo">
-            <a href="<?php echo G5_URL ?>"><img src="<?php echo G5_IMG_URL ?>/m_logo.png" alt="<?php echo $config['cf_title']; ?>"></a>
+            <a href="<?php echo G5_URL ?>"><img src="<?php echo G5_URL ?>/img/logo/logo-pc.png" alt="온오프마케팅 ONOFF MARKETING" style="height:40px;width:auto"></a>
         </div>
 
         <button type="button" id="gnb_open" class="hd_opener"><i class="fa fa-bars" aria-hidden="true"></i><span class="sound_only"> 메뉴열기</span></button>
 
         <div id="gnb" class="hd_div">
             <button type="button" id="gnb_close" class="hd_closer"><span class="sound_only">메뉴 닫기</span><i class="fa fa-times" aria-hidden="true"></i></button>
-			<?php echo outlogin(function_exists('onoff_platform_outlogin_skin_for_page') ? onoff_platform_outlogin_skin_for_page('theme/basic') : 'theme/basic'); ?>
-            <ul id="gnb_1dul">
-            <?php
-            $menu_datas = get_menu_db(1, true);
-			$i = 0;
-			foreach( $menu_datas as $row ){
-				if( empty($row) ) continue;
-            ?>
-                <li class="gnb_1dli">
-                    <a href="<?php echo $row['me_link']; ?>" target="_<?php echo $row['me_target']; ?>" class="gnb_1da"><?php echo $row['me_name'] ?></a>
-                    <?php
-                    $k = 0;
-                    foreach( (array) $row['sub'] as $row2 ){
-						if( empty($row2) ) continue;
-                        if($k == 0)
-                            echo '<button type="button" class="btn_gnb_op"><span class="sound_only">하위분류</span></button><ul class="gnb_2dul">'.PHP_EOL;
-                    ?>
-                        <li class="gnb_2dli"><a href="<?php echo $row2['me_link']; ?>" target="_<?php echo $row2['me_target']; ?>" class="gnb_2da"><span></span><?php echo $row2['me_name'] ?></a></li>
-                    <?php
-					$k++;
-                    }	//end foreach $row2
-
-                    if($k > 0)
-                        echo '</ul>'.PHP_EOL;
-                    ?>
-                </li>
-            <?php
-			$i++;
-            }	//end foreach $row
-
-            if ($i == 0) {  ?>
-                <li id="gnb_empty">메뉴 준비 중입니다.<?php if ($is_admin) { ?> <br><a href="<?php echo G5_ADMIN_URL; ?>/menu_list.php">관리자모드 &gt; 환경설정 &gt; 메뉴설정</a>에서 설정하세요.<?php } ?></li>
-            <?php } ?>
-            <?php if (defined('G5_USE_SHOP') && G5_USE_SHOP) { ?>
-                <li class="gnb_1dli"><a href="<?php echo G5_SHOP_URL ?>" class="gnb_1da"> 쇼핑몰</a></li>
-            <?php } ?>
-            </ul>
-
-            <ul id="hd_nb">
-            	<li class="hd_nb1"><a href="<?php echo G5_BBS_URL ?>/faq.php" id="snb_faq"><i class="fa fa-question" aria-hidden="true"></i>FAQ</a></li>
-                <li class="hd_nb2"><a href="<?php echo G5_BBS_URL ?>/qalist.php" id="snb_qa"><i class="fa fa-comments" aria-hidden="true"></i>1:1문의</a></li>
-                <li class="hd_nb3"><a href="<?php echo G5_BBS_URL ?>/current_connect.php" id="snb_cnt"><i class="fa fa-users" aria-hidden="true"></i>접속자 <span><?php echo connect('theme/basic'); // 현재 접속자수 ?></span></a></li>
-                <li class="hd_nb4"><a href="<?php echo G5_BBS_URL ?>/new.php" id="snb_new"><i class="fa fa-history" aria-hidden="true"></i>새글</a></li>   
+            <ul id="gnb_1dul" class="oh-mnav">
+                <?php
+                include_once(G5_LIB_PATH.'/onoff-builder-chrome-nav.inc.php');
+                foreach (onoff_builder_chrome_mobile_nav_links() as $oh_mlink) {
+                ?>
+                <li class="gnb_1dli"><a href="<?php echo $oh_mlink['href']; ?>" class="gnb_1da"><?php echo $oh_mlink['label']; ?></a></li>
+                <?php } ?>
+                <?php if ($is_member) { ?>
+                <li class="gnb_1dli"><a href="<?php echo G5_URL ?>/account" class="gnb_1da">내 계정</a></li>
+                <li class="gnb_1dli"><a href="<?php echo G5_BBS_URL ?>/logout.php" class="gnb_1da">로그아웃</a></li>
+                <?php } else { ?>
+                <li class="gnb_1dli"><a href="<?php echo G5_URL ?>/login" class="gnb_1da">로그인</a></li>
+                <li class="gnb_1dli"><a href="<?php echo G5_URL ?>/signup" class="gnb_1da">회원가입</a></li>
+                <?php } ?>
             </ul>
         </div>
 
