@@ -22,9 +22,9 @@ const SITE_NAME = 'ONOFF Builder 2.0';
 const ROUTES = [
   {
     path: '/',
-    title: 'ONOFF Builder 2.0 | 홈페이지 · 3대 자동화 도구 · 쉬운 수정 · AI 기능 개발',
+    title: 'ONOFF Builder 2.0 | 홈페이지 · 3대 자동화 · 자동 댓글 · 쉬운 수정 · AI 기능 개발',
     description:
-      '루틴·스텝메일·오토포스터(SNS 마케팅) — ONOFF Builder 기본 제공(별도 솔루션 구독료 0원). 홈페이지 제작부터 쉬운 수정, AI 기능 개발까지 하나의 플랫폼으로 연결합니다.',
+      '루틴·스텝메일·오토포스터(SNS 마케팅)·자동 댓글 — ONOFF Builder 기본 제공(별도 솔루션 구독료 0원). 홈페이지 제작부터 쉬운 수정, AI 기능 개발까지 하나의 플랫폼으로 연결합니다.',
   },
   {
     path: '/features',
