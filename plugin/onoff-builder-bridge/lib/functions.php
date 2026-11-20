@@ -687,7 +687,11 @@ if (!function_exists('onoff_builder_rewrite_asset_paths')) {
         $root_assets = onoff_builder_get_import_root_assets_url($id);
         $entry_assets = onoff_builder_get_import_base_url($id, $entry_path) . 'assets/';
 
+        $root_import = rtrim(ONOFF_BUILDER_IMPORTS_URL, '/') . '/' . $id . '/';
+
         $patterns = array(
+            '#\ssrc=(["\'])/img/#i'      => ' src=$1' . $root_import . 'img/',
+            '#\shref=(["\'])/img/#i'     => ' href=$1' . $root_import . 'img/',
             '#\ssrc=(["\'])/assets/#i'   => ' src=$1' . $root_assets,
             '#\shref=(["\'])/assets/#i'  => ' href=$1' . $root_assets,
             '#\ssrc=(["\'])\./assets/#i' => ' src=$1' . $entry_assets,
@@ -766,6 +770,47 @@ if (!function_exists('onoff_builder_render_import_page')) {
             onoff_builder_render_page_error($message);
         }
 
+        // Pretty-URL prerender: when /geo, /features/*, etc. rewrite to index.php,
+        // serve imports/{id}/{route}/index.html so first HTML has route canonicals.
+        $req_path = parse_url(isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/', PHP_URL_PATH);
+        $req_path = is_string($req_path) ? rtrim($req_path, '/') : '';
+        if ($req_path === '') {
+            $req_path = '/';
+        }
+        $renewal_route_map = array(
+            '/geo' => 'geo/index.html',
+            '/domain' => 'domain/index.html',
+            '/backlink' => 'backlink/index.html',
+            '/traffic' => 'traffic/index.html',
+            '/content' => 'content/index.html',
+            '/education' => 'education/index.html',
+            '/request' => 'request/index.html',
+            '/portfolio' => 'portfolio/index.html',
+            '/features' => 'features/index.html',
+            '/features/routine' => 'features/routine/index.html',
+            '/features/step-mail' => 'features/step-mail/index.html',
+            '/features/sns-poster' => 'features/sns-poster/index.html',
+            '/features/auto-comment' => 'features/auto-comment/index.html',
+            '/features/easy-edit' => 'features/easy-edit/index.html',
+            '/features/ai-development' => 'features/ai-development/index.html',
+            '/website' => 'website/index.html',
+            '/management' => 'management/index.html',
+            '/services/seo' => 'services/seo/index.html',
+            '/use-cases' => 'use-cases/index.html',
+            '/pricing' => 'pricing/index.html',
+            '/contact' => 'contact/index.html',
+            '/community' => 'community/index.html',
+            '/seo-platform' => 'seo-platform/index.html',
+            '/home1' => 'home1/index.html',
+        );
+        if (isset($renewal_route_map[$req_path])) {
+            $route_entry = $renewal_route_map[$req_path];
+            $route_file = onoff_builder_resolve_import_index_file($id, $route_entry);
+            if ($route_file !== '') {
+                $entry = $route_entry;
+            }
+        }
+
         $index_file = onoff_builder_resolve_import_index_file($id, $entry);
         if ($index_file === '') {
             onoff_builder_render_page_error('index.html 파일을 찾을 수 없습니다. ZIP을 다시 업로드해 주세요.');
@@ -809,14 +854,24 @@ if (!function_exists('onoff_builder_inject_site_boot')) {
                 : $mb_id;
         }
 
+        // Independent-service auth: same-host login/register (GEO/Backlink pattern).
+        // Do NOT point loginUrl at icrm.co.kr with cross-domain url= — check_url_host blocks it.
+        $bbs = defined('G5_BBS_URL') ? rtrim((string) G5_BBS_URL, '/') : '/bbs';
+        $return_url = defined('G5_URL') ? rtrim((string) G5_URL, '/') . '/' : 'https://onoff.icrm.co.kr/';
+
+        $official_at_root = function_exists('onoff_builder_official_routes_armed')
+            && onoff_builder_official_routes_armed();
+
         $boot = array(
             'isMember' => !empty($is_member) && $mb_id !== '',
             'mbId' => $mb_id,
             'mbNick' => $nick,
-            'loginUrl' => (defined('G5_BBS_URL') ? G5_BBS_URL : '/bbs') . '/login.php',
-            'registerUrl' => (defined('G5_BBS_URL') ? G5_BBS_URL : '/bbs') . '/register.php',
-            'logoutUrl' => (defined('G5_BBS_URL') ? G5_BBS_URL : '/bbs') . '/logout.php',
-            'portalUrl' => '/seo-system-300/dashboard',
+            'loginUrl' => $bbs . '/login.php?url=' . rawurlencode($return_url),
+            'registerUrl' => $bbs . '/register.php',
+            'logoutUrl' => $bbs . '/logout.php?url=' . rawurlencode($return_url),
+            'portalUrl' => $return_url,
+            'pointCenterUrl' => 'https://icrm.co.kr/point_center.php?tab=charge',
+            'officialBuilderAtRoot' => $official_at_root,
         );
 
         $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

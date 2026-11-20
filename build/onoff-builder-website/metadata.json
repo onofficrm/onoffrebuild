@@ -1,0 +1,8 @@
+{
+  "name": "ONOFF Builder Official Website",
+  "description": "온오프마케팅이 기획, 디자인, 제작, 호스팅, 유지보수 및 마케팅 확장까지 담당하는 관리형 홈페이지 플랫폼 ONOFF Builder 2.0 공식 홈페이지",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
