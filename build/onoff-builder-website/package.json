@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build && node scripts/prerender.mjs",
+    "build:live": "VITE_CONSULTATION_MODE=LIVE vite build && node scripts/prerender.mjs",
     "build:app": "vite build && node scripts/prerender.mjs",
     "prerender": "node scripts/prerender.mjs",
     "sync:official": "node scripts/sync-builder-official-import.mjs",

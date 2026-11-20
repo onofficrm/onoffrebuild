@@ -59,6 +59,10 @@ export default function App() {
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/community" element={<CommunityPage />} />
+          <Route
+            path="/request"
+            element={<Navigate to="/contact?service=website" replace />}
+          />
 
           {/* 404 Not Found */}
           <Route path="*" element={<NotFoundPage />} />

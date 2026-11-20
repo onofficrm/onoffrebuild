@@ -4,6 +4,7 @@
  * URL: /proc/inquiry-submit.php (POST, JSON 응답)
  */
 include_once dirname(__FILE__) . '/../common.php';
+include_once G5_LIB_PATH . '/onoff-inquiry-services.lib.php';
 
 if (!defined('_GNUBOARD_')) {
     header('Content-Type: application/json; charset=utf-8');
@@ -11,7 +12,13 @@ if (!defined('_GNUBOARD_')) {
     exit;
 }
 
-if (is_file(G5_PATH . '/_site.config.php')) {
+$onoff_site_config_basename = getenv('ONOFF_SITE_CONFIG_BASENAME');
+if ($onoff_site_config_basename !== false && $onoff_site_config_basename !== '') {
+    $onoff_site_config_basename = basename($onoff_site_config_basename);
+    if (is_file(G5_PATH . '/' . $onoff_site_config_basename)) {
+        include_once G5_PATH . '/' . $onoff_site_config_basename;
+    }
+} elseif (is_file(G5_PATH . '/_site.config.php')) {
     include_once G5_PATH . '/_site.config.php';
 }
 
@@ -314,6 +321,11 @@ $email = isset($_POST['email']) ? trim(strip_tags($_POST['email'])) : '';
 $message = isset($_POST['message']) ? trim(strip_tags($_POST['message'])) : '';
 $privacy = !empty($_POST['privacy_agree']) ? '동의' : '미동의';
 $referer_page = isset($_POST['referer_page']) ? trim(strip_tags($_POST['referer_page'])) : '';
+$inquiry_channel = isset($_POST['inquiry_channel']) ? trim(strip_tags($_POST['inquiry_channel'])) : '';
+if ($inquiry_channel !== 'google_meet' && $inquiry_channel !== 'phone') {
+    $inquiry_channel = '';
+}
+$is_google_meet = ($inquiry_channel === 'google_meet');
 $terms_agree = !empty($_POST['terms_agree']) ? '동의' : '미동의';
 $contract_package = isset($_POST['contract_package']) ? trim(strip_tags($_POST['contract_package'])) : '';
 $contract_package = preg_replace('/[^a-z0-9_\-]/i', '', $contract_package);
@@ -401,7 +413,12 @@ if ($phone === '') {
 if (function_exists('mb_strlen') ? mb_strlen($phone, 'UTF-8') > 30 : strlen($phone) > 30) {
     onoff_inquiry_json_response(false, '연락처가 너무 깁니다. 30자 이내로 입력해 주세요.');
 }
-if (!onoff_inquiry_is_valid_phone($phone)) {
+$phone_digits = preg_replace('/[^0-9]/', '', $phone);
+if ($is_google_meet) {
+    if ($phone_digits !== '01000000000' && !onoff_inquiry_is_valid_phone($phone)) {
+        onoff_inquiry_json_response(false, '연락처 형식을 확인해 주세요.');
+    }
+} elseif (!onoff_inquiry_is_valid_phone($phone)) {
     onoff_inquiry_json_response(false, '연락처 형식을 확인해 주세요.');
 }
 if ($message === '') {
@@ -445,6 +462,9 @@ if ($email === '') {
 if ($email !== '' && (function_exists('mb_strlen') ? mb_strlen($email, 'UTF-8') > 100 : strlen($email) > 100)) {
     onoff_inquiry_json_response(false, '이메일이 너무 깁니다. 100자 이내로 입력해 주세요.');
 }
+if ($is_google_meet && $email === '') {
+    onoff_inquiry_json_response(false, '화상 상담은 이메일을 입력해 주세요.');
+}
 if (onoff_inquiry_has_banned_word($name . ' ' . $message)) {
     onoff_inquiry_json_response(false, '접수할 수 없는 내용이 포함되어 있습니다.');
 }
@@ -471,8 +491,44 @@ if (empty($signature_save['ok'])) {
 $signature_path = isset($signature_save['path']) ? $signature_save['path'] : '';
 $signature_url = isset($signature_save['url']) ? $signature_save['url'] : '';
 
+/* 관심 서비스 (wr_10 · 제목 prefix) */
+$interest_labels_inline = '';
+$interest_slugs = array();
+if (isset($_POST['interest_services'])) {
+    $interest_slugs = onoff_inquiry_normalize_service_slugs((string) $_POST['interest_services']);
+}
+if (empty($interest_slugs) && function_exists('onoff_inquiry_extract_interest_from_message')) {
+    $from_msg = onoff_inquiry_extract_interest_from_message($message);
+    if ($from_msg !== '') {
+        $interest_labels_inline = $from_msg;
+    }
+}
+if (empty($interest_slugs) && function_exists('onoff_inquiry_slugs_from_referer')) {
+    $interest_slugs = onoff_inquiry_slugs_from_referer($referer_page);
+}
+$interest_labels = !empty($interest_labels_inline)
+    ? $interest_labels_inline
+    : onoff_inquiry_labels_from_slugs($interest_slugs);
+if ($interest_labels === '' && function_exists('onoff_inquiry_extract_interest_from_message')) {
+    $interest_labels = onoff_inquiry_extract_interest_from_message($message);
+}
+$interest_labels_stored = $interest_labels;
+if (function_exists('cut_str') && $interest_labels_stored !== '') {
+    $interest_labels_stored = cut_str($interest_labels_stored, 200);
+} elseif (strlen($interest_labels_stored) > 200) {
+    $interest_labels_stored = substr($interest_labels_stored, 0, 200);
+}
+
 /* 제목·본문 */
-$wr_subject_raw = '[상담] ' . $name;
+$phone_stored = $phone;
+if ($is_google_meet) {
+    $phone_stored = 'Google Meet (이메일)';
+}
+$wr_subject_raw = ($is_google_meet ? '[화상상담] ' : '[상담] ');
+if ($interest_labels !== '') {
+    $wr_subject_raw .= '[' . $interest_labels . '] ';
+}
+$wr_subject_raw .= $name;
 if (function_exists('cut_str')) {
     $wr_subject_raw = cut_str($wr_subject_raw, 255);
 } else {
@@ -480,9 +536,12 @@ if (function_exists('cut_str')) {
 }
 $wr_content = "■ 상담 문의 (웹 폼 접수)\n\n";
 $wr_content .= "이름: {$name}\n";
-$wr_content .= "연락처: {$phone}\n";
+$wr_content .= "연락처: {$phone_stored}\n";
 if ($email !== '') {
     $wr_content .= "이메일: {$email}\n";
+}
+if ($is_google_meet) {
+    $wr_content .= "상담 채널: Google Meet 1:1 화상 상담\n";
 }
 $wr_content .= "개인정보 동의: {$privacy}\n";
 $wr_content .= "약관·계약 동의: {$terms_agree}\n";
@@ -491,6 +550,9 @@ if ($contract_package !== '') {
 }
 if ($referer_page !== '') {
     $wr_content .= "접수 페이지: {$referer_page}\n";
+}
+if ($interest_labels !== '') {
+    $wr_content .= "관심 항목(요약): {$interest_labels}\n";
 }
 if ($signature_path !== '') {
     $wr_content .= "전자서명 파일: {$signature_path}\n";
@@ -504,7 +566,7 @@ $wr_subject = sql_real_escape_string($wr_subject_raw);
 $wr_content = sql_real_escape_string($wr_content);
 $wr_name = sql_real_escape_string($name);
 $wr_email_sql = $email !== '' ? sql_real_escape_string($email) : '';
-$wr_1 = sql_real_escape_string($phone);
+$wr_1 = sql_real_escape_string($phone_stored);
 $wr_2 = $wr_email_sql;
 $wr_3 = sql_real_escape_string($referer_page);
 $wr_4 = sql_real_escape_string($privacy);
@@ -513,6 +575,8 @@ $wr_5 = $wr_ip;
 $wr_6 = sql_real_escape_string('신규');
 $wr_7 = sql_real_escape_string($signature_path);
 $wr_8 = sql_real_escape_string($contract_package);
+$wr_9_channel = $is_google_meet ? 'google_meet' : '';
+$wr_10 = sql_real_escape_string($interest_labels_stored);
 $wr_option = '';
 if (!empty($board['bo_use_secret'])) {
     $wr_option = 'secret';
@@ -561,8 +625,8 @@ $sql = " insert into {$write_table}
                  wr_6 = '{$wr_6}',
                  wr_7 = '{$wr_7}',
                  wr_8 = '{$wr_8}',
-                 wr_9 = '',
-                 wr_10 = '' ";
+                 wr_9 = '" . sql_real_escape_string($wr_9_channel) . "',
+                 wr_10 = '{$wr_10}' ";
 
 $result = sql_query($sql, false);
 

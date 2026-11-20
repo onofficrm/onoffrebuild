@@ -61,12 +61,15 @@
   RewriteRule ^account(/.*)?$ /index.php [L,QSA]
   # END ONOFF BRANDED AUTH SPA ROUTES
 
+  # Legacy "GEO 홈페이지 제작" URL → 공식 상담 (홈페이지 제작)
+  RewriteRule ^request/?$ /contact?service=website [R=301,L,QSA]
+
   # BEGIN ONOFF RENEWAL PRETTY ROUTES
   # Exact-match renewal SPA entry → index.php (home builder bridge renders SPA)
   RewriteRule ^education/classroom/?$ /index.php [L,QSA]
   RewriteRule ^education/contract/?$ /index.php [L,QSA]
   RewriteRule ^home1/?$ /index.php [L,QSA]
-  RewriteRule ^(geo|domain|backlink|traffic|education|community|request|portfolio)/?$ /index.php [L,QSA]
+  RewriteRule ^(geo|domain|backlink|traffic|education|community|portfolio)/?$ /index.php [L,QSA]
   # /content exact only — do NOT match /content/{co_id} (GNUBoard content)
   RewriteRule ^content/?$ /index.php [L,QSA]
   # END ONOFF RENEWAL PRETTY ROUTES

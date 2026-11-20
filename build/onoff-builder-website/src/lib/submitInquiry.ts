@@ -18,6 +18,7 @@
 
 import { CONSULTATION_CONFIG } from '../config/consultation';
 import { getInquiryOptionLabel, type ConsultationFormState } from '../data/contactForm';
+import type { InquiryServiceSlug } from '../data/navigation';
 import {
   buildGoogleMeetInquiryMessage,
   deriveInquiryNameFromEmail,
@@ -93,6 +94,7 @@ export async function submitInquiryToBoard(form: ConsultationFormState): Promise
     phone: form.phone.trim(),
     email: form.email.trim() || undefined,
     message,
+    interestServices: form.services,
   });
 }
 
@@ -102,6 +104,7 @@ async function submitInquiryPayload(payload: {
   email?: string;
   message: string;
   inquiryChannel?: 'google_meet' | 'phone';
+  interestServices?: readonly InquiryServiceSlug[];
 }): Promise<InquiryResult> {
   try {
     const token = await fetchInquiryToken();
@@ -118,6 +121,9 @@ async function submitInquiryPayload(payload: {
     }
     if (payload.inquiryChannel) {
       body.append('inquiry_channel', payload.inquiryChannel);
+    }
+    if (payload.interestServices && payload.interestServices.length > 0) {
+      body.append('interest_services', payload.interestServices.join(','));
     }
 
     const res = await fetch(CONSULTATION_CONFIG.endpoint, {
@@ -169,5 +175,6 @@ export async function submitGoogleMeetToBoard(state: GoogleMeetFormState): Promi
     email,
     message,
     inquiryChannel: 'google_meet',
+    interestServices: state.interestServices,
   });
 }
