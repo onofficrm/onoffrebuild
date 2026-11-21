@@ -97,6 +97,16 @@ export function Layout({ children }: LayoutProps) {
 
     // Schema.org FAQPage Structured Data
     upsertFaqJsonLd(seo.faqSchema);
+
+    // GTM/GA4: client-side route changes (initial load handled by GTM container)
+    const w = window as Window & { dataLayer?: Record<string, unknown>[] };
+    w.dataLayer = w.dataLayer || [];
+    w.dataLayer.push({
+      event: 'onoff_virtual_pageview',
+      page_location: window.location.href,
+      page_path: pathname + window.location.search,
+      page_title: seo.title,
+    });
   }, [pathname]);
 
   return (

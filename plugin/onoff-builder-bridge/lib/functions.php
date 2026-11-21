@@ -827,6 +827,9 @@ if (!function_exists('onoff_builder_render_import_page')) {
 
         $html = onoff_builder_remove_base_tags($html);
         $html = onoff_builder_rewrite_asset_paths($html, $id, $entry);
+        if (function_exists('onoff_builder_inject_official_gtm')) {
+            $html = onoff_builder_inject_official_gtm($html, $id);
+        }
         if (function_exists('onoff_builder_inject_site_boot')) {
             $html = onoff_builder_inject_site_boot($html);
         }
@@ -834,6 +837,51 @@ if (!function_exists('onoff_builder_render_import_page')) {
         header('Content-Type: text/html; charset=utf-8');
         echo $html;
         exit;
+    }
+}
+
+if (!function_exists('onoff_builder_official_gtm_id')) {
+    function onoff_builder_official_gtm_id()
+    {
+        return 'GTM-WNPBFQ97';
+    }
+}
+
+if (!function_exists('onoff_builder_inject_official_gtm')) {
+    /**
+     * Fallback when import HTML has no GTM (e.g. older build). Skips if snippet already present.
+     */
+    function onoff_builder_inject_official_gtm($html, $project_id)
+    {
+        if ((string) $project_id !== 'onoff-builder-official' || !is_string($html) || $html === '') {
+            return $html;
+        }
+
+        $gtm_id = onoff_builder_official_gtm_id();
+        if (stripos($html, $gtm_id) !== false) {
+            return $html;
+        }
+
+        $head_snippet = '<!-- Google Tag Manager -->'
+            . '<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({\'gtm.start\':'
+            . 'new Date().getTime(),event:\'gtm.js\'});var f=d.getElementsByTagName(s)[0],'
+            . 'j=d.createElement(s),dl=l!=\'dataLayer\'?\'&l=\'+l:\'\';j.async=true;j.src='
+            . '\'https://www.googletagmanager.com/gtm.js?id=\'+i+dl;f.parentNode.insertBefore(j,f);'
+            . '})(window,document,\'script\',\'dataLayer\',\'' . onoff_builder_escape($gtm_id) . '\');</script>'
+            . '<!-- End Google Tag Manager -->';
+
+        $body_snippet = '<!-- Google Tag Manager (noscript) -->'
+            . '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id='
+            . onoff_builder_escape($gtm_id)
+            . '" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>'
+            . '<!-- End Google Tag Manager (noscript) -->';
+
+        $replaced = preg_replace('/<head([^>]*)>/i', '<head$1>' . $head_snippet, $html, 1);
+        $html = is_string($replaced) ? $replaced : $html;
+
+        $replaced = preg_replace('/<body([^>]*)>/i', '<body$1>' . $body_snippet, $html, 1);
+
+        return is_string($replaced) ? $replaced : $html;
     }
 }
 
